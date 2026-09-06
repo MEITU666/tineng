@@ -1,0 +1,16 @@
+{
+  "name": "体能系统",
+  "short_name": "体能系统",
+  "description": "个人户外体能训练记录与健康数据，内置规则引擎给每日训练建议",
+  "lang": "zh-CN",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F2F2F7",
+  "theme_color": "#F2F2F7",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
