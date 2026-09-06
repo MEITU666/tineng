@@ -3273,7 +3273,6 @@ function renderWorkout() {
       + '<div class="wk-ring" style="width:170px;height:170px"><div class="wt" style="font-size:38px">' + clock(wk.elapsed) + '</div></div>'
       + '<div class="wk-btns"><button class="btn-primary" onclick="warmDone()">热身完成，开始力量训练</button>' + pauseBtn + '<button class="btn-ghost" onclick="exitWorkout()">结束训练</button></div>';
   } else if (p.kind === 'pre') {
-    const pa = CONFIG.actions[p.actionIdx];
     h = bar + '<div class="wk-set">预备 · ' + U.esc(p.name) + ' · 第 ' + p.set + ' 组</div>'
       + (animOfAction(p.name) ? stickSvg(animOfAction(p.name), 96) : '')
       + '<div style="font-size:96px;font-weight:700;line-height:1">' + wk.left + '</div>'
