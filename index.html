@@ -1,0 +1,2513 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<!--
+  体能系统 v3.2 · 个人户外体能 PWA（单文件全内联，零外部依赖）
+  网络白名单仅两处：① https://api.github.com ② CONFIG.GIST_RAW_URL
+  运行要求：http(s) 访问（GitHub Pages 或本地 python -m http.server），file:// 直开无 Web Crypto/SW。
+-->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#F2F2F7">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="description" content="个人户外体能训练记录与健康数据">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<title>体能系统</title>
+<style>
+/* ============ 设计系统（第三部分 token，全站只用这些值，禁止硬编码色值） ============ */
+:root{
+  --bg:#F2F2F7; --card:#FFFFFF; --text:#1C1C1E; --text2:#8E8E93; --line:#E5E5EA;
+  --accent:#007AFF; --green:#34C759; --orange:#FF9500; --red:#FF3B30;
+  --purple:#5E5CE6; --teal:#30B0C7; --pink:#FF375F; --blue:#007AFF;
+  --glass:rgba(255,255,255,.8); --accent-soft:rgba(0,122,255,.18);
+  --shadow:0 1px 2px rgba(0,0,0,.04);
+  --r-card:16px; --r-btn:12px; --r-pill:999px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#000000; --card:#1C1C1E; --text:#FFFFFF; --text2:#98989F; --line:#38383A;
+    --glass:rgba(28,28,30,.8);
+  }
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  font-family:-apple-system,system-ui,"PingFang SC","HarmonyOS Sans SC","Microsoft YaHei",sans-serif;
+  background:var(--bg);color:var(--text);font-size:15px;line-height:1.5;
+}
+button{font-family:inherit;cursor:pointer;background:none;border:0;color:inherit}
+input,select,textarea{font-family:inherit}
+[hidden]{display:none !important}
+/* 字阶：页面标题28/700 大数字34/700 卡片标题17/600 正文15/400 辅助13/400 Tab标签10/500 */
+.page-title{font-size:28px;font-weight:700;line-height:1.25}
+.big-num{font-size:34px;font-weight:700;line-height:1.15}
+.card-title{font-size:17px;font-weight:600}
+.sub{font-size:13px;color:var(--text2);line-height:1.7}
+.tab-label{font-size:10px;font-weight:500}
+/* 布局 */
+#app{padding-bottom:calc(70px + env(safe-area-inset-bottom))}
+#topbar{
+  position:sticky;top:0;z-index:12;display:flex;align-items:center;justify-content:space-between;
+  background:var(--glass);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);
+  padding:calc(10px + env(safe-area-inset-top)) 16px 10px;border-bottom:0.5px solid var(--line);
+}
+#topTitle{font-size:17px;font-weight:600}
+.top-right{display:flex;align-items:center;gap:10px}
+#syncBadge{font-size:13px;color:var(--text2)}
+#syncBadge.pending,#syncBadge.stale{color:var(--red)}
+.icon-btn{width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:12px;color:var(--accent)}
+main{padding:16px 16px 24px;max-width:600px;margin:0 auto}
+.page[hidden]{display:none}
+/* 卡片：无边框，微阴影 */
+.card{background:var(--card);border-radius:var(--r-card);padding:16px;box-shadow:var(--shadow);margin-bottom:12px}
+.card-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+/* 图标气泡 36×36 圆角10 彩色底+白线性图标 */
+.bubble{width:36px;height:36px;border-radius:10px;flex:none;display:flex;align-items:center;justify-content:center}
+.bubble svg{width:20px;height:20px;stroke:#fff;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.bg-purple{background:var(--purple)} .bg-teal{background:var(--teal)} .bg-pink{background:var(--pink)}
+.bg-blue{background:var(--blue)} .bg-orange{background:var(--orange)} .bg-gray{background:var(--text2)}
+.bg-green{background:var(--green)} .bg-red{background:var(--red)}
+/* 按钮/输入/胶囊 */
+.btn-primary{display:block;width:100%;min-height:44px;background:var(--accent);color:#fff;border-radius:var(--r-btn);font-size:17px;font-weight:600;text-align:center}
+.btn-primary:disabled{opacity:.4}
+.btn-ghost{display:block;width:100%;min-height:44px;background:var(--card);color:var(--accent);border-radius:var(--r-btn);font-size:15px;font-weight:500;text-align:center;border:1px solid var(--line)}
+.link-btn{display:block;width:100%;min-height:44px;color:var(--accent);font-size:15px;text-align:center}
+.btn-mini{display:inline-block;min-height:44px;padding:10px 16px;background:var(--accent-soft);color:var(--accent);border-radius:var(--r-btn);font-size:15px;font-weight:500;text-align:center}
+.chip{min-height:44px;padding:10px 18px;border-radius:var(--r-pill);background:var(--card);color:var(--text);font-size:15px;border:1px solid var(--line)}
+.chip.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.field{margin-bottom:14px}
+.field>label{display:block;font-size:13px;color:var(--text2);margin-bottom:6px}
+.field input,.field select,.field textarea{
+  width:100%;min-height:44px;background:var(--card);border:1px solid var(--line);color:var(--text);
+  border-radius:var(--r-btn);padding:10px 12px;font-size:15px;outline:none;
+}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent)}
+.field input[readonly]{background:var(--bg);color:var(--text2)}
+.row-between{display:flex;align-items:center;justify-content:space-between}
+.row-between>label{margin:0}
+/* 开关 */
+.switch{position:relative;display:inline-block;width:46px;height:28px;flex:none}
+.switch input{opacity:0;width:0;height:0}
+.switch .sl{position:absolute;inset:0;background:var(--line);border-radius:999px;transition:.15s}
+.switch .sl:before{content:'';position:absolute;width:24px;height:24px;border-radius:50%;background:var(--card);top:2px;left:2px;box-shadow:0 1px 2px rgba(0,0,0,.15);transition:.15s}
+.switch input:checked + .sl{background:var(--green)}
+.switch input:checked + .sl:before{transform:translateX(18px)}
+/* 折叠区 */
+details.fold{margin-top:10px;background:var(--bg);border-radius:12px;padding:0 12px}
+details.fold summary{min-height:44px;display:flex;align-items:center;justify-content:space-between;font-size:15px;font-weight:500;list-style:none;cursor:pointer}
+details.fold summary::-webkit-details-marker{display:none}
+details.fold summary:after{content:'›';color:var(--text2);font-size:18px;transform:rotate(90deg)}
+details.fold[open] summary:after{transform:rotate(-90deg)}
+details.fold .fold-body{padding:2px 0 12px;font-size:14px;line-height:1.9;color:var(--text)}
+/* 底部 Tab 栏：毛玻璃 5 Tab */
+#tabbar{
+  position:fixed;left:0;right:0;bottom:0;z-index:20;display:flex;
+  background:var(--glass);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);
+  border-top:0.5px solid var(--line);padding-bottom:env(safe-area-inset-bottom);
+}
+#tabbar .tab{flex:1;min-height:52px;padding:6px 0 4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;color:var(--text2)}
+#tabbar .tab.on{color:var(--accent)}
+#tabbar .tab svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+/* 全屏层 */
+.fullscreen{position:fixed;inset:0;z-index:30;background:var(--bg);overflow:auto;padding:calc(16px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom))}
+.fs-head{display:flex;align-items:center;gap:10px;margin:8px 0 12px;min-height:44px}
+.fs-back{width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--accent);font-size:22px;margin-left:-10px}
+.fs-steps{font-size:13px;color:var(--text2)}
+.dots{display:flex;gap:6px;justify-content:flex-start;margin:0 0 14px 4px}
+.dots i{width:6px;height:6px;border-radius:50%;background:var(--line)}
+.dots i.on{background:var(--accent);width:16px;border-radius:3px}
+/* 选项卡（引导第3步伤病确认） */
+.opt-card{display:flex;align-items:center;gap:12px;min-height:56px;background:var(--card);border:1.5px solid var(--line);border-radius:var(--r-btn);padding:12px 14px;margin-bottom:10px;width:100%;text-align:left;font-size:15px}
+.opt-card.on{border-color:var(--accent);background:var(--accent-soft)}
+.opt-card .oc-t{font-weight:600}
+.opt-card .oc-d{font-size:13px;color:var(--text2)}
+/* 解锁页 S0 */
+#gate{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px}
+.gate-box{width:100%;max-width:380px;text-align:center}
+.gate-logo{width:72px;height:72px;margin:0 auto 16px}
+.gate-title{font-size:28px;font-weight:700;margin-bottom:8px}
+.gate-sub{font-size:13px;color:var(--text2);margin-bottom:28px;line-height:1.8;text-align:left}
+.gate-box .field{text-align:left;margin-bottom:20px}
+.gate-box .btn-primary{margin-bottom:6px}
+.gate-msg{margin-top:14px;font-size:13px;color:var(--red);min-height:19px;white-space:pre-wrap;line-height:1.7;text-align:center}
+/* 状态卡：左侧4px色条 */
+.light-card{display:flex;gap:12px;align-items:stretch}
+.light-bar{width:4px;border-radius:2px;flex:none;background:var(--green)}
+.light-card.lv-yel .light-bar{background:var(--orange)}
+.light-card.lv-red .light-bar{background:var(--red)}
+.light-main{flex:1}
+.light-name{font-size:17px;font-weight:600;margin-bottom:2px}
+/* 最近5天打卡格子（18×18 圆角4） */
+.streak{display:flex;gap:4px;align-items:center;flex:none}
+.streak i{width:18px;height:18px;border-radius:4px;background:var(--line);display:flex;align-items:center;justify-content:center;font-style:normal}
+.streak i.o-on{background:var(--orange)}
+.streak i.p-on{background:var(--purple)}
+.streak i.rest:after{content:'';width:10px;height:2px;border-radius:1px;background:var(--text2)}
+.streak i.today{box-shadow:inset 0 0 0 1.5px var(--accent)}
+/* 力量动作勾选（微交互：150ms 缩放填充） */
+.check-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:0.5px solid var(--line)}
+.check-item:last-child{border-bottom:0}
+.ck{width:22px;height:22px;border-radius:50%;border:2px solid var(--line);flex:none;margin-top:1px;display:flex;align-items:center;justify-content:center;transition:transform .15s ease-out,background .15s ease-out,border-color .15s}
+.ck svg{width:12px;height:12px;stroke:#fff;fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;opacity:0;transition:opacity .15s}
+.ck.on{background:var(--green);border-color:var(--green)}
+.ck.on svg{opacity:1}
+.check-item:active .ck{transform:scale(.88)}
+.ci-main{flex:1}
+.ci-name{font-size:15px;font-weight:500}
+.ci-sub{font-size:13px;color:var(--text2);margin-top:1px}
+.ci-btns{display:flex;gap:6px;flex:none}
+.ci-btn{min-width:44px;min-height:32px;padding:4px 8px;border-radius:8px;font-size:12px;background:var(--accent-soft);color:var(--accent);font-weight:500}
+/* 打卡日历 */
+.cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal .h{font-size:10px;color:var(--text2);text-align:center;padding:2px 0}
+.cal .d{aspect-ratio:1;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;min-height:32px;color:var(--text)}
+.cal .d.train{background:var(--blue);color:#fff}
+.cal .d.rehab{background:var(--accent-soft)}
+.cal .d.rest{background:var(--line);color:var(--text2)}
+.cal .d.off{visibility:hidden}
+.cal .d.sel{box-shadow:inset 0 0 0 1.5px var(--accent)}
+/* 能力维度 5 圆点 */
+.dim-row{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:0.5px solid var(--line);min-height:44px}
+.dim-row:last-child{border-bottom:0}
+.dim-name{flex:1;font-size:15px}
+.dim-note{font-size:12px;color:var(--orange)}
+.dots5{display:flex;gap:3px;flex:none}
+.dots5 i{width:8px;height:8px;border-radius:50%;background:var(--line)}
+.dots5 i.f{background:var(--accent)}
+.dim-na{font-size:12px;color:var(--text2);flex:none}
+/* 进度条 / 环 */
+.prog{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin-top:8px}
+.prog i{display:block;height:100%;background:var(--teal);border-radius:3px}
+/* 设置分组行（档案页） */
+.set-row{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:50px;border-bottom:0.5px solid var(--line);font-size:15px}
+.set-row:last-child{border-bottom:0}
+.set-row .sr-k{color:var(--text)}
+.set-row .sr-v{color:var(--text2);text-align:right;font-size:14px}
+/* 对比表 */
+table.cmp{width:100%;border-collapse:collapse;font-size:13px}
+.cmp th,.cmp td{padding:8px 6px;border-bottom:0.5px solid var(--line);text-align:left}
+.cmp th{color:var(--text2);font-weight:500;font-size:12px}
+.up{color:var(--green)} .down{color:var(--red)} .same{color:var(--text2)}
+/* 空状态（首日） */
+.empty-card{text-align:center;padding:32px 16px}
+.empty-card svg{width:56px;height:56px;stroke:var(--text2);fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;margin-bottom:12px}
+/* 知识卡 */
+.k-search{width:100%;min-height:44px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-btn);padding:10px 14px;font-size:15px;outline:none;margin-bottom:12px;color:var(--text)}
+.k-group{font-size:13px;color:var(--text2);margin:16px 4px 8px}
+.k-card .k-head{display:flex;align-items:center;justify-content:space-between;min-height:44px;margin:0;cursor:pointer}
+.k-card .k-head .k-title{font-size:17px;font-weight:600;display:flex;align-items:center;gap:10px}
+.k-card .k-head:after{content:'›';color:var(--text2);font-size:18px;transform:rotate(90deg)}
+.k-card.open .k-head:after{transform:rotate(-90deg)}
+.k-body{display:none;font-size:14px;line-height:2;color:var(--text);margin-top:10px}
+.k-card.open .k-body{display:block}
+.k-body b{font-weight:600}
+/* 模态/提示/吸底保存 */
+#modalWrap{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;padding:24px}
+#modalBox{width:100%;max-width:340px;max-height:78vh;overflow:auto;background:var(--card);border-radius:var(--r-card);padding:20px 16px;box-shadow:var(--shadow)}
+#modalBox .m-actions{margin-top:16px;display:flex;flex-direction:column;gap:8px}
+#toastBox{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(80px + env(safe-area-inset-bottom));z-index:60;background:var(--text);color:var(--bg);padding:10px 18px;border-radius:var(--r-pill);font-size:13px;max-width:86vw;text-align:center}
+.save-fixed{position:fixed;left:16px;right:16px;bottom:calc(62px + env(safe-area-inset-bottom));z-index:15;min-height:48px;border-radius:var(--r-btn);background:var(--accent);color:#fff;font-size:17px;font-weight:600;box-shadow:var(--shadow);display:flex;align-items:center;justify-content:center;gap:8px}
+.save-fixed.saved{background:var(--green)}
+.save-fixed svg{width:18px;height:18px;stroke:#fff;fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.bannercard{background:var(--card);border-radius:var(--r-card);padding:12px 16px;box-shadow:var(--shadow);margin-bottom:12px;font-size:13px;color:var(--orange);line-height:1.7}
+</style>
+</head>
+<body>
+<noscript>本应用需要启用 JavaScript。</noscript>
+
+<!-- ============ S0 解锁页：山形SVG+标题+密钥+主按钮+离线只读文字链 ============ -->
+<div id="gate">
+  <div class="gate-box">
+    <svg class="gate-logo" viewBox="0 0 64 64" aria-hidden="true">
+      <defs><linearGradient id="mtg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#007AFF"/><stop offset="1" stop-color="#30B0C7"/>
+      </linearGradient></defs>
+      <path d="M6 50 L24 26 L34 38 L42 28 L58 50 Z" fill="url(#mtg)"/>
+      <path d="M14 22 L22 12 L28 19" fill="none" stroke="url(#mtg)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div class="gate-title">体能系统</div>
+    <div class="gate-sub">数据存放在你自己的 GitHub 私有仓库，用密钥解锁访问令牌。也可以先用离线只读模式查看本机缓存（数据可能不是最新）。</div>
+    <div class="field">
+      <label for="gateKey">访问密钥</label>
+      <input id="gateKey" type="password" autocomplete="off" placeholder="输入密钥解锁">
+    </div>
+    <button class="btn-primary" id="btnUnlock">解锁进入</button>
+    <button class="link-btn" id="btnOffline">离线只读模式（数据可能不是最新）</button>
+    <div id="gateMsg" class="gate-msg"></div>
+  </div>
+</div>
+
+<!-- ============ 主外壳（5 Tab） ============ -->
+<div id="app" hidden>
+  <header id="topbar">
+    <div id="topTitle">体能系统</div>
+    <div class="top-right">
+      <span id="syncBadge"></span>
+      <button class="icon-btn" id="btnProfile" aria-label="档案与设置">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.2-3.4 3.9-5 7-5s5.8 1.6 7 5"/></svg>
+      </button>
+    </div>
+  </header>
+  <main id="main">
+    <section id="pgToday" class="page">
+      <h1 class="page-title">今天</h1>
+      <div id="todayBody"></div>
+      <button class="save-fixed" id="btnSave" onclick="tfSave()">保存今日记录</button>
+    </section>
+    <section id="pgTrend" class="page" hidden>
+      <h1 class="page-title">趋势</h1>
+      <div id="trendBody"></div>
+    </section>
+    <section id="pgAbility" class="page" hidden>
+      <h1 class="page-title">能力</h1>
+      <div id="abilityBody"></div>
+    </section>
+    <section id="pgGoal" class="page" hidden>
+      <h1 class="page-title">目标</h1>
+      <div id="goalBody"></div>
+    </section>
+    <section id="pgGuide" class="page" hidden>
+      <h1 class="page-title">指南</h1>
+      <div id="guideTabBody"></div>
+    </section>
+    <section id="pgProfile" class="page" hidden>
+      <h1 class="page-title">档案与设置</h1>
+      <div id="profileBody"></div>
+    </section>
+    <section id="pgTest" class="page" hidden>
+      <h1 class="page-title">家庭体测</h1>
+      <div id="testBody"></div>
+    </section>
+  </main>
+  <nav id="tabbar">
+    <button class="tab on" data-pg="pgToday" aria-label="今天">
+      <svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="3"/><path d="M8 3v4M16 3v4M4 10h16M9.5 15.5l2 2 3.5-4"/></svg>
+      <span class="tab-label">今天</span>
+    </button>
+    <button class="tab" data-pg="pgTrend" aria-label="趋势">
+      <svg viewBox="0 0 24 24"><path d="M4 19h16M4 15l5-6 4 3 6-8"/></svg>
+      <span class="tab-label">趋势</span>
+    </button>
+    <button class="tab" data-pg="pgAbility" aria-label="能力">
+      <svg viewBox="0 0 24 24"><path d="M12 3l8 6-3 10H7L4 9z"/><path d="M12 3v18M4 9l16 6M20 9L4 15" stroke-width="1"/></svg>
+      <span class="tab-label">能力</span>
+    </button>
+    <button class="tab" data-pg="pgGoal" aria-label="目标">
+      <svg viewBox="0 0 24 24"><path d="M7 21V4M7 4h11l-3 4 3 4H7"/></svg>
+      <span class="tab-label">目标</span>
+    </button>
+    <button class="tab" data-pg="pgGuide" aria-label="指南">
+      <svg viewBox="0 0 24 24"><path d="M12 5c-2-1.5-4.5-2-8-2v16c3.5 0 6 .5 8 2 2-1.5 4.5-2 8-2V3c-3.5 0-6 .5-8 2zM12 5v16"/></svg>
+      <span class="tab-label">指南</span>
+    </button>
+  </nav>
+</div>
+
+<!-- S1 引导（4步分步向导） -->
+<div id="guide" class="fullscreen" hidden><div id="guideBody"></div></div>
+<!-- S2 历史回填 -->
+<div id="backfill" class="fullscreen" hidden>
+  <div class="fs-head">
+    <button class="fs-back" id="bfBackBtn" aria-label="返回">‹</button>
+    <div class="fs-steps">历史回填</div>
+  </div>
+  <div class="card">
+    <div class="card-head">
+      <div class="bubble bg-purple" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg></div>
+      <div class="card-title" style="margin:0">把健康App的历史数据搬进来</div>
+    </div>
+    <div class="sub" style="margin-bottom:14px">填入近 7 天的平均值（可只填其中几项），系统会自动生成最近 7 天的历史记录；已存在记录的日期不会被覆盖。</div>
+    <div class="field"><label>近7天睡眠均值（小时）</label><input id="bfSleep" type="number" step="0.1" min="0" max="24" inputmode="decimal" placeholder="如 5.4"></div>
+    <div class="field"><label>近7天静息心率均值（次/分）</label><input id="bfRhr" type="number" min="30" max="120" inputmode="numeric" placeholder="如 60"></div>
+    <div class="field"><label>近7天 HRV 均值（毫秒）</label><input id="bfHrv" type="number" min="5" max="200" inputmode="numeric" placeholder="如 50"></div>
+    <div class="sub" style="margin-bottom:14px">回填静息心率后（≥4天数据），自动重算静息心率基线为回填均值（覆盖预填 60）。</div>
+    <button class="btn-primary" id="bfSave">生成7天历史记录</button>
+    <button class="link-btn" id="bfSkip">跳过，稍后再填</button>
+  </div>
+</div>
+<div id="modalWrap" hidden><div id="modalBox"></div></div>
+<div id="toastBox" hidden></div>
+
+<script>
+'use strict';
+/* ================================================================
+   体能系统 v3.2 全量单文件
+   CONFIG → 工具 → DB → 数据模型 → 解密 → 同步 → 路由 → S0-S3
+   → 指标层M → 规则层R → Tab1今天 → 图表/趋势/能力/目标 → 指南/体测/档案 → 启动
+   ================================================================ */
+
+/* ============ CONFIG（阈值逐条估算值，待真实数据校准） ============ */
+const CONFIG = {
+  GITHUB_USER: 'MEITU666',
+  DATA_REPO: 'jianshen',
+  DATA_PATH: 'data/main.json',
+  GIST_RAW_URL: 'https://gist.githubusercontent.com/MEITU666/6e62d8352b36ff63028c8c07c5fb19f5/raw/fedc11ae8c73203847c9e09c24a022f55768751f/token.txt',
+  PBKDF2_ITERATIONS: 250000,
+  SALT_BYTES: 16,
+  IV_BYTES: 12,
+  IMPORT_MAX_BYTES: 10 * 1024 * 1024,
+
+  hrCapBase: 180,        // 估算值：心率硬上限基数 = 180 - 周岁
+  zone2Cap: 139,         // 估算值（180-31-10 保守修正）
+  sleepShortH: 6,        // 估算值：黄灯-睡眠不足线
+  sleepShortDays: 2,     // 估算值
+  sleepRefH: 7,          // 估算值：睡眠参考线
+  rhrRedDelta: 7,        // 估算值
+  rhrRedDays: 3,         // 估算值
+  rhrYelDelta: 5,        // 估算值
+  rhrYelDays: 3,         // 估算值
+  moodBadDays: 2,        // 估算值
+  rhrBaseWindow: 7,      // 估算值
+  rhrBaseMinDays: 4,     // 估算值
+  weightDropKg: 2,       // 估算值
+  syncStaleDays: 7,      // 估算值
+  retestDays: 56,        // 复测周期
+  aerobicGoalMin: 120,   // 估算值：有氧周目标
+  phaseDonePct: 0.8,     // 估算值
+  phaseWeeks: 4,         // 0→1 连续周数
+  noRedDays: 14,         // 0→1 近 N 天无红灯
+  z2LongMin: 60,         // 估算值：1→2 Zone2 单次时长
+  z2LongCount: 4,        // 1→2 达成次数
+  longMin: 180,          // 估算值：2→3 ≥3小时
+  longRpeMax: 5,         // 2→3
+  rhrNextDayDelta: 5,    // 估算值
+  yellowDownRun: 7,      // 估算值：连续黄灯→降级
+  downHoldDays: 7,       // 估算值：降级维持
+  redLookbackDays: 7,    // 估算值
+  footDoctorDays: 3,     // 连续3天足/踝痛→就医提示（K7）
+  k12Date: '2026-09-23', // K12 备战卡展示截止日
+  recoveryNeed: 14,      // 估算值：恢复力激活需近28天各≥14天数据
+  paceMinSamples: 8,     // 估算值：配速纪律激活样本
+  standImbalance: 10,    // 估算值：单腿左右差>s 标注失衡
+  ankleFrontStand: 20,   // 估算值：进入阶段2前 睡 单腿≥20s
+
+  /* 每周训练模板（CONFIG可改）：一三五有氧/二六力量/四有氧/日休息；getDay() 0=周日 */
+  weekTemplate: { 0: '休息日', 1: '有氧', 2: '力量', 3: '有氧', 4: '有氧', 5: '有氧', 6: '力量' },
+
+  /* 文案库（第十部分，逐字禁止改写） */
+  copy: {
+    green: '状态正常，按计划训练',
+    yellowSleep: '连续睡眠不足，今日减量30-50%，仅低强度',
+    yellowFoot: '足底减负：今日有氧改单车或休息',
+    yellowAnkle: '崴伤反复，防崴训练已降一级，今日减量',
+    red: '检测到疼痛，今日停训，仅可八段锦与足底放松',
+    na: '数据不足，继续记录',
+    naEval: '数据不足，无法评估',
+    phase: ['习惯建立+有氧起步+足底康复基础', '有氧容量扩展+下肢肌耐力', '爬升与负重', '户外长时活动'],
+    tokenExpired: '令牌可能已过期：请到GitHub重新生成PAT,用加密工具重新加密并更新Gist',
+    footDoctor: '足部疼痛持续3天，建议运动医学科就诊，明确软组织挫伤的具体位置与程度',
+    guideTestCard: '建议本周末完成家庭体测，建立你的基线。',
+    injuryPreset: '右足软组织挫伤（脚掌疼痛，具体位置不确定，平时走路可感）；不平路面易崴脚、崴后踝部疼痛'
+  },
+
+  typeList: ['无', '八段锦', '有氧', '力量', '长时活动', '休息日', '病假'],
+  trainTypes: ['有氧', '力量', '长时活动'],
+  painOptions: ['无', '右足底', '右踝', '膝', '腰', '其他'],
+  moods: ['好', '一般', '差'],
+
+  /* K2 RPE 锚定表（逐字） */
+  rpeTable: [
+    ['1-2', '极轻松（散步）'], ['3-4', '轻松（能聊天）'], ['5-6', '中等（说话略喘）'],
+    ['7-8', '累（只能说短句）'], ['9', '很累（说不了话）'], ['10', '极限（无法继续）']
+  ],
+  rpeGoal: '有氧目标：RPE 3-5；力量：最后2次接近力竭(7-8)；足康复/八段锦：≤3',
+
+  /* K5 力量动作库（unit: 次计时）；repsKey 对应 state.strengthReps */
+  actions: [
+    { name: '自重深蹲', part: '下肢推', repsKey: '深蹲', unit: '次', sets: 3,
+      guide: '髋膝踝一线、下蹲吸气起身呼气、大腿至平行',
+      comp: '膝内扣 / 脚跟离地 / 蹲到底腰部反弓（屁股眨眼）',
+      fix: '想象把地板撕开膝外推；臀先往后坐重心放脚跟；减少深度保持腰自然曲度',
+      link: 'https://search.bilibili.com/all?keyword=自重深蹲 标准动作' },
+    { name: '俯卧撑', part: '上肢推', repsKey: '俯卧撑', unit: '次', sets: 3,
+      guide: '身体一直线、胸近地面、肘约45°（留1-2次余力）',
+      comp: '塌腰 / 耸肩 / 肘部完全横向90°',
+      fix: '收紧腹部肚脐贴脊柱；主动沉肩肩胛骨往臀部压；肘收至45°靠近身体',
+      link: 'https://search.bilibili.com/all?keyword=俯卧撑 退阶 教学' },
+    { name: '平板支撑', part: '核心抗伸展', repsKey: '平板', unit: '秒', sets: 3,
+      guide: '收腹夹臀、耳肩髋踝一线、正常呼吸',
+      comp: '塌腰 / 憋气 / 臀部抬高',
+      fix: '卷尾骨臀微上提；鼻吸口呼保持节奏；宁缩短时间不变形',
+      link: 'https://search.bilibili.com/all?keyword=平板支撑 正确姿势' },
+    { name: '侧桥', part: '核心抗侧屈', repsKey: '侧桥', unit: '秒/侧', sets: 3,
+      guide: '髋部前推、身体一线',
+      comp: '髋下沉 / 躯干旋转向前',
+      fix: '髋主动前推侧腹发力；保持侧面想象靠墙',
+      link: 'https://search.bilibili.com/all?keyword=侧平板支撑 教学' },
+    { name: '箭步蹲', part: '单侧下肢', repsKey: '箭步蹲', unit: '次/侧', sets: 3,
+      guide: '躯干直立、后膝近地',
+      comp: '前膝内扣 / 躯干前倾用腰发力 / 用后脚蹬地站起',
+      fix: '前膝对准第二脚趾主动外推；想象头顶有线拉；前腿发力后腿轻触地',
+      link: 'https://search.bilibili.com/all?keyword=箭步蹲 标准动作' },
+    { name: '臀桥', part: '后链', repsKey: '臀桥', unit: '次', sets: 3,
+      guide: '顶峰收缩1秒、髋完全伸展',
+      comp: '顶峰时腰部反弓 / 脚离臀太远用大腿后侧拉',
+      fix: '顶峰夹紧臀部腰保持中立；脚跟靠近臀部',
+      link: 'https://search.bilibili.com/all?keyword=臀桥 正确做法' }
+  ],
+  progressionCopy: '渐进规则：全部动作标准完成且 RPE≤7 → 下次各动作 +1次（平板/侧桥 +5秒）；RPE=8 → 持平；RPE≥9 或 连续2次未完成全部动作 → 各动作 -10%。每次只加一个变量，最困难组保留1-2次余力。',
+
+  /* K6 有氧选项库 */
+  cardio: [
+    { name: '快走', dur: '20-40分钟', tip: '能完整说话、心率≤139', link: 'https://search.bilibili.com/all?keyword=快走 正确姿势' },
+    { name: '单车', dur: '20-40分钟', tip: '坐垫调至胯骨高度、不赶时间', link: 'https://search.bilibili.com/all?keyword=共享单车 座椅调节' },
+    { name: '爬楼梯', dur: '15-30分钟', tip: '1→10楼爬升、电梯下楼循环；楼道闷热选早晨/晚间', link: 'https://search.bilibili.com/all?keyword=爬楼梯 有氧' }
+  ],
+  cardioFootTip: '右足疼痛日优先选单车（足底负荷最小），疼痛>3/10时暂停快走与爬楼',
+  longCopy: '长时活动：≥60分钟低强度，快走/慢骑/爬楼梯均可，全程能说话。训练"持续输出"能力——让身体习惯连续运动数小时，这是多日徒步与转山的核心基础，与20分钟的普通锻炼完全不同。',
+
+  /* K4 热身与放松（逐字） */
+  warmup: '原地踏步1分钟→踝绕环左右各10圈→弓步走10步→髋关节绕环10次→自重深蹲5次慢速',
+  cooldown: '站姿股四头肌拉伸30秒/侧→站姿大腿后侧拉伸30秒/侧→靠墙小腿拉伸30秒/侧→坐姿体前屈30秒→婴儿式30秒→网球足底滚动1分钟/侧',
+  weatherAlt: '雨雪/闷热替代：有氧日改室内原地快走/踏步，或爬楼梯（楼道闷热时缩短至15分钟并补水）',
+
+  /* K7 足底康复三 Stage */
+  footStages: [
+    { name: '足底减负+放松', mins: '每天5分钟', items: [
+      '网球/筋膜球足底滚动2分钟/侧（坐姿，缓慢施压）',
+      '靠墙小腿拉伸30秒×3/侧（直腿+屈膝各一组）',
+      '踝泵30次（勾脚-踩脚缓慢交替）',
+      '脚趾抓毛巾3×10' ],
+      promo: '晋级：连续7天日常行走疼痛≤2/10' },
+    { name: '足底力量重建', mins: '每天8分钟', items: [
+      '短足运动(Short Foot)3×10秒/侧：不蜷脚趾，把足弓"缩短"抬起',
+      '提踵双脚3×15→单腿3×8进阶',
+      '单腿站立睁眼3×30秒/侧（扶墙）' ],
+      promo: '晋级：连续14天日常行走无痛 且 睁眼单腿45秒×3组稳定（左右均达标）' },
+    { name: '平衡与不平地面适应', mins: '每天8-10分钟', items: [
+      '闭眼单腿站立（扶墙备。安全提示：站在墙或椅旁）',
+      '折叠毛巾/软垫上单腿站立3×30秒/侧',
+      '周末户外不平路面短距离行走（从10分钟起，带登山杖）' ],
+      promo: '无晋级门槛，持续至体测闭眼单腿每侧≥20秒 且 连续30天无崴脚' }
+  ],
+  footNote: '你的问题分两个：①右足软组织挫伤=脚掌疼（平时走路可感）②不平路面易崴脚=踝的问题。本模块以足底康复为主线，防崴平衡训练在 Stage 2 加入。疼痛位置不确定属于正常——本方案只含低风险动作；若 4 周无改善或疼痛加重，去运动医学科/骨科明确诊断，不要拖。',
+  footLinks: [
+    { t: '📺 足底筋膜炎康复', u: 'https://search.bilibili.com/all?keyword=足底筋膜炎康复' },
+    { t: '📺 短足运动', u: 'https://search.bilibili.com/all?keyword=短足运动' },
+    { t: '📺 单腿平衡', u: 'https://search.bilibili.com/all?keyword=单腿平衡' }
+  ],
+
+  /* K8 八段锦（武当道家八段锦） */
+  baduanjin: {
+    note: '本模块为武当道家八段锦。学动作：袁师懋道长详细分解教学（每式3-4分钟精讲）；每天跟练：袁慎锐带练版（武当养生八段锦带练版）。',
+    forms: [
+      '双手托天理三焦 — 掌根上撑、脚尖抓地、伸展唤醒',
+      '左右开弓似射雕 — 马步沉稳、开胸提气',
+      '调理脾胃须单举 — 上下对拉、动作舒缓',
+      '五劳七伤往后瞧 — 转头不转髋、舒缓肩颈',
+      '摇头摆尾去心火 — 腰胯带动、安神定志',
+      '双手攀足固肾腰 — 腰背伸展、量力而行',
+      '攒拳怒目增气力 — 握固出拳、提振精神',
+      '背后七颠百病消 — 提踵轻颠、疏通收尾'
+    ],
+    timing: '练习时机：晨起或睡前；训练日可作热身，休息日作主体；全程自然呼吸、动作舒缓。计入连续性、不计入负荷。',
+    teach: 'https://www.bilibili.com/list/ml2813894660?bvid=BV1oQ4y1y7mY',
+    teachLabel: '📺 师懋教学（详细分解合集）',
+    follow: 'https://www.bilibili.com/video/BV1ZK411z7wY/',
+    followLabel: '📺 慎锐带练（呼吸口令版）'
+  },
+
+  /* K12 备战卡（逐字） */
+  k12: [
+    '9/23 武汉国民体质监测中心检测：当场出报告，带身份证',
+    '检测当日早上不训练；前一天(9/22)只做八段锦+散步',
+    '可对比项：俯卧撑/闭眼单脚站立/坐位体前屈（家庭体测对齐）',
+    '检测后当晚把报告录入"体测页-外部检测"',
+    '18天收益预期（诚实文案）：平衡+柔韧+俯卧撑进步最快；心肺轻微改善不保证；体重不掉就是赢'
+  ],
+
+  /* 远期线路（只读；dims=所需能力维度，无数据显示"数据不足，无法评估"） */
+  routes: [
+    { name: '冈仁波齐转山', hold: false, dims: ['有氧底盘', '持续输出', '恢复力', '爬升肌耐力'] },
+    { name: '南北天山线', hold: false, dims: ['有氧底盘', '持续输出', '恢复力', '爬升肌耐力', '下坡单侧控制', '核心负重稳定'] },
+    { name: '年保玉则', hold: true, dims: [] }
+  ],
+
+  /* 能力锚点（估算值） */
+  mapSquat: [[60,5],[45,4],[30,3],[15,2],[0,1]],
+  mapPlank: [[120,5],[90,4],[60,3],[30,2],[0,1]],
+  mapStand: [[45,5],[30,4],[20,3],[10,2],[0,1]],
+  mapStep:  [[45,5],[35,4],[25,3],[15,2],[0,1]],
+  recovery: { L5:{over:0,sleepPct:85}, L4:{over:0,sleepPct:70}, L3:{over:1,sleepPct:70}, L2:{sleepPct:40} }
+};
+
+/* ============ 工具 ============ */
+const U = {
+  pad(n) { return n < 10 ? '0' + n : '' + n; },
+  todayStr(d) { d = d || new Date(); return d.getFullYear() + '-' + U.pad(d.getMonth() + 1) + '-' + U.pad(d.getDate()); },
+  addDays(str, n) { const p = str.split('-').map(Number); return U.todayStr(new Date(p[0], p[1] - 1, p[2] + n)); },
+  diffDays(a, b) { const p1 = a.split('-').map(Number), p2 = b.split('-').map(Number); return Math.round((new Date(p2[0], p2[1] - 1, p2[2]) - new Date(p1[0], p1[1] - 1, p1[2])) / 86400000); },
+  weekStart(str) { const p = str.split('-').map(Number); const d = new Date(p[0], p[1] - 1, p[2]); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return U.todayStr(d); },
+  fmtShort(str) { const p = str.split('-'); return (+p[1]) + '/' + (+p[2]); },
+  fmtTime(ts) { const d = new Date(ts); return U.pad(d.getHours()) + ':' + U.pad(d.getMinutes()); },
+  esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); },
+  num(v) { const n = parseFloat(v); return isNaN(n) ? null : n; },
+  debounce(fn, ms) { let t = 0; return function (...a) { clearTimeout(t); t = setTimeout(() => fn.apply(this, a), ms); }; },
+  b64FromBytes(bytes) { let s = ''; const CH = 0x8000; for (let i = 0; i < bytes.length; i += CH) s += String.fromCharCode.apply(null, bytes.subarray(i, i + CH)); return btoa(s); },
+  bytesFromB64(b64) { const bin = atob(String(b64).replace(/\s+/g, '')); const out = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i); return out; },
+  utf8ToB64(str) { return U.b64FromBytes(new TextEncoder().encode(str)); },
+  b64ToUtf8(b64) { return new TextDecoder().decode(U.bytesFromB64(b64)); }
+};
+
+/* ============ IndexedDB 离线缓存层 ============ */
+const DB = {
+  _db: null,
+  open() {
+    return new Promise((res, rej) => {
+      const r = indexedDB.open('tineng', 1);
+      r.onupgradeneeded = () => { r.result.createObjectStore('kv'); };
+      r.onsuccess = () => { DB._db = r.result; res(); };
+      r.onerror = () => rej(r.error);
+    });
+  },
+  load() {
+    return new Promise((res, rej) => {
+      const t = DB._db.transaction('kv', 'readonly').objectStore('kv').get('data');
+      t.onsuccess = () => res(t.result || null);
+      t.onerror = () => rej(t.error);
+    });
+  },
+  save(obj) {
+    return new Promise((res, rej) => {
+      const t = DB._db.transaction('kv', 'readwrite').objectStore('kv').put(obj, 'data');
+      t.onsuccess = () => res();
+      t.onerror = () => rej(t.error);
+    });
+  }
+};
+
+/* ============ 运行时全局 ============ */
+let D = null;           // 当前数据
+let TOKEN = null;       // GitHub 令牌：仅内存，绝不持久化
+let ghSha = null;       // contents API sha
+let readOnly = false;   // 离线只读
+let gistTextCache = null;
+
+/* ============ 数据模型（第五部分） ============ */
+function defaultData() {
+  return {
+    updatedAt: null,
+    profile: {
+      birthday: '1994-11-28', gender: '男', height: 176, weight0: 60,
+      weeklyDays: 6, stairs: true, gear: '背包、登山杖（无重装背包）',
+      injury: CONFIG.copy.injuryPreset, targetWindow: null, createdAt: null,
+      rhrBaseline: 60, hrvBaseline: 50, sleepBaseline: 5.4, sleepAnchor: '23:30',
+      updatedAt: 0
+    },
+    daily: [], metrics: [], weekly: [], tests: [], external: [],
+    state: {
+      phase: 0, lastTestDate: null, footStage: 0, autoCalibrateRHR: true,
+      lastSyncAt: 0, pendingSync: false, strengthFails: 0,
+      strengthReps: { '深蹲': 12, '俯卧撑': 8, '平板': 30, '侧桥': 20, '箭步蹲': 8, '臀桥': 15 },
+      backfillDone: false, profileDone: false, downgradedAt: null,
+      updatedAt: 0
+    }
+  };
+}
+function normalizeData(o) {
+  o = (o && typeof o === 'object') ? o : {};
+  const d = defaultData();
+  const out = { updatedAt: o.updatedAt || null };
+  out.profile = Object.assign({}, d.profile, o.profile || {});
+  out.state = Object.assign({}, d.state, o.state || {});
+  if (!out.state.strengthReps || typeof out.state.strengthReps !== 'object') out.state.strengthReps = d.state.strengthReps;
+  ['daily', 'metrics', 'weekly', 'tests', 'external'].forEach((k) => {
+    out[k] = Array.isArray(o[k]) ? o[k].filter((x) => x && typeof x === 'object') : [];
+  });
+  return out;
+}
+/* 每日记录工厂：字段与第五部分 daily[] 一致 */
+function makeDailyRecord(date) {
+  return {
+    date: date, type: '无',
+    cardioChoice: null,        // 有氧时："快走"|"单车"|"爬楼梯"
+    strengthChecks: null,      // 力量时：[6布尔]
+    footRehab: false, baduanjin: false,
+    durationMin: null, rpe: null, avgHr: null,
+    pain: '无', mood: '', note: '',
+    updatedAt: 0
+  };
+}
+function recStamp(rec) { rec.updatedAt = Date.now(); return rec; }
+function upsertByDate(arr, rec) {
+  const i = arr.findIndex((x) => x.date === rec.date);
+  if (i >= 0) arr[i] = rec; else { arr.push(rec); arr.sort((a, b) => (a.date < b.date ? -1 : 1)); }
+}
+function upsertByKey(arr, rec, key) {
+  const i = arr.findIndex((x) => x[key] === rec[key]);
+  if (i >= 0) arr[i] = rec; else { arr.push(rec); arr.sort((a, b) => (a[key] < b[key] ? -1 : 1)); }
+}
+function persist(opts) {
+  opts = opts || {};
+  D.updatedAt = new Date().toISOString();
+  if (!readOnly) DB.save(D).catch(() => {});
+  if (!opts.noSync && !readOnly) schedulePush();
+}
+const schedulePush = U.debounce(function () { pushNow(); }, 3000);
+
+/* ============ Token 解密（第八部分，参数逐位一致） ============ */
+async function decryptToken(pass, text) {
+  const t = String(text).trim();
+  if (t.indexOf('v1:') !== 0) throw new Error('bad-prefix');
+  const raw = U.bytesFromB64(t.slice(3));
+  if (raw.length <= CONFIG.SALT_BYTES + CONFIG.IV_BYTES) throw new Error('bad-length');
+  const salt = raw.slice(0, CONFIG.SALT_BYTES);
+  const iv = raw.slice(CONFIG.SALT_BYTES, CONFIG.SALT_BYTES + CONFIG.IV_BYTES);
+  const ct = raw.slice(CONFIG.SALT_BYTES + CONFIG.IV_BYTES);
+  const baseKey = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey(
+    { name: 'PBKDF2', hash: 'SHA-256', salt: salt, iterations: CONFIG.PBKDF2_ITERATIONS },
+    baseKey, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+  const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, key, ct);
+  return new TextDecoder().decode(pt);
+}
+
+/* ============ GitHub 云端同步（第八部分） ============ */
+function ghUrl() {
+  return 'https://api.github.com/repos/' + CONFIG.GITHUB_USER + '/' + CONFIG.DATA_REPO + '/contents/' + CONFIG.DATA_PATH;
+}
+function ghHeaders(extra) {
+  const h = { 'Authorization': 'Bearer ' + TOKEN, 'Accept': 'application/vnd.github+json' };
+  if (extra) for (const k in extra) h[k] = extra[k];
+  return h;
+}
+async function ghGet() {
+  const res = await fetch(ghUrl(), { headers: ghHeaders(), cache: 'no-store' });
+  if (res.status === 404) return { status: 404, sha: null, remote: null };
+  if (!res.ok) return { status: res.status, sha: null, remote: null };
+  const json = await res.json();
+  let remote = null;
+  if (json && json.content) remote = JSON.parse(U.b64ToUtf8(json.content));
+  return { status: 200, sha: json.sha || null, remote: remote };
+}
+async function ghPut(payload, sha) {
+  const body = { message: 'update ' + new Date().toISOString(), content: U.utf8ToB64(JSON.stringify(payload)) };
+  if (sha) body.sha = sha;
+  return fetch(ghUrl(), { method: 'PUT', headers: ghHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(body) });
+}
+function contentFingerprint(o) {
+  const c = JSON.parse(JSON.stringify(o));
+  delete c.updatedAt;
+  if (c.state) { delete c.state.lastSyncAt; delete c.state.pendingSync; }
+  return JSON.stringify(c);
+}
+function pickNewer(a, b) {
+  const am = (a && (a.updatedAt || a._mtime)) || 0;
+  const bm = (b && (b.updatedAt || b._mtime)) || 0;
+  return bm > am ? b : a;
+}
+function mergeByKey(aArr, bArr, key) {
+  const map = {};
+  (aArr || []).forEach((r) => { if (r && r[key] != null) map[r[key]] = r; });
+  (bArr || []).forEach((r) => {
+    if (!r || r[key] == null) return;
+    if (!map[r[key]]) map[r[key]] = r; else map[r[key]] = pickNewer(map[r[key]], r);
+  });
+  return Object.keys(map).sort().map((k) => map[k]);
+}
+function mergeData(local, remote) {
+  const out = defaultData();
+  out.profile = pickNewer(local.profile, remote.profile);
+  const st = Object.assign({}, pickNewer(local.state, remote.state));
+  st.lastSyncAt = Math.max(local.state.lastSyncAt || 0, remote.state.lastSyncAt || 0);
+  st.pendingSync = !!(local.state.pendingSync || remote.state.pendingSync);
+  out.state = st;
+  out.daily = mergeByKey(local.daily, remote.daily, 'date');
+  out.metrics = mergeByKey(local.metrics, remote.metrics, 'date');
+  out.tests = mergeByKey(local.tests, remote.tests, 'date');
+  out.external = mergeByKey(local.external, remote.external, 'date');
+  out.weekly = mergeByKey(local.weekly, remote.weekly, 'weekStart');
+  out.updatedAt = new Date().toISOString();
+  return out;
+}
+function handle401() {
+  try { sessionStorage.removeItem('tineng_key'); } catch (e) {}
+  TOKEN = null;
+  showModal('<div class="card-title" style="margin-bottom:10px">同步失败</div>'
+    + '<div class="body-tx">' + U.esc(CONFIG.copy.tokenExpired) + '</div>'
+    + '<div class="m-actions"><button class="btn-primary" onclick="closeModal()">知道了</button></div>');
+}
+function syncFail(msg) {
+  D.state.pendingSync = true;
+  D.state.updatedAt = Date.now();
+  DB.save(D).catch(() => {});
+  updateSyncBadge();
+  if (msg) toast(msg);
+}
+async function pushNow() {
+  if (readOnly) return;
+  if (!TOKEN) { D.state.pendingSync = true; updateSyncBadge(); return; }
+  try {
+    let payload = Object.assign({}, D, { updatedAt: new Date().toISOString() });
+    let res = await ghPut(payload, ghSha);
+    if (res.status === 409 || res.status === 422) {
+      const g = await ghGet();
+      if (g.status === 200 && g.remote) {
+        D = mergeData(D, g.remote);
+        await DB.save(D);
+        ghSha = g.sha;
+        payload = Object.assign({}, D, { updatedAt: new Date().toISOString() });
+        res = await ghPut(payload, ghSha);
+      } else if (g.status === 404) {
+        ghSha = null;
+        payload = Object.assign({}, D, { updatedAt: new Date().toISOString() });
+        res = await ghPut(payload, null);
+      }
+    }
+    if (res.ok) {
+      const j = await res.json();
+      if (j && j.content && j.content.sha) ghSha = j.content.sha;
+      D.state.lastSyncAt = Date.now();
+      D.state.pendingSync = false;
+      D.state.updatedAt = Date.now();
+      await DB.save(D);
+      updateSyncBadge();
+    } else if (res.status === 401 || res.status === 403) {
+      handle401(); syncFail(null);
+    } else {
+      syncFail('同步失败，数据已存本地，稍后自动重试');
+    }
+  } catch (e) {
+    syncFail('同步失败，数据已存本地，稍后自动重试');
+  }
+}
+function updateSyncBadge() {
+  const el = document.getElementById('syncBadge');
+  if (!el || !D) return;
+  if (readOnly) { el.textContent = '离线只读'; el.className = ''; return; }
+  const last = D.state.lastSyncAt || 0;
+  if (D.state.pendingSync) { el.textContent = '待同步'; el.className = 'pending'; return; }
+  if (!last) { el.textContent = '未同步'; el.className = ''; return; }
+  const days = Math.floor((Date.now() - last) / 86400000);
+  if (days > CONFIG.syncStaleDays) { el.textContent = '距上次同步' + days + '天'; el.className = 'stale'; }
+  else { el.textContent = '已同步 ' + U.fmtTime(last); el.className = ''; }
+}
+
+/* ============ 路由 / 提示 / 模态 ============ */
+const PAGES = ['pgToday', 'pgTrend', 'pgAbility', 'pgGoal', 'pgGuide', 'pgProfile', 'pgTest'];
+const PAGE_TITLES = { pgProfile: '档案与设置', pgTest: '家庭体测' };
+let toastTimer = 0;
+function toast(msg) {
+  const el = document.getElementById('toastBox');
+  el.textContent = msg; el.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.hidden = true; }, 2600);
+}
+function showModal(html) {
+  document.getElementById('modalBox').innerHTML = html;
+  document.getElementById('modalWrap').hidden = false;
+}
+function closeModal() { document.getElementById('modalWrap').hidden = true; }
+function nav(pg) {
+  PAGES.forEach((p) => { document.getElementById(p).hidden = (p !== pg); });
+  document.querySelectorAll('#tabbar .tab').forEach((b) => b.classList.toggle('on', b.getAttribute('data-pg') === pg));
+  document.getElementById('btnProfile').hidden = (pg === 'pgProfile' || pg === 'pgTest');
+  document.getElementById('topTitle').textContent = PAGE_TITLES[pg] || '体能系统';
+  if (pg === 'pgToday') renderToday();
+  if (pg === 'pgTrend') renderTrend();
+  if (pg === 'pgAbility') renderAbility();
+  if (pg === 'pgGoal') renderGoal();
+  if (pg === 'pgGuide') renderGuideTab();
+  if (pg === 'pgProfile') renderProfile();
+  if (pg === 'pgTest') renderTest();
+  window.scrollTo(0, 0);
+}
+/* 首日空状态判定 */
+function allEmpty() {
+  return !D || ['daily', 'metrics', 'weekly', 'tests', 'external'].every((k) => !D[k].length);
+}
+function emptyCard(icon, text) {
+  return '<div class="card empty-card"><svg viewBox="0 0 24 24">' + icon + '</svg>'
+    + '<div class="card-title" style="margin-bottom:4px">' + text + '</div>'
+    + '<div class="sub" style="margin-bottom:14px">' + U.esc(CONFIG.copy.na) + '</div>'
+    + '<button class="btn-mini" onclick="nav(\'pgToday\')">去记录</button></div>';
+}
+
+/* ============ S0 解锁 / S3 换机恢复 ============ */
+function gateMsg(s) { document.getElementById('gateMsg').textContent = s; }
+async function tryUnlock() {
+  const pass = document.getElementById('gateKey').value;
+  if (!pass) { gateMsg('请输入密钥'); return; }
+  const btn = document.getElementById('btnUnlock');
+  btn.disabled = true;
+  gateMsg('正在获取加密配置…');
+  let text = gistTextCache;
+  try {
+    const r = await fetch(CONFIG.GIST_RAW_URL, { cache: 'no-store' });
+    if (!r.ok) throw new Error('GIST_HTTP_' + r.status);
+    text = await r.text();
+    gistTextCache = text;
+  } catch (e) {
+    btn.disabled = false;
+    const m = String(e.message || '');
+    gateMsg(m === 'GIST_HTTP_404'
+      ? '无法获取加密配置：Gist 地址不存在（HTTP 404）。可先用下方离线只读模式。'
+      : '无法获取加密配置：网络不可达或超时。可先用下方离线只读模式。');
+    return;
+  }
+  gateMsg('正在解密…');
+  let token = '';
+  try { token = await decryptToken(pass, text); }
+  catch (e) { btn.disabled = false; gateMsg('密钥错误或数据损坏，可重试'); return; }
+  TOKEN = token; // 仅内存
+  try { sessionStorage.setItem('tineng_key', pass); } catch (e) {} // 密钥仅 sessionStorage
+  enterApp();
+}
+function enterOffline() {
+  readOnly = true;
+  document.getElementById('gate').hidden = true;
+  document.getElementById('app').hidden = false;
+  nav('pgToday');
+  toast('离线只读模式：数据来自本机缓存，可能不是最新');
+}
+function localEmpty() { return ['daily', 'metrics', 'weekly', 'tests', 'external'].every((k) => !D[k].length); }
+function recCount(o) { return ['daily', 'metrics', 'weekly', 'tests', 'external'].reduce((s, k) => s + ((o[k] && o[k].length) || 0), 0); }
+
+async function enterApp() {
+  readOnly = false;
+  document.getElementById('gate').hidden = true;
+  document.getElementById('app').hidden = false;
+  nav('pgToday');
+  const wasEmpty = localEmpty();
+  try {
+    const g = await ghGet();
+    if (g.status === 200) {
+      if (wasEmpty && g.remote && recCount(g.remote) > 0) { ghSha = g.sha; askRestore(g.remote); return; }
+      ghSha = g.sha;
+      if (g.remote) {
+        const fpRemote = contentFingerprint(g.remote);
+        D = mergeData(D, g.remote);
+        await DB.save(D);
+        if (contentFingerprint(Object.assign({}, D, { updatedAt: null })) !== fpRemote) persist();
+        else {
+          D.state.lastSyncAt = Date.now();
+          D.state.pendingSync = false;
+          D.state.updatedAt = Date.now();
+          await DB.save(D);
+        }
+      }
+    } else if (g.status === 404) {
+      ghSha = null; // 首次写入：不带 sha 创建
+    } else if (g.status === 401 || g.status === 403) {
+      handle401();
+    } else {
+      toast('云端读取失败（HTTP ' + g.status + '），当前使用本机数据');
+    }
+  } catch (e) {
+    toast('云端读取失败，当前使用本机数据');
+  }
+  afterEnter();
+}
+function askRestore(remote) {
+  const n = recCount(remote);
+  const when = remote.updatedAt ? String(remote.updatedAt).replace('T', ' ').slice(0, 16) : '未知时间';
+  showModal('<div class="card-title" style="margin-bottom:10px">检测到云端数据</div>'
+    + '<div class="body-tx">检测到云端数据（' + n + ' 条记录，最后更新 ' + U.esc(when) + '），是否恢复到本设备？</div>'
+    + '<div class="m-actions">'
+    + '<button class="btn-primary" id="mRestore">恢复到本设备</button>'
+    + '<button class="btn-ghost" id="mSkipRestore">暂不，使用本机</button></div>');
+  document.getElementById('mRestore').onclick = async () => {
+    D = mergeData(D, remote);
+    await DB.save(D);
+    closeModal();
+    toast('已恢复云端数据');
+    afterEnter();
+  };
+  document.getElementById('mSkipRestore').onclick = () => {
+    ghSha = null; // 不缓存 sha：下次保存走"冲突→GET→合并"，避免覆盖云端
+    closeModal();
+    afterEnter();
+  };
+}
+function afterEnter() {
+  updateSyncBadge();
+  renderToday();
+  if (readOnly) return;
+  if (!D.state.profileDone) { openGuide(); return; }
+  if (!D.state.backfillDone) openBackfill();
+}
+
+/* ============ S1 引导（4步分步视觉向导，每步一问） ============ */
+let wizStep = 1, wizData = { injuryChoice: 'foot' };
+function openGuide() { wizStep = 1; wizData = { injuryChoice: 'foot' }; document.getElementById('guide').hidden = false; renderGuide(); }
+function closeGuide() { document.getElementById('guide').hidden = true; }
+function guideShell(inner) {
+  return '<div class="fs-head"><div class="fs-steps">引导 · ' + wizStep + ' / 4</div></div>'
+    + '<div class="dots">' + [1, 2, 3, 4].map((i) => '<i class="' + (i === wizStep ? 'on' : '') + '"></i>').join('') + '</div>'
+    + '<div class="card">' + inner + '</div>';
+}
+function renderGuide() {
+  const box = document.getElementById('guideBody');
+  let h = '';
+  if (wizStep === 1) {
+    h = guideShell(
+      '<div class="card-title" style="margin-bottom:8px">欢迎来到体能系统</div>'
+      + '<div class="big-num" style="margin-bottom:10px">最少记录，<br>最大决策价值</div>'
+      + '<div class="body-tx" style="line-height:1.9">为多日徒步与高海拔线路打基础：只记录会改变训练决策的数据，系统按规则给出每日建议。</div>'
+      + '<div class="sub" style="margin-top:12px;line-height:1.9">· 数据存放在你自己的 GitHub 私有仓库<br>· 数据不够时，系统会明确说"数据不足"——这是特性，不是缺陷</div>'
+      + '<button class="btn-primary" style="margin-top:16px" onclick="wizNext()">开始设置</button>'
+    );
+  } else if (wizStep === 2) {
+    const p = D.profile;
+    h = guideShell(
+      '<div class="card-title" style="margin-bottom:14px">你的档案</div>'
+      + '<div class="field"><label>生日（界面只读，年龄实时计算用于心率公式）</label><input id="wBirthday" type="date" value="' + U.esc(p.birthday) + '"></div>'
+      + '<div class="field"><label>身高（cm）</label><input id="wHeight" type="number" inputmode="numeric" value="' + (p.height || '') + '"></div>'
+      + '<div class="field"><label>体重（kg）</label><input id="wWeight0" type="number" step="0.1" inputmode="decimal" value="' + (p.weight0 || '') + '"></div>'
+      + '<div class="field"><label>每周可练天数</label><input id="wWeekly" type="number" min="1" max="7" inputmode="numeric" value="' + (p.weeklyDays || 6) + '"></div>'
+      + '<button class="btn-primary" onclick="wizNext()">下一步</button>'
+    );
+  } else if (wizStep === 3) {
+    const c = wizData.injuryChoice;
+    h = guideShell(
+      '<div class="card-title" style="margin-bottom:8px">伤病确认</div>'
+      + '<div class="sub" style="margin-bottom:14px">选一个最接近的情况；足/踝是两个不同部位的问题，系统会分开处理。</div>'
+      + '<button class="opt-card' + (c === 'foot' ? ' on' : '') + '" onclick="wizInjury(\'foot\')"><div><div class="oc-t">右足软组织挫伤（已预填）</div><div class="oc-d">脚掌疼痛 + 不平路面易崴脚</div></div></button>'
+      + '<button class="opt-card' + (c === 'other' ? ' on' : '') + '" onclick="wizInjury(\'other\')"><div><div class="oc-t">其他旧伤</div><div class="oc-d">自行描述部位与情况</div></div></button>'
+      + '<button class="opt-card' + (c === 'none' ? ' on' : '') + '" onclick="wizInjury(\'none\')"><div><div class="oc-t">无旧伤</div><div class="oc-d">当前没有需要管理的伤病</div></div></button>'
+      + (c === 'other' ? '<div class="field" style="margin-top:12px"><label>旧伤描述</label><textarea id="wInjuryText" rows="2" placeholder="部位与情况">' + U.esc(wizData.injuryText || '') + '</textarea></div>' : '')
+      + '<div class="sub" style="margin-top:4px">疼痛位置不确定属于正常——方案只含低风险动作；若 4 周无改善或疼痛加重，去运动医学科/骨科明确诊断，不要拖。</div>'
+      + '<div style="display:flex;gap:8px;margin-top:16px">'
+      + '<button class="btn-ghost" style="flex:1" onclick="wizPrev()">上一步</button>'
+      + '<button class="btn-primary" style="flex:2" onclick="wizNext()">确认，下一步</button></div>'
+    );
+  } else {
+    const p = D.profile;
+    h = guideShell(
+      '<div class="card-title" style="margin-bottom:8px">导入历史基线</div>'
+      + '<div class="sub" style="margin-bottom:14px">已按 Apple Health 历史预填，可修改；也可跳过保留预填值。</div>'
+      + '<div class="field"><label>静息心率基线（次/分）</label><input id="wRhr" type="number" inputmode="numeric" value="' + (p.rhrBaseline != null ? p.rhrBaseline : 60) + '"></div>'
+      + '<div class="field"><label>HRV 基线（毫秒）</label><input id="wHrv" type="number" inputmode="numeric" value="' + (p.hrvBaseline != null ? p.hrvBaseline : 50) + '"></div>'
+      + '<div class="field"><label>睡眠基线（小时，近3月平均）</label><input id="wSleep" type="number" step="0.1" inputmode="decimal" value="' + (p.sleepBaseline != null ? p.sleepBaseline : 5.4) + '"></div>'
+      + '<button class="btn-primary" onclick="wizSave()">完成引导</button>'
+      + '<button class="link-btn" onclick="wizSkip()">跳过基线导入</button>'
+    );
+  }
+  box.innerHTML = h;
+}
+function wizInjury(c) { wizData.injuryChoice = c; renderGuide(); }
+function wizPrev() { if (wizStep > 1) { wizStep--; renderGuide(); } }
+function wizNext() {
+  if (wizStep === 1) { wizStep = 2; renderGuide(); return; }
+  if (wizStep === 2) {
+    const b = document.getElementById('wBirthday').value;
+    const h = U.num(document.getElementById('wHeight').value);
+    const w = U.num(document.getElementById('wWeight0').value);
+    if (!b || !h || !w) { toast('生日、身高、体重为必填'); return; }
+    wizData.birthday = b;
+    wizData.height = h;
+    wizData.weight0 = w;
+    wizData.weeklyDays = U.num(document.getElementById('wWeekly').value) || 6;
+    wizStep = 3;
+    renderGuide();
+    return;
+  }
+  if (wizStep === 3) {
+    if (wizData.injuryChoice === 'foot') wizData.injury = CONFIG.copy.injuryPreset;
+    else if (wizData.injuryChoice === 'none') wizData.injury = '无旧伤';
+    else {
+      const t = document.getElementById('wInjuryText') ? document.getElementById('wInjuryText').value.trim() : '';
+      if (!t) { toast('请描述旧伤情况'); return; }
+      wizData.injury = t;
+    }
+    wizStep = 4;
+    renderGuide();
+  }
+}
+function applyWizProfile(extra) {
+  Object.assign(D.profile, wizData, extra || {});
+  delete D.profile.injuryChoice;
+  delete D.profile.injuryText;
+  D.profile.updatedAt = Date.now();
+  D.state.updatedAt = Date.now();
+}
+function wizSave() {
+  applyWizProfile({
+    rhrBaseline: U.num(document.getElementById('wRhr').value) || D.profile.rhrBaseline,
+    hrvBaseline: U.num(document.getElementById('wHrv').value) || D.profile.hrvBaseline,
+    sleepBaseline: U.num(document.getElementById('wSleep').value) || D.profile.sleepBaseline
+  });
+  finishGuide();
+}
+function wizSkip() { applyWizProfile(); finishGuide(); }
+function finishGuide() {
+  D.state.profileDone = true;
+  D.state.updatedAt = Date.now();
+  if (!D.profile.createdAt) D.profile.createdAt = U.todayStr();
+  persist();
+  document.getElementById('guideBody').innerHTML =
+    '<div class="fs-head"><div class="fs-steps">引导 · 完成</div></div>'
+    + '<div class="card" style="text-align:center;padding:28px 16px">'
+    + '<svg viewBox="0 0 24 24" width="48" height="48" style="stroke:var(--green);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;margin-bottom:12px"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg>'
+    + '<div class="card-title" style="margin-bottom:8px">档案已建立</div>'
+    + '<div class="body-tx" style="margin-bottom:20px">' + U.esc(CONFIG.copy.guideTestCard) + '</div>'
+    + '<button class="btn-primary" onclick="closeGuide();openBackfill()">下一步：导入历史数据</button>'
+    + '<button class="link-btn" onclick="closeGuide();renderToday()">先跳过，直接开始</button>'
+    + '</div>';
+}
+
+/* ============ S2 历史回填 ============ */
+function openBackfill() { document.getElementById('backfill').hidden = false; }
+function closeBackfill() { document.getElementById('backfill').hidden = true; }
+function saveBackfill() {
+  if (readOnly) { toast('离线只读模式，不能写入'); return; }
+  const sl = U.num(document.getElementById('bfSleep').value);
+  const rh = U.num(document.getElementById('bfRhr').value);
+  const hv = U.num(document.getElementById('bfHrv').value);
+  if (sl == null && rh == null && hv == null) { toast('请至少填写一项'); return; }
+  const t = U.todayStr();
+  let made = 0;
+  for (let i = 6; i >= 0; i--) {
+    const d = U.addDays(t, -i);
+    if (D.metrics.some((x) => x.date === d)) continue; // 已有记录的日期不覆盖
+    D.metrics.push(recStamp({ date: d, sleepH: sl, rhr: rh, hrv: hv }));
+    made++;
+  }
+  D.metrics.sort((a, b) => (a.date < b.date ? -1 : 1));
+  let baseMsg = '';
+  if (rh != null && made > 0) {
+    D.profile.rhrBaseline = rh; // 回填RHR≥4天 → 重算基线=回填均值（覆盖预填60）
+    D.profile.updatedAt = Date.now();
+    baseMsg = '，静息心率基线已重算为 ' + rh;
+  }
+  D.state.backfillDone = true;
+  D.state.updatedAt = Date.now();
+  persist();
+  closeBackfill();
+  updateSyncBadge();
+  renderToday();
+  toast('已生成 ' + made + ' 天历史记录' + baseMsg);
+}
+function skipBackfill() {
+  D.state.backfillDone = true;
+  D.state.updatedAt = Date.now();
+  persist();
+  closeBackfill();
+}
+
+/* ============ 指标层 M（UI 只调用，不自行计算） ============ */
+const M = {
+  age() { // 周岁，由生日实时计算
+    const b = D.profile.birthday;
+    if (!b) return null;
+    const p = b.split('-').map(Number);
+    const t = new Date();
+    let a = t.getFullYear() - p[0];
+    const m = t.getMonth() + 1 - p[1];
+    if (m < 0 || (m === 0 && t.getDate() < p[2])) a--;
+    return a;
+  },
+  hrHardCap() { const a = M.age(); return a == null ? null : CONFIG.hrCapBase - a; }, // 估算值
+  recOn(arr, date) { return arr.find((x) => x.date === date) || null; },
+  dailyOn(date) { return M.recOn(D.daily, date); },
+  metricOn(date) { return M.recOn(D.metrics, date); },
+  latestDaily() { return D.daily.length ? D.daily[D.daily.length - 1] : null; },
+  latestTest() { return D.tests.length ? D.tests[D.tests.length - 1] : null; },
+  rhrBaseline() { // 三级优先：手动(自动校准关) > 近7天均值(≥4天) > 预填60
+    if (!D.state.autoCalibrateRHR) return D.profile.rhrBaseline;
+    const days = [];
+    for (let i = 0; i < CONFIG.rhrBaseWindow; i++) {
+      const m = M.metricOn(U.addDays(U.todayStr(), -i));
+      if (m && m.rhr != null) days.push(m.rhr);
+    }
+    if (days.length >= CONFIG.rhrBaseMinDays) return Math.round(days.reduce((s, x) => s + x, 0) / days.length);
+    return D.profile.rhrBaseline;
+  },
+  weekChecked(ws) { // 休息日与病假均计为已打卡
+    let n = 0;
+    for (let i = 0; i < 7; i++) if (M.dailyOn(U.addDays(ws, i))) n++;
+    return n;
+  },
+  weekCompletion(ws) { return M.weekChecked(ws) / (D.profile.weeklyDays || 6); },
+  weekLoad(ws) { // 周负荷 = Σ(时长×RPE)
+    let s = 0;
+    D.daily.forEach((r) => {
+      if (r.date >= ws && r.date < U.addDays(ws, 7) && CONFIG.trainTypes.indexOf(r.type) >= 0 && r.durationMin && r.rpe) s += r.durationMin * r.rpe;
+    });
+    return s;
+  },
+  weekLowInt(ws) { // 周低强度 = 有氧 + 长时活动
+    let s = 0;
+    D.daily.forEach((r) => {
+      if (r.date >= ws && r.date < U.addDays(ws, 7) && (r.type === '有氧' || r.type === '长时活动') && r.durationMin) s += r.durationMin;
+    });
+    return s;
+  },
+  weekHasTrain(ws) { return D.daily.some((r) => r.date >= ws && r.date < U.addDays(ws, 7) && CONFIG.trainTypes.indexOf(r.type) >= 0); },
+  footWeekDays(ws) { let n = 0; for (let i = 0; i < 7; i++) { const r = M.dailyOn(U.addDays(ws, i)); if (r && r.footRehab) n++; } return n; },
+  footTotalDays() { return D.daily.filter((r) => r.footRehab).length; },
+  sleep7Days() { let n = 0; for (let i = 0; i < 7; i++) { const m = M.metricOn(U.addDays(U.todayStr(), -i)); if (m && m.sleepH != null && m.sleepH >= CONFIG.sleepRefH) n++; } return n; },
+  sleepTotalDays() { return D.metrics.filter((m) => m.sleepH != null && m.sleepH >= CONFIG.sleepRefH).length; },
+  sleepAvg7() { let s = 0, n = 0; for (let i = 0; i < 7; i++) { const m = M.metricOn(U.addDays(U.todayStr(), -i)); if (m && m.sleepH != null) { s += m.sleepH; n++; } } return n ? (s / n) : null; },
+  rhrAvg7() { let s = 0, n = 0; for (let i = 0; i < 7; i++) { const m = M.metricOn(U.addDays(U.todayStr(), -i)); if (m && m.rhr != null) { s += m.rhr; n++; } } return n ? Math.round(s / n) : null; },
+  hrvAvg7() { let s = 0, n = 0; for (let i = 0; i < 7; i++) { const m = M.metricOn(U.addDays(U.todayStr(), -i)); if (m && m.hrv != null) { s += m.hrv; n++; } } return n ? Math.round(s / n) : null; },
+  load7() { let s = 0; for (let i = 0; i < 7; i++) { const r = M.dailyOn(U.addDays(U.todayStr(), -i)); if (r && CONFIG.trainTypes.indexOf(r.type) >= 0 && r.durationMin && r.rpe) s += r.durationMin * r.rpe; } return s; },
+  sleepStats(days) { let w = 0, g = 0; for (let i = 0; i < days; i++) { const m = M.metricOn(U.addDays(U.todayStr(), -i)); if (m && m.sleepH != null) { w++; if (m.sleepH >= CONFIG.sleepRefH) g++; } } return { withData: w, ge7: g }; },
+  rhrOverDays(days) { let n = 0; const b = M.rhrBaseline(); for (let i = 0; i < days; i++) { const m = M.metricOn(U.addDays(U.todayStr(), -i)); if (m && m.rhr != null && m.rhr > b + CONFIG.rhrYelDelta) n++; } return n; },
+  rhrDataDays(days) { let n = 0; for (let i = 0; i < days; i++) { const m = M.metricOn(U.addDays(U.todayStr(), -i)); if (m && m.rhr != null) n++; } return n; },
+  paceStats() {
+    let withHr = 0, ok = 0;
+    const from = U.addDays(U.todayStr(), -27);
+    D.daily.forEach((r) => {
+      if (r.date >= from && (r.type === '有氧' || r.type === '长时活动') && r.avgHr != null) { withHr++; if (r.avgHr <= CONFIG.zone2Cap) ok++; }
+    });
+    return { withHr: withHr, pct: withHr ? Math.round(ok / withHr * 100) : null };
+  },
+  weekWeightDrop() {
+    if (D.weekly.length < 2) return null;
+    const ws = D.weekly.slice().sort((a, b) => (a.weekStart < b.weekStart ? -1 : 1));
+    const a = ws[ws.length - 2].weightKg, b = ws[ws.length - 1].weightKg;
+    if (a == null || b == null) return null;
+    return { drop: a - b, prev: a, cur: b };
+  },
+  redInDays(n) { let c = 0; for (let i = 0; i < n; i++) if (R.lightOn(U.addDays(U.todayStr(), -i)).level === 'red') c++; return c; },
+  weeksCompletionOk() {
+    const t = U.todayStr();
+    for (let i = 0; i < CONFIG.phaseWeeks; i++) if (M.weekCompletion(U.addDays(U.weekStart(t), -7 * i)) < CONFIG.phaseDonePct) return false;
+    return true;
+  },
+  zone2LongCount() { // 估算值：有心率且≤zone2Cap 的≥60分钟单次
+    let c = 0;
+    D.daily.forEach((r) => {
+      if ((r.type === '有氧' || r.type === '长时活动') && r.durationMin >= CONFIG.z2LongMin && r.avgHr != null && r.avgHr <= CONFIG.zone2Cap) c++;
+    });
+    return c;
+  },
+  longSessionOk() { // 估算值：≥3h 且 RPE≤5，次日 RHR 回基线±5
+    for (let i = 0; i < D.daily.length; i++) {
+      const r = D.daily[i];
+      if (r.type === '长时活动' && r.durationMin >= CONFIG.longMin && r.rpe != null && r.rpe <= CONFIG.longRpeMax) {
+        const m = M.metricOn(U.addDays(r.date, 1));
+        if (m && m.rhr != null && Math.abs(m.rhr - M.rhrBaseline()) <= CONFIG.rhrNextDayDelta) return true;
+      }
+    }
+    return false;
+  },
+  footStandInfo() { // 足部前置：体测闭眼单腿每侧≥20s（估算值）
+    const t = M.latestTest();
+    if (!t || t.standL == null || t.standR == null) return { ok: false, why: '需先完成家庭体测（闭眼单腿站立）' };
+    const ok = t.standL >= CONFIG.ankleFrontStand && t.standR >= CONFIG.ankleFrontStand;
+    return { ok: ok, why: ok ? '' : '闭眼单腿需每侧≥' + CONFIG.ankleFrontStand + 's（当前 左' + t.standL + 's/右' + t.standR + 's）' };
+  },
+  isFootAnklePain(p) { return p && p !== '无' && (String(p).indexOf('足') >= 0 || String(p).indexOf('踝') >= 0); },
+  footPainFreeDays() { // 连续无足/踝痛打卡天数（自有记录起，最多回看60天）
+    let n = 0;
+    const cap = D.daily.length ? Math.min(60, U.diffDays(D.daily[0].date, U.todayStr()) + 1) : 0;
+    for (let i = 0; i < cap; i++) {
+      const r = M.dailyOn(U.addDays(U.todayStr(), -i));
+      if (r && M.isFootAnklePain(r.pain)) break;
+      n++;
+    }
+    return n;
+  },
+  footPainStreak() { // 连续足/踝痛打卡天数
+    let n = 0;
+    for (let i = 0; i < 30; i++) {
+      const r = M.dailyOn(U.addDays(U.todayStr(), -i));
+      if (r && M.isFootAnklePain(r.pain)) n++; else break;
+    }
+    return n;
+  }
+};
+
+/* ============ 规则层 R（第七部分：灯态 / 足踝细分 / 阶段状态机） ============ */
+const R = {
+  lightOn(date) {
+    const rec = M.dailyOn(date);
+    // 灯态第一步：疼痛三分支（足=黄减负 / 踝=黄降级 / 膝腰其他=红）
+    if (rec && rec.pain && rec.pain !== '无') {
+      const p = String(rec.pain);
+      if (p.indexOf('踝') >= 0) return { level: 'yellow', reason: CONFIG.copy.yellowAnkle };
+      if (p.indexOf('足') >= 0) return { level: 'yellow', reason: CONFIG.copy.yellowFoot };
+      return { level: 'red', reason: CONFIG.copy.red };
+    }
+    const base = M.rhrBaseline();
+    let rhrRed = true, rhrYel = true;
+    for (let i = 0; i < CONFIG.rhrRedDays; i++) {
+      const m = M.metricOn(U.addDays(date, -i));
+      if (!(m && m.rhr != null && m.rhr > base + CONFIG.rhrRedDelta)) rhrRed = false;
+      if (!(m && m.rhr != null && m.rhr > base + CONFIG.rhrYelDelta)) rhrYel = false;
+    }
+    if (rhrRed && rec && rec.mood === '差') return { level: 'red', reason: '静息心率连续' + CONFIG.rhrRedDays + '天超基线+' + CONFIG.rhrRedDelta + ' 且主观状态差' };
+    let sleepBad = true;
+    for (let i = 0; i < CONFIG.sleepShortDays; i++) {
+      const m = M.metricOn(U.addDays(date, -i));
+      if (!(m && m.sleepH != null && m.sleepH < CONFIG.sleepShortH)) sleepBad = false;
+    }
+    if (sleepBad) return { level: 'yellow', reason: CONFIG.copy.yellowSleep };
+    if (rhrYel) return { level: 'yellow', reason: '静息心率连续' + CONFIG.rhrYelDays + '天超基线+' + CONFIG.rhrYelDelta };
+    let moodBad = true;
+    for (let i = 0; i < CONFIG.moodBadDays; i++) {
+      const r = M.dailyOn(U.addDays(date, -i));
+      if (!(r && r.mood === '差')) moodBad = false;
+    }
+    if (moodBad) return { level: 'yellow', reason: '主观状态连续' + CONFIG.moodBadDays + '天为"差"' };
+    return { level: 'green', reason: CONFIG.copy.green };
+  },
+  todayLight() { // 疼痛取最近一条记录（最新已知状态）
+    const latest = M.latestDaily();
+    if (latest && latest.pain && latest.pain !== '无') {
+      const p = String(latest.pain);
+      if (p.indexOf('踝') >= 0) return { level: 'yellow', reason: CONFIG.copy.yellowAnkle };
+      if (p.indexOf('足') >= 0) return { level: 'yellow', reason: CONFIG.copy.yellowFoot };
+      return { level: 'red', reason: CONFIG.copy.red };
+    }
+    return R.lightOn(U.todayStr());
+  },
+  advice(L) {
+    if (L.level === 'red') return '停训，仅八段锦/足底放松';
+    if (L.level === 'yellow') return '减量30-50%，仅低强度';
+    const day = CONFIG.weekTemplate[new Date().getDay()];
+    return '今日按排表：' + day + '。' + CONFIG.copy.phase[D.state.phase];
+  },
+  /* 踝痛打卡：黄灯 + footStage 自动-1（0不再降），每条记录只处理一次 */
+  applyAnklePain(rec) {
+    if (rec.painProcessed) return false;
+    if (!(rec.pain && String(rec.pain).indexOf('踝') >= 0)) return false;
+    rec.painProcessed = true;
+    const before = D.state.footStage;
+    D.state.footStage = Math.max(0, before - 1);
+    D.state.updatedAt = Date.now();
+    return true;
+  },
+  footFrontOk() { // 阶段1→2 足部前置：连续14天无足/踝痛 + 体测单腿每侧≥20s
+    return M.footPainFreeDays() >= CONFIG.anklePainFreeDaysSafe() && M.footStandInfo().ok;
+  },
+  evalPhase() {
+    const s = D.state;
+    const t = U.todayStr();
+    if (s.downgradedAt) {
+      if (U.diffDays(s.downgradedAt, t) >= CONFIG.downHoldDays) { s.downgradedAt = null; }
+      else return;
+    }
+    let allYellow = true, hasRed = false;
+    for (let i = 0; i < CONFIG.yellowDownRun; i++) {
+      const lv = R.lightOn(U.addDays(t, -i)).level;
+      if (lv === 'red') hasRed = true;
+      if (lv !== 'yellow') allYellow = false;
+    }
+    if (allYellow || hasRed) {
+      if (s.phase > 0) {
+        s.phase--; // 降级：降1级 + 维持7天再评估（阶段为整数）
+        s.downgradedAt = t;
+        s.updatedAt = Date.now();
+        toast('已触发降级：阶段→' + s.phase + '，维持' + CONFIG.downHoldDays + '天');
+      }
+      return;
+    }
+    if (s.phase === 0) {
+      if (M.redInDays(CONFIG.noRedDays) === 0 && M.weeksCompletionOk()) { s.phase = 1; s.updatedAt = Date.now(); toast('晋级：进入阶段1'); }
+    } else if (s.phase === 1) {
+      if (M.zone2LongCount() >= CONFIG.z2LongCount && R.footFrontOk()) { s.phase = 2; s.updatedAt = Date.now(); toast('晋级：进入阶段2'); }
+    } else if (s.phase === 2) {
+      if (M.longSessionOk()) { s.phase = 3; s.updatedAt = Date.now(); toast('晋级：进入阶段3'); }
+    }
+  },
+  nextRetest() { return D.state.lastTestDate ? U.addDays(D.state.lastTestDate, CONFIG.retestDays) : null; }
+};
+CONFIG.anklePainFreeDaysSafe = function () { return 14; }; // 足部前置：连续14天无足/踝痛（估算值）
+
+/* ============ Tab1 今天 ============ */
+const tf = { type: '无', cardioChoice: null, checks: [false, false, false, false, false, false], painOpt: '无', painText: '', mood: '', footRehab: false, baduanjin: false };
+
+function streakCells(kind) {
+  const onCls = kind === 'footRehab' ? 'o-on' : 'p-on';
+  let s = '<div class="streak">';
+  for (let i = 4; i >= 0; i--) {
+    const d = U.addDays(U.todayStr(), -i);
+    const r = M.dailyOn(d);
+    let c = '';
+    if (i === 0 && (kind === 'footRehab' ? tf.footRehab : tf.baduanjin)) c = onCls;
+    else if (r && r[kind]) c = onCls;
+    else if (r && (r.type === '休息日' || r.type === '病假')) c = 'rest';
+    s += '<i class="' + c + (i === 0 ? ' today' : '') + '"></i>';
+  }
+  return s + '</div>';
+}
+
+function renderToday() {
+  updateSyncBadge();
+  const t = U.todayStr();
+  let h = '';
+  // K12 备战卡（9/23 前显示，之后自动隐藏）
+  if (t <= CONFIG.k12Date) {
+    h += '<div class="card"><div class="card-head">'
+      + '<div class="bubble bg-orange" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="3"/><path d="M8 3v4M16 3v4M4 10h16"/></svg></div>'
+      + '<div class="card-title" style="margin:0">9/23 国民体测备战</div></div>'
+      + CONFIG.k12.map((x) => '<div class="sub">· ' + U.esc(x) + '</div>').join('')
+      + '</div>';
+  }
+  // 周体重横幅（不变灯色）
+  const wd = M.weekWeightDrop();
+  if (wd && wd.drop > CONFIG.weightDropKg) {
+    h += '<div class="bannercard">本周体重较上次下降 ' + wd.drop.toFixed(1) + ' kg（超过 ' + CONFIG.weightDropKg + ' kg）。K11 提醒：目标不是减重，是体重稳定或缓升——记得加餐。</div>';
+  }
+  // 状态卡（首日空状态：第一天，从记录开始）
+  if (allEmpty()) {
+    h += '<div class="card light-card"><div class="light-bar"></div><div class="light-main">'
+      + '<div class="light-name">第一天，从记录开始</div>'
+      + '<div class="sub">' + U.esc(CONFIG.copy.green) + '</div>'
+      + '</div></div>';
+  } else {
+    const L = R.todayLight();
+    h += '<div class="card light-card lv-' + (L.level === 'red' ? 'red' : (L.level === 'yellow' ? 'yel' : 'grn')) + '">'
+      + '<div class="light-bar"></div><div class="light-main">'
+      + '<div class="light-name">' + (L.level === 'red' ? '红灯' : (L.level === 'yellow' ? '黄灯' : '绿灯')) + '</div>'
+      + '<div class="sub">' + U.esc(L.reason) + '</div>'
+      + '<div class="body-tx" style="margin-top:8px;font-weight:500">今日建议：' + U.esc(R.advice(L)) + '</div>'
+      + '</div></div>';
+  }
+  // 今日安排卡（周模板）
+  h += '<div class="card" id="planCard">' + planHtml() + '</div>';
+  // 足底康复卡
+  const fs = D.state.footStage;
+  const stg = CONFIG.footStages[fs];
+  h += '<div class="card">'
+    + '<div class="card-head"><div class="bubble bg-orange" aria-hidden="true"><svg viewBox="0 0 24 24"><ellipse cx="10" cy="14" rx="4" ry="6"/><circle cx="16.5" cy="7.5" r="1.4"/><circle cx="18.5" cy="11" r="1.4"/><circle cx="18.5" cy="15" r="1.4"/></svg></div>'
+    + '<div style="flex:1"><div class="card-title" style="margin:0">足底康复 · Stage ' + fs + '</div><div class="sub">' + U.esc(stg.name) + ' · ' + U.esc(stg.mins) + '</div></div>'
+    + '<span id="streakFoot">' + streakCells('footRehab') + '</span></div>'
+    + '<div class="sub" style="margin-bottom:10px">' + U.esc(CONFIG.footNote) + '</div>'
+    + stg.items.map((x) => '<div class="body-tx" style="padding:4px 0">· ' + U.esc(x) + '</div>').join('')
+    + '<div class="sub" style="margin-top:6px">' + U.esc(stg.promo) + '</div>'
+    + '<div style="display:flex;gap:8px;margin:10px 0">'
+    + CONFIG.footLinks.map((l) => '<button class="ci-btn" onclick="window.open(\'' + l.u + '\')">' + l.t + '</button>').join('')
+    + '</div>'
+    + '<div class="row-between"><label class="body-tx" style="font-weight:500">今日足康复打卡</label>'
+    + '<label class="switch"><input type="checkbox" id="swFoot"' + (tf.footRehab ? ' checked' : '') + ' onchange="setFoot(this.checked)"><span class="sl"></span></label></div>'
+    + '</div>';
+  // 八段锦卡
+  h += '<div class="card">'
+    + '<div class="card-head"><div class="bubble bg-purple" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v18M5 7c2-2 5-2 7 0 2-2 5-2 7 0M5 12c2-2 5-2 7 0 2-2 5-2 7 0M5 17c2-2 5-2 7 0 2-2 5-2 7 0"/></svg></div>'
+    + '<div style="flex:1"><div class="card-title" style="margin:0">八段锦</div><div class="sub">武当道家八段锦 · 计入连续性、不计入负荷</div></div>'
+    + '<span id="streakBdj">' + streakCells('baduanjin') + '</span></div>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">'
+    + '<button class="ci-btn" onclick="showBaduanjin()">八式列表</button>'
+    + '<button class="ci-btn" onclick="window.open(\'' + CONFIG.baduanjin.teach + '\')">' + CONFIG.baduanjin.teachLabel + '</button>'
+    + '<button class="ci-btn" onclick="window.open(\'' + CONFIG.baduanjin.follow + '\')">' + CONFIG.baduanjin.followLabel + '</button>'
+    + '</div>'
+    + '<div class="sub" style="margin-bottom:10px">' + U.esc(CONFIG.baduanjin.timing) + '</div>'
+    + '<div class="row-between"><label class="body-tx" style="font-weight:500">今日八段锦打卡</label>'
+    + '<label class="switch"><input type="checkbox" id="swBdj"' + (tf.baduanjin ? ' checked' : '') + ' onchange="setBaduanjin(this.checked)"><span class="sl"></span></label></div>'
+    + '</div>';
+  // 记录卡
+  h += '<div class="card">'
+    + '<div class="card-head"><div class="bubble bg-blue" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="13" cy="5" r="2.2"/><path d="M8 21l2.5-5.5L8 13l1.5-4.5L14 10l3 2M9.5 8.5L6 10l-1 3M10.5 15.5L14 21"/></svg></div>'
+    + '<div class="card-title" style="margin:0">记录</div></div>'
+    + '<div class="field"><label>训练类型</label><div class="chips" id="typeChips">' + typeChips() + '</div></div>'
+    + '<div id="trainFields"' + (CONFIG.trainTypes.indexOf(tf.type) < 0 ? ' hidden' : '') + '>'
+    + '  <div class="field"><label>时长（分钟）<b style="color:var(--red)">*</b></label><input id="fDur" type="number" min="1" max="600" inputmode="numeric" placeholder="如 45"></div>'
+    + '  <div class="field"><label>体感强度 RPE（1-10）<b style="color:var(--red)">*</b>'
+    + '    <button class="ci-btn" style="min-height:28px;padding:2px 10px;margin-left:6px" onclick="showRpeModal()" aria-label="RPE锚定表">?</button></label>'
+    + '    <input id="fRpe" type="number" min="1" max="10" inputmode="numeric" placeholder="1=极轻松，10=极限"></div>'
+    + '  <div class="field"><label>平均心率（可选，Watch训练结束后抄写，可留空）</label><input id="fHr" type="number" min="60" max="220" inputmode="numeric" placeholder="如 128"></div>'
+    + '</div>'
+    + '<div class="field"><label>疼痛</label><div class="chips" id="painChips">' + painChips() + '</div>'
+    + '<input id="fPainText" placeholder="部位描述" style="margin-top:8px"' + (tf.painOpt === '其他' ? '' : ' hidden') + '></div>'
+    + '<div class="field"><label>主观状态</label><div class="chips" id="moodChips">' + moodChips() + '</div></div>'
+    + '<div class="field"><label>备注（可选，单行）</label><input id="fNote" maxlength="60" placeholder="可留空"></div>'
+    + '</div>';
+  // 被动指标折叠卡
+  h += '<div class="card"><div class="card-head">'
+    + '<div class="bubble bg-purple" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20.5 14.5A8.5 8.5 0 1 1 9.5 3.5a7 7 0 0 0 11 11z"/></svg></div>'
+    + '<div class="card-title" style="margin:0">被动指标</div></div>'
+    + '<div class="sub" style="margin-bottom:10px">从健康App抄写，可留空</div>'
+    + '<div class="field"><label>睡眠（小时）</label><input id="fSleep" type="number" step="0.1" min="0" max="24" inputmode="decimal" placeholder="如 5.4"></div>'
+    + '<div class="field"><label>静息心率</label><input id="fRhr" type="number" min="30" max="120" inputmode="numeric" placeholder="如 60"></div>'
+    + '<div class="field"><label>HRV（毫秒）</label><input id="fHrv" type="number" min="5" max="200" inputmode="numeric" placeholder="如 50"></div>'
+    + '</div>';
+  document.getElementById('todayBody').innerHTML = h;
+  prefillToday();
+}
+
+function typeChips() {
+  return CONFIG.typeList.map((t) => '<button class="chip' + (t === tf.type ? ' on' : '') + '" onclick="tfType(\'' + t + '\')">' + t + '</button>').join('');
+}
+function painChips() {
+  return CONFIG.painOptions.map((p) => '<button class="chip' + (p === tf.painOpt ? ' on' : '') + '" onclick="setPain(\'' + p + '\')">' + p + '</button>').join('');
+}
+function moodChips() {
+  return CONFIG.moods.map((m) => '<button class="chip' + (m === tf.mood ? ' on' : '') + '" onclick="setMood(\'' + m + '\')">' + m + '</button>').join('');
+}
+
+/* 今日安排卡：按周模板（CONFIG可改），力量/有氧展开对应知识 */
+function planHtml() {
+  const dayIdx = new Date().getDay();
+  const dayType = CONFIG.weekTemplate[dayIdx];
+  const eff = CONFIG.trainTypes.indexOf(tf.type) >= 0 ? tf.type : dayType;
+  let h = '<div class="card-head"><div class="bubble bg-blue" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="3"/><path d="M8 3v4M16 3v4M4 10h16"/></svg></div>'
+    + '<div style="flex:1"><div class="card-title" style="margin:0">今日安排 · ' + dayType + '</div><div class="sub">按周模板（可在CONFIG修改）</div></div></div>';
+  if (eff === '有氧') {
+    h += '<div class="field"><label>有氧方式（3选1）</label><div class="chips" id="cardioChips">'
+      + CONFIG.cardio.map((c) => '<button class="chip' + (tf.cardioChoice === c.name ? ' on' : '') + '" onclick="setCardio(\'' + c.name + '\')">' + c.name + '</button>').join('')
+      + '</div></div>';
+    h += CONFIG.cardio.map((c) => tf.cardioChoice === c.name
+      ? '<div class="sub" style="margin-bottom:6px"><b>' + c.name + '</b>｜' + U.esc(c.dur) + '｜' + U.esc(c.tip)
+      + '　<button class="ci-btn" style="min-height:28px;padding:2px 8px" onclick="window.open(\'' + c.link + '\')">📺教学</button></div>' : '').join('');
+    h += '<div class="sub" style="margin-bottom:8px;color:var(--orange)">' + U.esc(CONFIG.cardioFootTip) + '</div>';
+    h += '<details class="fold"><summary>Zone2 有氧执行指南</summary><div class="fold-body sub">'
+      + '心率上限 139（保守修正），宁可慢不可快<br>谈话测试：能完整说出一句话不喘=在区间内<br>心率漂移：后半程心率上升&gt;10% 说明强度偏高，下次放慢<br>无聊是正常的：Zone2 的成效在 8-12 周后的复测里，不在今天的汗里<br>每次结束在 Watch 上看平均心率，抄进记录的 avgHr</div></details>';
+  } else if (eff === '力量') {
+    h += '<div class="sub" style="margin-bottom:6px">勾选今日完成的动作（全部完成才能保存）：</div>';
+    h += CONFIG.actions.map((a, i) => {
+      const reps = D.state.strengthReps[a.repsKey];
+      return '<div class="check-item"><div class="ck' + (tf.checks[i] ? ' on' : '') + '" id="ck' + i + '" onclick="tfCheck(' + i + ')" role="checkbox" aria-checked="' + tf.checks[i] + '" aria-label="' + U.esc(a.name) + '">'
+        + '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg></div>'
+        + '<div class="ci-main"><div class="ci-name">' + a.name + '<span class="sub">｜' + a.part + '｜3×' + reps + a.unit + '</span></div>'
+        + '<div class="ci-sub">' + U.esc(a.guide) + '</div></div>'
+        + '<div class="ci-btns"><button class="ci-btn" onclick="showComp(' + i + ')">⚠️自查</button>'
+        + '<button class="ci-btn" onclick="window.open(\'' + a.link + '\')">📺教学</button></div></div>';
+    }).join('');
+    h += '<div class="sub" style="margin-top:8px">' + U.esc(CONFIG.progressionCopy) + '</div>';
+  } else if (eff === '长时活动') {
+    h += '<div class="body-tx" style="line-height:1.9">' + U.esc(CONFIG.longCopy) + '</div>';
+  } else {
+    h += '<div class="body-tx">今日休息：可做八段锦与足底康复，计入连续性、不计入负荷。</div>';
+  }
+  if (CONFIG.trainTypes.indexOf(eff) >= 0) {
+    h += '<details class="fold"><summary>热身与放松（各5分钟）</summary><div class="fold-body">'
+      + '<b>热身：</b>' + U.esc(CONFIG.warmup) + '<br><b>放松：</b>' + U.esc(CONFIG.cooldown)
+      + '<br><span class="sub">' + U.esc(CONFIG.weatherAlt) + '</span></div></details>';
+  }
+  return h;
+}
+
+/* 表单交互（局部更新，不丢输入） */
+function tfType(t) {
+  tf.type = t;
+  const chips = document.getElementById('typeChips');
+  if (chips) chips.innerHTML = typeChips();
+  const f = document.getElementById('trainFields');
+  if (f) f.hidden = CONFIG.trainTypes.indexOf(t) < 0;
+  const pc = document.getElementById('planCard');
+  if (pc) pc.innerHTML = planHtml();
+}
+function setCardio(c) {
+  tf.cardioChoice = c;
+  const el = document.getElementById('cardioChips');
+  if (el) el.innerHTML = CONFIG.cardio.map((x) => '<button class="chip' + (tf.cardioChoice === x.name ? ' on' : '') + '" onclick="setCardio(\'' + x.name + '\')">' + x.name + '</button>').join('');
+  const pc = document.getElementById('planCard');
+  if (pc) pc.innerHTML = planHtml();
+}
+function tfCheck(i) {
+  tf.checks[i] = !tf.checks[i];
+  const el = document.getElementById('ck' + i);
+  if (el) { el.classList.toggle('on', tf.checks[i]); el.setAttribute('aria-checked', tf.checks[i]); }
+}
+function setPain(p) {
+  tf.painOpt = p;
+  const el = document.getElementById('painChips');
+  if (el) el.innerHTML = painChips();
+  const i = document.getElementById('fPainText');
+  if (i) i.hidden = (p !== '其他');
+}
+function setMood(m) {
+  tf.mood = m;
+  const el = document.getElementById('moodChips');
+  if (el) el.innerHTML = moodChips();
+}
+function setFoot(v) {
+  tf.footRehab = v;
+  const el = document.getElementById('streakFoot');
+  if (el) el.innerHTML = streakCells('footRehab');
+}
+function setBaduanjin(v) {
+  tf.baduanjin = v;
+  const el = document.getElementById('streakBdj');
+  if (el) el.innerHTML = streakCells('baduanjin');
+}
+
+function showRpeModal() {
+  showModal('<div class="card-title" style="margin-bottom:10px">RPE 自感用力锚定表</div>'
+    + '<table class="cmp">' + CONFIG.rpeTable.map((r) => '<tr><td style="width:52px;font-weight:600">' + r[0] + '</td><td>' + U.esc(r[1]) + '</td></tr>').join('') + '</table>'
+    + '<div class="sub" style="margin-top:10px">' + U.esc(CONFIG.rpeGoal) + '</div>'
+    + '<div class="m-actions"><button class="btn-primary" onclick="closeModal()">知道了</button></div>');
+}
+function showComp(i) {
+  const a = CONFIG.actions[i];
+  showModal('<div class="card-title" style="margin-bottom:8px">' + U.esc(a.name) + ' · 代偿自查</div>'
+    + '<div class="body-tx" style="line-height:2"><b>⚠️ 代偿：</b>' + U.esc(a.comp) + '<br><b>纠正：</b>' + U.esc(a.fix) + '</div>'
+    + '<div class="m-actions"><button class="btn-primary" onclick="closeModal()">知道了</button>'
+    + '<button class="btn-ghost" onclick="window.open(\'' + a.link + '\')">📺教学</button></div>');
+}
+function showBaduanjin() {
+  showModal('<div class="card-title" style="margin-bottom:10px">八段锦 · 八式与武当要点</div>'
+    + '<div class="body-tx" style="line-height:2.1">' + CONFIG.baduanjin.forms.map((f, i) => (i + 1) + '. ' + U.esc(f)).join('<br>') + '</div>'
+    + '<div class="sub" style="margin-top:10px">' + U.esc(CONFIG.baduanjin.note) + '</div>'
+    + '<div class="m-actions"><button class="btn-primary" onclick="closeModal()">知道了</button></div>');
+}
+
+function prefillToday() {
+  const rec = M.dailyOn(U.todayStr());
+  const met = M.metricOn(U.todayStr());
+  tf.type = rec ? rec.type : '无';
+  tf.cardioChoice = rec ? (rec.cardioChoice || null) : null;
+  tf.checks = (rec && rec.strengthChecks) ? rec.strengthChecks.slice() : [false, false, false, false, false, false];
+  tf.footRehab = !!(rec && rec.footRehab);
+  tf.baduanjin = !!(rec && rec.baduanjin);
+  tf.painOpt = '无'; tf.painText = '';
+  if (rec && rec.pain && rec.pain !== '无') {
+    if (CONFIG.painOptions.indexOf(rec.pain) >= 0) tf.painOpt = rec.pain;
+    else { tf.painOpt = '其他'; tf.painText = rec.pain; }
+  }
+  tf.mood = rec ? (rec.mood || '') : '';
+  const sf = document.getElementById('swFoot'), sb = document.getElementById('swBdj');
+  if (sf) sf.checked = tf.footRehab;
+  if (sb) sb.checked = tf.baduanjin;
+  const tc = document.getElementById('typeChips');
+  if (tc) tc.innerHTML = typeChips();
+  const tff = document.getElementById('trainFields');
+  if (tff) tff.hidden = CONFIG.trainTypes.indexOf(tf.type) < 0;
+  const pc = document.getElementById('planCard');
+  if (pc) pc.innerHTML = planHtml();
+  const setv = (id, v) => { const el = document.getElementById(id); if (el) el.value = (v != null ? v : ''); };
+  setv('fDur', rec && rec.durationMin != null ? rec.durationMin : '');
+  setv('fRpe', rec && rec.rpe != null ? rec.rpe : '');
+  setv('fHr', rec && rec.avgHr != null ? rec.avgHr : '');
+  setv('fPainText', tf.painText);
+  const pt = document.getElementById('fPainText');
+  if (pt) pt.hidden = tf.painOpt !== '其他';
+  const pc2 = document.getElementById('painChips');
+  if (pc2) pc2.innerHTML = painChips();
+  const mc = document.getElementById('moodChips');
+  if (mc) mc.innerHTML = moodChips();
+  setv('fNote', rec && rec.note ? rec.note : '');
+  setv('fSleep', met && met.sleepH != null ? met.sleepH : '');
+  setv('fRhr', met && met.rhr != null ? met.rhr : '');
+  setv('fHrv', met && met.hrv != null ? met.hrv : '');
+}
+
+/* 力量渐进计数器（K5）：≤7加 / 8持平 / ≥9减10% */
+function applyProgression(rpe) {
+  const sr = D.state.strengthReps;
+  CONFIG.actions.forEach((a) => {
+    const k = a.repsKey;
+    if (rpe <= 7) sr[k] = sr[k] + (a.unit.indexOf('秒') >= 0 ? 5 : 1);
+    else if (rpe >= 9) sr[k] = Math.max(1, Math.round(sr[k] * 0.9));
+    // rpe==8 → 持平
+  });
+  D.state.strengthFails = 0; // 完成力量日即复位"未完成"计数
+  D.state.updatedAt = Date.now();
+}
+
+function tfSave() {
+  if (readOnly) { toast('离线只读模式，不能保存'); return; }
+  const rec = makeDailyRecord(U.todayStr());
+  rec.type = tf.type;
+  rec.footRehab = tf.footRehab;
+  rec.baduanjin = tf.baduanjin;
+  if (CONFIG.trainTypes.indexOf(tf.type) >= 0) {
+    const dur = U.num((document.getElementById('fDur') || {}).value);
+    const rpe = U.num((document.getElementById('fRpe') || {}).value);
+    if (!dur || dur <= 0) { toast('请填写时长（分钟）'); return; }
+    if (rpe == null || rpe < 1 || rpe > 10) { toast('请填写体感强度 RPE（1-10）'); return; }
+    rec.durationMin = dur;
+    rec.rpe = rpe;
+    const hr = U.num((document.getElementById('fHr') || {}).value);
+    if (hr != null) rec.avgHr = hr;
+  }
+  if (tf.type === '有氧') {
+    if (!tf.cardioChoice) { toast('请选择有氧方式（3选1）'); return; }
+    rec.cardioChoice = tf.cardioChoice;
+  }
+  if (tf.type === '力量') {
+    if (!tf.checks.every(Boolean)) {
+      // K5：连续2次力量日未完成全部动作 → 各动作 -10%（被阻止的尝试计为一次"未完成"）
+      D.state.strengthFails = (D.state.strengthFails || 0) + 1;
+      if (D.state.strengthFails >= 2) {
+        CONFIG.actions.forEach((a) => {
+          const k = a.repsKey;
+          D.state.strengthReps[k] = Math.max(1, Math.round(D.state.strengthReps[k] * 0.9));
+        });
+        D.state.strengthFails = 0;
+        D.state.updatedAt = Date.now();
+        persist();
+        toast('连续2次未完成全部动作：各动作次数已-10%（K5渐进规则）');
+        return;
+      }
+      D.state.updatedAt = Date.now();
+      DB.save(D).catch(() => {});
+      toast('力量日需勾选全部6个动作后再保存（连续2次未完成将自动-10%）');
+      return;
+    }
+    rec.strengthChecks = tf.checks.slice();
+    D.state.strengthFails = 0;
+  }
+  if (tf.painOpt === '其他') {
+    const p = (document.getElementById('fPainText') || {}).value || '';
+    if (!p.trim()) { toast('已选"其他"疼痛，请填写部位'); return; }
+    rec.pain = p.trim();
+  } else {
+    rec.pain = tf.painOpt;
+  }
+  if (!tf.mood) { toast('请选择主观状态'); return; }
+  rec.mood = tf.mood;
+  rec.note = ((document.getElementById('fNote') || {}).value || '').trim();
+  const old = M.dailyOn(rec.date);
+  if (old && old.painProcessed) rec.painProcessed = true; // 防重复降级
+  recStamp(rec);
+  upsertByDate(D.daily, rec);
+  // 被动指标
+  const oldMet = M.metricOn(rec.date);
+  const met = Object.assign({}, oldMet || {}, { date: rec.date });
+  met.sleepH = U.num((document.getElementById('fSleep') || {}).value);
+  met.rhr = U.num((document.getElementById('fRhr') || {}).value);
+  met.hrv = U.num((document.getElementById('fHrv') || {}).value);
+  recStamp(met);
+  upsertByDate(D.metrics, met);
+  // 静息心率基线自动校准回写（估算值）
+  if (D.state.autoCalibrateRHR) {
+    const b = M.rhrBaseline();
+    if (b && b !== D.profile.rhrBaseline) { D.profile.rhrBaseline = b; D.profile.updatedAt = Date.now(); }
+  }
+  // 踝痛：黄灯 + footStage-1（0不再降）
+  let warn = '';
+  if (R.applyAnklePain(rec)) warn = '；防崴训练已降为 Stage ' + D.state.footStage;
+  // 心率硬上限提示（180-周岁，估算值）
+  if (rec.avgHr != null) {
+    const cap = M.hrHardCap();
+    if (cap && rec.avgHr > cap) toast('平均心率 ' + rec.avgHr + ' 超过硬上限 ' + cap + '（180-周岁' + M.age() + '），请注意');
+  }
+  // 力量渐进
+  if (tf.type === '力量' && rec.strengthChecks && rec.rpe != null) applyProgression(rec.rpe);
+  // 阶段状态机
+  R.evalPhase();
+  persist();
+  // 连续3天足/踝痛 → 就医提示卡
+  if (M.isFootAnklePain(rec.pain) && M.footPainStreak() >= CONFIG.footDoctorDays) {
+    showModal('<div class="card-title" style="margin-bottom:10px">就医提醒</div>'
+      + '<div class="body-tx">' + U.esc(CONFIG.copy.footDoctor) + '</div>'
+      + '<div class="m-actions"><button class="btn-primary" onclick="closeModal()">知道了</button></div>');
+  }
+  prefillToday();
+  renderToday();
+  // 保存成功微交互：按钮变绿打勾1秒
+  const b = document.getElementById('btnSave');
+  b.classList.add('saved');
+  b.innerHTML = '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg>已保存';
+  setTimeout(() => { b.classList.remove('saved'); b.textContent = '保存今日记录'; }, 1000);
+  if (warn) toast('已保存' + warn);
+}
+
+/* ============ SVG 图表库（原生手绘，颜色走 CSS 变量适配深色模式） ============ */
+function naHint() { return '<div class="sub" style="text-align:center;padding:30px 0">' + U.esc(CONFIG.copy.na) + '</div>'; }
+function chartLine(points, o) {
+  const W = 340, H = 170, L = 34, Rp = 8, T = 14, B = 24;
+  const pts = (points || []).filter((p) => p.y != null);
+  if (pts.length < 3) return naHint();
+  const ys = pts.map((p) => p.y);
+  if (o.baseline != null) ys.push(o.baseline);
+  let ymin = Math.min.apply(null, ys), ymax = Math.max.apply(null, ys);
+  if (ymax === ymin) { ymax += 1; ymin -= 1; }
+  const pad = (ymax - ymin) * 0.15; ymin -= pad; ymax += pad;
+  const X = (i) => L + (W - L - Rp) * (pts.length === 1 ? 0.5 : i / (pts.length - 1));
+  const Y = (v) => T + (H - T - B) * (1 - (v - ymin) / (ymax - ymin));
+  const col = o.colorVar || 'var(--teal)';
+  let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img">';
+  for (let g = 1; g < 4; g++) s += '<line x1="' + L + '" y1="' + (T + (H - T - B) * g / 4).toFixed(1) + '" x2="' + (W - Rp) + '" y2="' + (T + (H - T - B) * g / 4).toFixed(1) + '" style="stroke:var(--line)"/>';
+  if (o.baseline != null) {
+    s += '<line x1="' + L + '" y1="' + Y(o.baseline).toFixed(1) + '" x2="' + (W - Rp) + '" y2="' + Y(o.baseline).toFixed(1) + '" style="stroke:var(--orange)" stroke-dasharray="4 3"/>'
+      + '<text x="' + (W - Rp) + '" y="' + (Y(o.baseline) - 3).toFixed(1) + '" style="fill:var(--orange)" font-size="9" text-anchor="end">基线 ' + o.baseline + '</text>';
+  }
+  s += '<path d="' + pts.map((p, i) => (i ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(p.y).toFixed(1)).join(' ') + '" fill="none" style="stroke:' + col + '" stroke-width="2"/>';
+  pts.forEach((p, i) => { s += '<circle cx="' + X(i).toFixed(1) + '" cy="' + Y(p.y).toFixed(1) + '" r="2.2" style="fill:' + col + '"/>'; });
+  [0, Math.floor((pts.length - 1) / 2), pts.length - 1].forEach((i) => {
+    s += '<text x="' + X(i).toFixed(1) + '" y="' + (H - 7) + '" style="fill:var(--text2)" font-size="9" text-anchor="middle">' + U.esc(pts[i].x) + '</text>';
+  });
+  s += '<text x="3" y="' + (T + 5) + '" style="fill:var(--text2)" font-size="9">' + Math.round(ymax) + '</text>';
+  s += '</svg>';
+  return s;
+}
+function chartBars(bars, o) {
+  const W = 340, H = 170, L = 30, Rp = 8, T = 14, B = 24;
+  const bs = (bars || []).filter((b) => b.y != null);
+  if (bs.length < 3) return naHint();
+  const ys = bs.map((b) => b.y);
+  if (o.refY != null) ys.push(o.refY);
+  let ymax = Math.max.apply(null, ys);
+  ymax += (ymax * 0.15) || 1;
+  const bw = (W - L - Rp) / bs.length;
+  const Y = (v) => T + (H - T - B) * (1 - v / ymax);
+  let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img">';
+  for (let g = 1; g < 4; g++) s += '<line x1="' + L + '" y1="' + (T + (H - T - B) * g / 4).toFixed(1) + '" x2="' + (W - Rp) + '" y2="' + (T + (H - T - B) * g / 4).toFixed(1) + '" style="stroke:var(--line)"/>';
+  if (o.refY != null) {
+    s += '<line x1="' + L + '" y1="' + Y(o.refY).toFixed(1) + '" x2="' + (W - Rp) + '" y2="' + Y(o.refY).toFixed(1) + '" style="stroke:var(--orange)" stroke-dasharray="4 3"/>'
+      + '<text x="' + (L + 2) + '" y="' + (Y(o.refY) - 3).toFixed(1) + '" style="fill:var(--orange)" font-size="9">' + U.esc(o.refLabel || o.refY) + '</text>';
+  }
+  bs.forEach((b, i) => {
+    const x = L + bw * i + bw * 0.18, w = bw * 0.64;
+    s += '<rect x="' + x.toFixed(1) + '" y="' + Y(b.y).toFixed(1) + '" width="' + w.toFixed(1) + '" height="' + Math.max(1, H - B - Y(b.y)).toFixed(1) + '" rx="2" style="fill:' + (b.warn ? 'var(--orange)' : (o.colorVar || 'var(--blue)')) + '"/>';
+    const step = bs.length <= 8 ? 1 : Math.ceil(bs.length / 6);
+    if (i % step === 0) s += '<text x="' + (x + w / 2).toFixed(1) + '" y="' + (H - 7) + '" style="fill:var(--text2)" font-size="8" text-anchor="middle">' + U.esc(b.x) + '</text>';
+  });
+  s += '<text x="3" y="' + (T + 5) + '" style="fill:var(--text2)" font-size="9">' + Math.round(ymax) + '</text>';
+  s += '</svg>';
+  return s;
+}
+function ringSvg(frac, colorVar, size) {
+  const SZ = size || 52, r = (SZ - 8) / 2, c = 2 * Math.PI * r;
+  const p = Math.max(0, Math.min(1, frac || 0));
+  return '<svg viewBox="0 0 ' + SZ + ' ' + SZ + '" width="' + SZ + '" height="' + SZ + '">'
+    + '<circle cx="' + SZ / 2 + '" cy="' + SZ / 2 + '" r="' + r + '" fill="none" style="stroke:var(--line)" stroke-width="5"/>'
+    + '<circle cx="' + SZ / 2 + '" cy="' + SZ / 2 + '" r="' + r + '" fill="none" style="stroke:' + (colorVar || 'var(--accent)') + '" stroke-width="5" stroke-linecap="round" stroke-dasharray="' + (c * p).toFixed(1) + ' ' + c.toFixed(1) + '" transform="rotate(-90 ' + SZ / 2 + ' ' + SZ / 2 + ')"/></svg>';
+}
+/* 大数字微交互：300ms 从 0 滚动到目标值 */
+function animateNum(el, target, dec, suffix) {
+  const t0 = performance.now(), dur = 300;
+  function step(t) {
+    const k = Math.min(1, (t - t0) / dur);
+    const v = target * (1 - Math.pow(1 - k, 2));
+    el.firstChild.nodeValue = v.toFixed(dec || 0) + (suffix || '');
+    if (k < 1) requestAnimationFrame(step);
+  }
+  el.firstChild.nodeValue = (0).toFixed(dec || 0) + (suffix || '');
+  requestAnimationFrame(step);
+}
+function bigNumHtml(id, target, dec, suffix) {
+  return '<div class="big-num" id="' + id + '"><span></span></div><script type="text/plain" data-anim="' + id + '" data-v="' + target + '" data-d="' + (dec || 0) + '" data-s="' + (suffix || '') + '"></' + 'script>';
+}
+function runAnims(root) {
+  (root || document).querySelectorAll('script[data-anim]').forEach((s) => {
+    const el = document.getElementById(s.getAttribute('data-anim'));
+    if (el) animateNum(el, parseFloat(s.getAttribute('data-v')), parseInt(s.getAttribute('data-d'), 10), s.getAttribute('data-s'));
+    s.remove();
+  });
+}
+
+/* ============ Tab2 趋势 ============ */
+function renderTrend() {
+  updateSyncBadge();
+  const box = document.getElementById('trendBody');
+  if (allEmpty()) { box.innerHTML = emptyCard('<path d="M4 19h16M4 15l5-6 4 3 6-8"/>', '趋势从这里开始'); return; }
+  const t = U.todayStr();
+  const sl7 = M.sleepAvg7(), rhr7 = M.rhrAvg7(), hrv7 = M.hrvAvg7(), ld7 = M.load7();
+  let h = '';
+  // 睡眠
+  h += '<div class="card"><div class="card-head"><div class="bubble bg-purple" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20.5 14.5A8.5 8.5 0 1 1 9.5 3.5a7 7 0 0 0 11 11z"/></svg></div>'
+    + '<div style="flex:1"><div class="card-title" style="margin:0">睡眠 · 近30天</div><div class="sub">近7天均值</div></div>'
+    + bigNumHtml('nSleep', sl7 == null ? 0 : sl7, 1, ' h') + '</div><div class="chart" id="chSleep">加载中</div></div>';
+  // 静息心率
+  h += '<div class="card"><div class="card-head"><div class="bubble bg-teal" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.6-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.4-9 9-9 9z"/></svg></div>'
+    + '<div style="flex:1"><div class="card-title" style="margin:0">静息心率 · 近30天</div><div class="sub">近7天均值 · 虚线=当前基线</div></div>'
+    + bigNumHtml('nRhr', rhr7 == null ? 0 : rhr7, 0, ' bpm') + '</div><div class="chart" id="chRhr">加载中</div></div>';
+  // HRV
+  h += '<div class="card"><div class="card-head"><div class="bubble bg-pink" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-6 4 12 2-6h6"/></svg></div>'
+    + '<div style="flex:1"><div class="card-title" style="margin:0">HRV · 近30天</div><div class="sub">近7天均值</div></div>'
+    + bigNumHtml('nHrv', hrv7 == null ? 0 : hrv7, 0, ' ms') + '</div><div class="chart" id="chHrv">加载中</div></div>';
+  // 周负荷
+  h += '<div class="card"><div class="card-head"><div class="bubble bg-blue" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="13" cy="5" r="2.2"/><path d="M8 21l2.5-5.5L8 13l1.5-4.5L14 10l3 2M9.5 8.5L6 10l-1 3M10.5 15.5L14 21"/></svg></div>'
+    + '<div style="flex:1"><div class="card-title" style="margin:0">周负荷（Σ时长×RPE） · 近8周</div><div class="sub">近7天负荷</div></div>'
+    + bigNumHtml('nLoad', ld7, 0, '') + '</div><div class="chart" id="chLoad">加载中</div></div>';
+  // 打卡日历热力图
+  h += '<div class="card"><div class="card-head"><div class="bubble bg-gray" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="3"/><path d="M8 3v4M16 3v4M4 10h16"/></svg></div>'
+    + '<div style="flex:1"><div class="card-title" style="margin:0">打卡日历 · 本月</div><div class="sub">蓝=有训练 浅蓝=康复/八段锦 灰=休息/病假 点格子看当天</div></div></div>'
+    + calHtml() + '</div>';
+  box.innerHTML = h;
+  // 图表异步渲染
+  const tasks = [
+    ['chSleep', () => {
+      const bars = [];
+      for (let i = 29; i >= 0; i--) {
+        const d = U.addDays(t, -i); const m = M.metricOn(d);
+        if (m && m.sleepH != null) bars.push({ x: U.fmtShort(d), y: m.sleepH, warn: m.sleepH < CONFIG.sleepShortH });
+      }
+      return chartBars(bars, { refY: CONFIG.sleepRefH, refLabel: '7h', colorVar: 'var(--purple)' });
+    }],
+    ['chRhr', () => {
+      const pts = [];
+      for (let i = 29; i >= 0; i--) {
+        const d = U.addDays(t, -i); const m = M.metricOn(d);
+        if (m && m.rhr != null) pts.push({ x: U.fmtShort(d), y: m.rhr });
+      }
+      return chartLine(pts, { baseline: M.rhrBaseline(), colorVar: 'var(--teal)' });
+    }],
+    ['chHrv', () => {
+      const pts = [];
+      for (let i = 29; i >= 0; i--) {
+        const d = U.addDays(t, -i); const m = M.metricOn(d);
+        if (m && m.hrv != null) pts.push({ x: U.fmtShort(d), y: m.hrv });
+      }
+      return chartLine(pts, { colorVar: 'var(--pink)' });
+    }],
+    ['chLoad', () => {
+      const ws0 = U.weekStart(t); const bars = []; let dw = 0;
+      for (let i = 7; i >= 0; i--) {
+        const ws = U.addDays(ws0, -7 * i);
+        if (M.weekHasTrain(ws)) dw++;
+        bars.push({ x: U.fmtShort(ws), y: M.weekLoad(ws) });
+      }
+      if (dw < 3) return naHint();
+      return chartBars(bars, { colorVar: 'var(--blue)' });
+    }]
+  ];
+  tasks.forEach((tk) => {
+    setTimeout(() => { const el = document.getElementById(tk[0]); if (el) el.innerHTML = tk[1](); }, 30);
+  });
+  runAnims(box);
+}
+
+/* 打卡日历（本月，周一开头；点格子看当天只读摘要） */
+let calSel = null;
+function calHtml() {
+  const now = new Date();
+  const y = now.getFullYear(), mo = now.getMonth();
+  const today = U.todayStr();
+  const startCol = (new Date(y, mo, 1).getDay() + 6) % 7;
+  const dim = new Date(y, mo + 1, 0).getDate();
+  let s = '<div class="cal-head"><div class="card-title" style="margin:0">' + y + '年' + (mo + 1) + '月</div>'
+    + '<div class="streak"><i class="train-d"></i><span class="sub">训练</span><i class="rehab-d"></i><span class="sub">康复</span></div></div>';
+  // 图例样式
+  s += '<style>.streak i.train-d{background:var(--blue)}.streak i.rehab-d{background:var(--accent-soft)}</style>';
+  s += '<div class="cal">';
+  ['一', '二', '三', '四', '五', '六', '日'].forEach((x) => { s += '<div class="h">' + x + '</div>'; });
+  for (let i = 0; i < startCol; i++) s += '<div class="d off"></div>';
+  for (let d = 1; d <= dim; d++) {
+    const ds = y + '-' + U.pad(mo + 1) + '-' + U.pad(d);
+    const future = U.diffDays(today, ds) > 0;
+    const r = M.dailyOn(ds);
+    let cls = '', act = '';
+    if (future) cls = 'off';
+    else if (r) {
+      if (CONFIG.trainTypes.indexOf(r.type) >= 0) cls = 'train';
+      else if (r.footRehab || r.baduanjin) cls = 'rehab';
+      else if (r.type === '休息日' || r.type === '病假') cls = 'rest';
+    }
+    if (!future) act = ' onclick="calTap(\'' + ds + '\', this)"';
+    s += '<div class="d ' + cls + (ds === calSel ? ' sel' : '') + (ds === today ? '" style="box-shadow:inset 0 0 0 1.5px var(--accent);cursor:pointer"' : '"') + act + '>' + d + '</div>';
+  }
+  return s + '</div>';
+}
+function calTap(ds, el) {
+  document.querySelectorAll('.cal .d').forEach((x) => x.classList.remove('sel'));
+  if (el) el.classList.add('sel');
+  showDaySummary(ds);
+}
+function showDaySummary(ds) {
+  const r = M.dailyOn(ds), m = M.metricOn(ds);
+  let b = '<div class="body-tx" style="line-height:2">';
+  if (!r && !m) b += '<span class="sub">' + U.esc(CONFIG.copy.na) + '</span>';
+  if (r) {
+    b += '类型：' + U.esc(r.type);
+    if (r.cardioChoice) b += '（' + U.esc(r.cardioChoice) + '）';
+    if (r.durationMin != null) b += '<br>时长：' + r.durationMin + ' 分钟 · RPE ' + r.rpe + (r.avgHr != null ? ' · 均心率 ' + r.avgHr : '');
+    if (r.strengthChecks) b += '<br>力量6动作：全部完成';
+    b += '<br>足康复：' + (r.footRehab ? '已打卡' : '未打卡') + ' · 八段锦：' + (r.baduanjin ? '已打卡' : '未打卡');
+    b += '<br>疼痛：' + U.esc(r.pain || '无') + ' · 状态：' + U.esc(r.mood || '—');
+    if (r.note) b += '<br>备注：' + U.esc(r.note);
+  }
+  if (m && (m.sleepH != null || m.rhr != null || m.hrv != null)) {
+    b += '<br>睡眠：' + (m.sleepH != null ? m.sleepH + ' h' : '—') + ' · 静息心率：' + (m.rhr != null ? m.rhr : '—') + ' · HRV：' + (m.hrv != null ? m.hrv : '—');
+  }
+  b += '</div>';
+  showModal('<div class="card-title" style="margin-bottom:8px">' + ds + ' · 当天记录</div>' + b
+    + '<div class="m-actions"><button class="btn-primary" onclick="closeModal()">知道了</button></div>');
+}
+
+/* ============ Tab3 能力 ============ */
+const ANCHORS = {
+  aerobic: { name: '有氧底盘', unit: '台阶1分钟心率下降（次/分）', map: CONFIG.mapStep },
+  endurance: { name: '持续输出', text: '数据不足，无法评估。本版预留接口，待后续以长时活动配速/心率漂移定级。' },
+  climb: { name: '爬升肌耐力', unit: '深蹲最多次数', map: CONFIG.mapSquat },
+  downhill: { name: '下坡单侧控制', unit: '闭眼单腿站立秒数（左右取较差侧）', map: CONFIG.mapStand },
+  core: { name: '核心负重稳定', unit: '平板支撑秒数', map: CONFIG.mapPlank },
+  recovery: { name: '恢复力', text: '近28天 RHR超基线+5天数 与 睡眠≥7h占比（两指标均需≥14天数据激活，估算值）：L5=超标0天且占比≥85%；L4=超标0天且占比≥70%；L3=超标≤1天且占比≥70%；L2=占比40-69%；L1=占比<40% 或 超标≥5天。' },
+  pace: { name: '配速纪律', text: '近4周有平均心率记录≥8次后激活（估算值）：avgHr≤' + CONFIG.zone2Cap + ' 占比≥90% → L4；70-89% → L3；<70% → L2；样本不足 → 数据不足，无法评估。' }
+};
+function lvFrom(map, v) {
+  if (v == null) return null;
+  for (let i = 0; i < map.length; i++) if (v >= map[i][0]) return map[i][1];
+  return null;
+}
+function recoveryLevel() {
+  const st = M.sleepStats(28), over = M.rhrOverDays(28), rd = M.rhrDataDays(28);
+  if (st.withData < CONFIG.recoveryNeed || rd < CONFIG.recoveryNeed) return { lv: null, src: '近28天：睡眠 ' + st.withData + ' 天 / 静息心率 ' + rd + ' 天有数据，激活需各≥' + CONFIG.recoveryNeed + ' 天' };
+  const pct = Math.round(st.ge7 / st.withData * 100);
+  const T = CONFIG.recovery;
+  const src = '近28天：RHR超标 ' + over + ' 天，睡眠≥7h占比 ' + pct + '%';
+  if (over === 0 && pct >= T.L5.sleepPct) return { lv: 5, src: src };
+  if (over === 0 && pct >= T.L4.sleepPct) return { lv: 4, src: src };
+  if (over <= T.L3.over && pct >= T.L3.sleepPct) return { lv: 3, src: src };
+  if (pct >= T.L2.sleepPct && over < 5) return { lv: 2, src: src };
+  return { lv: 1, src: src };
+}
+function paceLevel() {
+  const ps = M.paceStats();
+  if (ps.withHr < CONFIG.paceMinSamples) return { lv: null, src: '近4周有平均心率的有氧记录 ' + ps.withHr + ' 次，激活需≥' + CONFIG.paceMinSamples + ' 次' };
+  const src = '近4周：avgHr≤' + CONFIG.zone2Cap + ' 占比 ' + ps.pct + '%（样本 ' + ps.withHr + ' 次）';
+  if (ps.pct >= 90) return { lv: 4, src: src };
+  if (ps.pct >= 70) return { lv: 3, src: src };
+  return { lv: 2, src: src };
+}
+function abilityDims() {
+  const t = M.latestTest();
+  const has = (k) => t && t[k] != null;
+  const dims = [];
+  dims.push({ key: 'aerobic', name: '有氧底盘', lv: has('stepHrDrop1min') ? lvFrom(CONFIG.mapStep, t.stepHrDrop1min) : null, src: has('stepHrDrop1min') ? '台阶1分钟心率下降 ' + t.stepHrDrop1min + ' 次/分' : '需台阶体测数据' });
+  dims.push({ key: 'endurance', name: '持续输出', lv: null, src: '本版预留接口' });
+  dims.push({ key: 'climb', name: '爬升肌耐力', lv: has('squatMax') ? lvFrom(CONFIG.mapSquat, t.squatMax) : null, src: has('squatMax') ? '深蹲 ' + t.squatMax + ' 次' : '需深蹲体测数据' });
+  let slv = null, imb = false, ssrc = '需闭眼单腿体测数据';
+  if (t && t.standL != null && t.standR != null) {
+    const worse = Math.min(t.standL, t.standR);
+    slv = lvFrom(CONFIG.mapStand, worse);
+    imb = Math.abs(t.standL - t.standR) > CONFIG.standImbalance;
+    ssrc = '较差侧 ' + worse + 's（左' + t.standL + 's/右' + t.standR + 's）';
+  }
+  dims.push({ key: 'downhill', name: '下坡单侧控制', lv: slv, src: ssrc, note: imb ? '左右失衡(右侧)' : '' });
+  dims.push({ key: 'core', name: '核心负重稳定', lv: has('plankSec') ? lvFrom(CONFIG.mapPlank, t.plankSec) : null, src: has('plankSec') ? '平板支撑 ' + t.plankSec + 's' : '需平板支撑体测数据' });
+  const rc = recoveryLevel();
+  dims.push({ key: 'recovery', name: '恢复力', lv: rc.lv, src: rc.src });
+  const pc = paceLevel();
+  dims.push({ key: 'pace', name: '配速纪律', lv: pc.lv, src: pc.src });
+  return dims;
+}
+function dimLevel(name) {
+  const d = abilityDims().find((x) => x.name === name);
+  return d ? d.lv : null;
+}
+function renderAbility() {
+  updateSyncBadge();
+  const box = document.getElementById('abilityBody');
+  if (allEmpty()) { box.innerHTML = emptyCard('<path d="M12 3l8 6-3 10H7L4 9z"/>', '能力画像从这里开始'); return; }
+  const dims = abilityDims();
+  // 雷达
+  const SZ = 280, CX = SZ / 2, CY = SZ / 2 + 4, R0 = 88;
+  const ang = (i) => -Math.PI / 2 + i * 2 * Math.PI / 7;
+  const pt = (i, r) => [(CX + r * Math.cos(ang(i))).toFixed(1), (CY + r * Math.sin(ang(i))).toFixed(1)];
+  let svg = '<svg viewBox="0 0 ' + SZ + ' ' + (SZ + 4) + '" role="img">';
+  for (let g = 1; g <= 5; g++) {
+    svg += '<polygon points="' + dims.map((d, i) => pt(i, R0 * g / 5).join(' ')).join(' ') + '" fill="none" style="stroke:var(--line)" stroke-width="' + (g === 5 ? 1.2 : 0.7) + '"/>';
+  }
+  dims.forEach((d, i) => {
+    const xy = pt(i, R0);
+    svg += '<line x1="' + CX + '" y1="' + CY + '" x2="' + xy[0] + '" y2="' + xy[1] + '" style="stroke:var(--line)" stroke-width="0.7"/>';
+  });
+  const valid = dims.map((d, i) => ({ i: i, lv: d.lv })).filter((v) => v.lv != null);
+  if (valid.length >= 3) {
+    svg += '<polygon points="' + valid.map((v) => pt(v.i, R0 * v.lv / 5).join(' ')).join(' ') + '" fill="rgba(0,122,255,.18)" style="stroke:var(--accent)" stroke-width="2"/>';
+    valid.forEach((v) => { const xy = pt(v.i, R0 * v.lv / 5); svg += '<circle cx="' + xy[0] + '" cy="' + xy[1] + '" r="2.5" style="fill:var(--accent)"/>'; });
+  }
+  dims.forEach((d, i) => {
+    const c = Math.cos(ang(i));
+    const lx = CX + (R0 + 20) * c, ly = CY + (R0 + 18) * Math.sin(ang(i));
+    const anchor = Math.abs(c) < 0.3 ? 'middle' : (c > 0 ? 'start' : 'end');
+    svg += '<text x="' + lx.toFixed(1) + '" y="' + (ly + 3).toFixed(1) + '" style="fill:' + (d.lv == null ? 'var(--text2)' : 'var(--text)') + '" font-size="10" text-anchor="' + anchor + '">' + U.esc(d.name) + '</text>';
+  });
+  if (valid.length < 3) svg += '<text x="' + CX + '" y="' + (CY + 4) + '" style="fill:var(--text2)" font-size="12" text-anchor="middle">数据不足，无法评估</text>';
+  svg += '</svg>';
+  let h = '<div class="card"><div class="card-head"><div class="bubble bg-pink" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l8 6-3 10H7L4 9z"/></svg></div>'
+    + '<div class="card-title" style="margin:0">七维能力雷达（0-5级）</div></div>'
+    + '<div class="chart" style="min-height:220px">' + svg + '</div>'
+    + '<div class="sub">无数据维度置灰不绘；点维度行查看等级锚点（估算值）。</div></div>';
+  h += '<div class="card"><div class="card-title" style="margin-bottom:4px">维度明细</div>'
+    + dims.map((d) => '<div class="dim-row" onclick="showAnchor(\'' + d.key + '\')"><div class="dim-name">' + U.esc(d.name)
+    + (d.note ? ' <span class="dim-note">' + U.esc(d.note) + '</span>' : '')
+    + '<div class="sub">' + U.esc(d.src) + '</div></div>'
+    + (d.lv != null
+      ? '<div class="dots5">' + [1, 2, 3, 4, 5].map((n) => '<i class="' + (n <= d.lv ? 'f' : '') + '"></i>').join('') + '</div>'
+      : '<span class="dim-na">数据不足，无法评估</span>')
+    + '</div>').join('')
+    + '</div>';
+  const nr = R.nextRetest();
+  h += '<div class="card"><div class="card-title">下次复测</div>';
+  if (!nr) h += '<div class="body-tx">尚未完成家庭体测</div><div class="sub">完成一次体测后按 ' + CONFIG.retestDays + ' 天周期提醒（lastTestDate + ' + CONFIG.retestDays + '）</div>';
+  else {
+    const left = U.diffDays(U.todayStr(), nr);
+    h += '<div class="body-tx">' + nr + (left < 0 ? '（已过期 ' + (-left) + ' 天）' : '（还有 ' + left + ' 天）') + '</div>';
+  }
+  h += '</div>';
+  box.innerHTML = h;
+}
+function showAnchor(key) {
+  const a = ANCHORS[key];
+  if (!a) return;
+  let body;
+  if (a.text) body = '<div class="body-tx" style="line-height:2">' + U.esc(a.text) + '</div>';
+  else {
+    let rows = '';
+    a.map.forEach((mrow, i) => {
+      const min = mrow[0], prevMin = i > 0 ? a.map[i - 1][0] : null;
+      const range = i === 0 ? ('≥ ' + min) : (min === 0 ? ('< ' + prevMin) : (min + ' - ' + (prevMin - 1)));
+      rows += '<tr><td>L' + mrow[1] + '</td><td>' + range + '</td></tr>';
+    });
+    body = '<table class="cmp"><tr><th>等级</th><th>' + U.esc(a.unit) + '</th></tr>' + rows + '</table>';
+  }
+  showModal('<div class="card-title" style="margin-bottom:8px">' + U.esc(a.name) + ' · 等级锚点（估算值）</div>' + body
+    + '<div class="m-actions"><button class="btn-primary" onclick="closeModal()">知道了</button></div>');
+}
+
+/* ============ Tab4 目标（模式A） ============ */
+function renderGoal() {
+  updateSyncBadge();
+  const box = document.getElementById('goalBody');
+  const t = U.todayStr();
+  let h = '';
+  if (t <= CONFIG.k12Date) {
+    h += '<div class="card"><div class="card-head"><div class="bubble bg-orange" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="3"/><path d="M8 3v4M16 3v4M4 10h16"/></svg></div>'
+      + '<div class="card-title" style="margin:0">9/23 国民体测备战</div></div>'
+      + CONFIG.k12.map((x) => '<div class="sub">· ' + U.esc(x) + '</div>').join('') + '</div>';
+  }
+  const ws = U.weekStart(t);
+  const wd = D.profile.weeklyDays || 6;
+  const sl7 = M.sleep7Days(), slWeek = (() => { let n = 0; for (let i = 0; i < 7; i++) { const d = U.addDays(t, -i); const mm = M.metricOn(d); if (mm && mm.sleepH != null && mm.sleepH >= CONFIG.sleepRefH) n++; } return n; })();
+  const footW = M.footWeekDays(ws), footAll = M.footTotalDays();
+  const lowW = M.weekLowInt(ws), lowAll = D.daily.reduce((s, r) => s + (((r.type === '有氧' || r.type === '长时活动') && r.durationMin) ? r.durationMin : 0), 0);
+  // 三焦点卡：环形进度 + 大数字 + 两联小数字（本周X / 累计Y）
+  h += '<div class="card"><div class="card-head"><div class="bubble bg-purple" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20.5 14.5A8.5 8.5 0 1 1 9.5 3.5a7 7 0 0 0 11 11z"/></svg></div>'
+    + '<div class="card-title" style="margin:0">睡眠修复</div></div>'
+    + '<div style="display:flex;align-items:center;gap:14px" onclick="showK(\'K9\')">'
+    + ringSvg(sl7 / 7, 'var(--purple)')
+    + '<div style="flex:1"><div class="big-num" id="gSleep"><span></span></div><div class="sub">近7天睡眠≥7h 天数 / 7</div></div>'
+    + '<div class="sub" style="text-align:right">本周' + slWeek + ' 天<br>累计' + M.sleepTotalDays() + ' 天</div></div>'
+    + '<div class="sub" style="margin-top:8px">基线 ' + D.profile.sleepBaseline + 'h（近3月平均，最大短板）→ 目标 7h+ · 点卡片展开 K9 睡眠修复方案</div></div>';
+  h += '<div class="card"><div class="card-head"><div class="bubble bg-orange" aria-hidden="true"><svg viewBox="0 0 24 24"><ellipse cx="10" cy="14" rx="4" ry="6"/><circle cx="16.5" cy="7.5" r="1.4"/><circle cx="18.5" cy="11" r="1.4"/><circle cx="18.5" cy="15" r="1.4"/></svg></div>'
+    + '<div class="card-title" style="margin:0">右足康复</div></div>'
+    + '<div style="display:flex;align-items:center;gap:14px" onclick="showK(\'K7\')">'
+    + ringSvg(footW / wd, 'var(--orange)')
+    + '<div style="flex:1"><div class="big-num" id="gFoot"><span></span></div><div class="sub">本周足康复打卡 / ' + wd + ' 天 · Stage ' + D.state.footStage + '</div></div>'
+    + '<div class="sub" style="text-align:right">本周' + footW + ' 天<br>累计' + footAll + ' 天</div></div>'
+    + '<div class="sub" style="margin-top:8px">点卡片展开 K7 足底康复与防崴模块</div></div>';
+  h += '<div class="card"><div class="card-head"><div class="bubble bg-teal" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.6-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.4-9 9-9 9z"/></svg></div>'
+    + '<div class="card-title" style="margin:0">有氧起步</div></div>'
+    + '<div style="display:flex;align-items:center;gap:14px">'
+    + ringSvg(lowW / CONFIG.aerobicGoalMin, 'var(--teal)')
+    + '<div style="flex:1"><div class="big-num" id="gLow"><span></span></div><div class="sub">本周低强度分钟数 · 目标' + CONFIG.aerobicGoalMin + '分钟（估算值）</div></div>'
+    + '<div class="sub" style="text-align:right">本周' + lowW + ' 分钟<br>累计' + lowAll + ' 分钟</div></div>'
+    + '<div class="prog"><i style="width:' + Math.min(100, Math.round(lowW / CONFIG.aerobicGoalMin * 100)) + '%"></i></div></div>';
+  // K11 营养与体重
+  h += '<div class="card"><details class="fold" style="margin:0;background:transparent;padding:0"><summary>营养与体重（K11）</summary><div class="fold-body">'
+    + '偏瘦者（176/60，BMI 19.4）加量期原则：<br>· 不节食；训练日适当增加蛋白质与碳水（鸡蛋/奶/米饭多一口）<br>· 每周晨起空腹称重一次（可空）；较前值降&gt;2kg → 系统横幅提醒加餐<br>· 目标不是减重，是让体重稳定或缓升（肌肉增长）<br><span class="sub">每周体重在「档案与设置」页录入。</span></div></details></div>';
+  // 远期目标
+  h += '<div class="card"><details class="fold" style="margin:0;background:transparent;padding:0" open><summary>远期目标（只读展示，不参与计算）</summary><div class="fold-body">';
+  CONFIG.routes.forEach((r) => {
+    h += '<div style="padding:10px 0;border-bottom:0.5px solid var(--line)">'
+      + '<div class="body-tx" style="font-weight:600">' + U.esc(r.name)
+      + (r.hold ? ' <span class="badge-hold">挂起：仅开放远观</span>' : '') + '</div>';
+    if (r.hold) {
+      h += '<div class="sub">挂起：仅开放远观，不参与任何评估。</div>';
+    } else {
+      h += r.dims.map((dm) => {
+        const lv = dimLevel(dm);
+        return '<div class="sub">· ' + U.esc(dm) + '：' + (lv != null ? 'L' + lv : '数据不足，无法评估') + '</div>';
+      }).join('');
+    }
+    h += '</div>';
+  });
+  h += '</div></details></div>';
+  box.innerHTML = h;
+  runAnims(box);
+}
+function showK(id) {
+  const k = CONFIG.knowledge.find((x) => x.id === id);
+  if (!k) return;
+  const body = typeof k.bodyFn === 'function' ? k.bodyFn() : k.body;
+  showModal('<div class="card-title" style="margin-bottom:8px">' + U.esc(k.title) + '</div><div class="body-tx" style="line-height:2">' + body + '</div>'
+    + '<div class="m-actions"><button class="btn-primary" onclick="closeModal()">知道了</button></div>');
+}
+
+/* ============ K1-K13 知识库（第四部分逐字，渲染进指南Tab） ============ */
+CONFIG.knowledge = [
+  { id: 'K1', group: '理念', title: 'K1 训练哲学', body: '· 最少输入，最大决策价值：任何数据字段必须回答"它会改变训练决策吗"，不会就删<br>· D类已排除（不记录）：步数、卡路里、血氧、睡眠分期、饮食明细、每日体重、情绪细粒度评分——这些数据不改变训练决策<br>· 绿灯才加量：恢复优先于刺激<br>· 在家能练的：有氧、下肢、核心、足底康复、活动度<br>· 必须出门的：负重下坡、真实地形、高原适应（阶段3再说）<br>· 每周问自己：这个强度，我能持续数小时吗？<br>· 数据不够时，系统会说"不确定"——这是特性，不是缺陷' },
+  { id: 'K2', group: '训练', title: 'K2 RPE 自感用力锚定表', body: '<table class="cmp">' + CONFIG.rpeTable.map((r) => '<tr><td style="width:52px;font-weight:600">' + r[0] + '</td><td>' + U.esc(r[1]) + '</td></tr>').join('') + '</table><div class="sub" style="margin-top:8px">' + U.esc(CONFIG.rpeGoal) + '</div>' },
+  { id: 'K3', group: '训练', title: 'K3 Zone2 有氧执行指南', body: '· 心率上限 139（180-31-10 保守修正），宁可慢不可快<br>· 谈话测试：能完整说出一句话不喘=在区间内<br>· 心率漂移：后半程心率上升&gt;10% 说明强度偏高，下次放慢<br>· 无聊是正常的：Zone2 的成效在 8-12 周后的复测里，不在今天的汗里<br>· 每次结束在 Watch 上看平均心率，抄进记录的 avgHr' },
+  { id: 'K4', group: '训练', title: 'K4 热身与放松', body: '<b>热身(5分钟)：</b>' + U.esc(CONFIG.warmup) + '<br><b>放松(5分钟)：</b>' + U.esc(CONFIG.cooldown) + '<br><b>雨雪/闷热替代：</b>有氧日改室内原地快走/踏步，或爬楼梯（楼道闷热时缩短至15分钟并补水）<br><span class="sub">每个训练日卡片的"热身与放松"折叠区内嵌同样内容。</span>' },
+  { id: 'K5', group: '训练', title: 'K5 力量动作库', bodyFn: function () { return CONFIG.actions.map((a, i) => '<div style="padding:8px 0;border-bottom:0.5px solid var(--line)"><b>' + (i + 1) + '.' + U.esc(a.name) + '</b>｜' + U.esc(a.part) + '｜3×' + D.state.strengthReps[a.repsKey] + U.esc(a.unit) + '<br>要领：' + U.esc(a.guide) + '<br>⚠️代偿：' + U.esc(a.comp) + '<br>纠正：' + U.esc(a.fix) + '<br><button class="ci-btn" style="margin-top:4px" onclick="window.open(\'' + a.link + '\')">📺教学</button></div>').join('') + '<div class="sub" style="margin-top:8px">' + U.esc(CONFIG.progressionCopy) + '</div>'; } },
+  { id: 'K6', group: '训练', title: 'K6 有氧选项库', body: CONFIG.cardio.map((c) => '<b>' + c.name + '</b>｜' + U.esc(c.dur) + '｜' + U.esc(c.tip) + ' <button class="ci-btn" style="min-height:28px;padding:2px 8px" onclick="window.open(\'' + c.link + '\')">📺教学</button><br>').join('') + '<b>足底提示：</b>' + U.esc(CONFIG.cardioFootTip) + '<br><b>长时活动(单独类型)：</b>' + U.esc(CONFIG.longCopy) },
+  { id: 'K7', group: '康复', title: 'K7 足底康复与防崴模块', body: U.esc(CONFIG.footNote) + '<br><br>' + CONFIG.footStages.map((s, i) => '<b>Stage ' + i + ' ' + U.esc(s.name) + '（' + U.esc(s.mins) + '）</b><br>' + s.items.map((x) => '· ' + U.esc(x)).join('<br>') + '<br><span class="sub">' + U.esc(s.promo) + '</span><br>').join('<br>') + '<b>疼痛规则：</b>疼痛含"足"→黄灯+足底减负（Stage不变）；疼痛含"踝"→黄灯+防崴训练降一级；膝/腰/其他→红灯（停训，仅八段锦/足康复放松类）；Stage 0 不再降；连续3天足痛或踝痛打卡→就医提示。' },
+  { id: 'K8', group: '训练', title: 'K8 八段锦模块', body: U.esc(CONFIG.baduanjin.note) + '<br><br>' + CONFIG.baduanjin.forms.map((f, i) => (i + 1) + ' ' + U.esc(f)).join('<br>') + '<br><br>' + U.esc(CONFIG.baduanjin.timing) + '<br><button class="ci-btn" style="margin-top:6px" onclick="window.open(\'' + CONFIG.baduanjin.teach + '\')">' + CONFIG.baduanjin.teachLabel + '</button> <button class="ci-btn" onclick="window.open(\'' + CONFIG.baduanjin.follow + '\')">' + CONFIG.baduanjin.followLabel + '</button>' },
+  { id: 'K9', group: '康复', title: 'K9 睡眠修复方案', bodyFn: function () { return '当前数据：近3月平均5.4h（基线），目标7h+<br><b>执行规则（按优先级）：</b><br>1. 固定关灯时间锚点（当前 <b>' + U.esc(D.profile.sleepAnchor) + '</b>，可在档案页修改；比几点起床更重要，先守21天）<br>2. 睡前一小时屏幕调暗、手机放远<br>3. 咖啡因午后不碰<br>4. 卧室只睡觉<br><b>记录与反馈：</b>每天从健康App抄睡眠时长；连续2天&lt;6h系统自动黄灯减量；趋势页睡眠柱状图&lt;6h标橙、画7h虚线'; } },
+  { id: 'K10', group: '理念', title: 'K10 阶段全景', body: '阶段0 习惯建立(约4周)：有氧20-30分钟+力量基础+足康复Stage0+睡眠锚点<br>阶段1 有氧容量：Zone2至60分钟+下肢肌耐力+足康复Stage1<br>阶段2 爬升负重：楼梯专项+背包负重引入(5kg起)+足康复Stage2<br>阶段3 户外转移：周末真实山地、负重15kg级、背靠背两日<br><span class="sub">各阶段解锁条件与阶段状态机一致（第七部分），当前阶段见「档案与设置」。</span>' },
+  { id: 'K11', group: '生活', title: 'K11 营养与体重', body: '偏瘦者(176/60, BMI 19.4)加量期原则：<br>· 不节食；训练日适当增加蛋白质与碳水(鸡蛋/奶/米饭多一口)<br>· 每周晨起空腹称重一次(可空)；较前值降&gt;2kg→系统横幅提醒加餐<br>· 目标不是减重，是让体重稳定或缓升(肌肉增长)' },
+  { id: 'K12', group: '生活', title: 'K12 9/23 国民体测备战卡', body: CONFIG.k12.map((x) => '· ' + U.esc(x)).join('<br>') + '<br><span class="sub">本卡在目标页顶部 9/23 前显示、之后自动隐藏；「体测页-外部检测」折叠区常驻，不随日期关闭。</span>' },
+  { id: 'K13', group: '理念', title: 'K13 高海拔行程前检查清单', body: '你有 5000 米未登顶史。任何高海拔行程（&gt;3500m）出发前必须完成：<br>· 心肺体检（心电图+血压）<br>· 阶梯适应日程（每上升 1000m 住一晚适应）<br>· 血氧仪+应急药品清单<br>· 下撤预案（什么症状必须下撤，写下来）<br><span class="sub">阶段3前仅展示、不可勾选。系统不提供"高原准备度"分数——高原适应无法在家训练，任何分数都是假的。</span>' }
+];
+const K_GROUPS = ['理念', '训练', '康复', '生活'];
+
+/* ============ Tab5 指南 ============ */
+function renderGuideTab() {
+  updateSyncBadge();
+  const box = document.getElementById('guideTabBody');
+  const q = (window.__kq || '').trim();
+  let h = '<input class="k-search" id="kSearch" placeholder="搜索知识卡标题" value="' + U.esc(window.__kq || '') + '" oninput="kFilter(this.value)">';
+  K_GROUPS.forEach((g) => {
+    const cards = CONFIG.knowledge.filter((k) => k.group === g && (!q || k.title.indexOf(q) >= 0 || k.id.indexOf(q.toUpperCase()) >= 0));
+    if (!cards.length) return;
+    h += '<div class="k-group">' + g + '</div>';
+    h += cards.map((k) => '<div class="card k-card' + (window.__kOpen === k.id ? ' open' : '') + '" id="kc_' + k.id + '">'
+      + '<div class="k-head" onclick="kToggle(\'' + k.id + '\')"><div class="k-title">' + U.esc(k.title) + '</div></div>'
+      + '<div class="k-body">' + (typeof k.bodyFn === 'function' ? k.bodyFn() : k.body) + '</div></div>').join('');
+  });
+  if (q && h.indexOf('k-card') < 0) h += '<div class="card empty-card"><div class="card-title">没有匹配的知识卡</div></div>';
+  box.innerHTML = h;
+}
+function kToggle(id) {
+  window.__kOpen = (window.__kOpen === id) ? null : id;
+  const el = document.getElementById('kc_' + id);
+  if (el) el.classList.toggle('open');
+}
+function kFilter(v) { window.__kq = v; const sc = window.scrollY; renderGuideTab(); const i = document.getElementById('kSearch'); if (i) { i.focus(); i.setSelectionRange(v.length, v.length); } window.scrollTo(0, sc); }
+
+/* ============ 体测页（6组11字段 + 外部检测 + 历史对比） ============ */
+const TEST_DIRS = { rhr7: -1, stepPeakHr: -1, stepHrDrop1min: 1, squatMax: 1, pushupMax: 1, standL: 1, standR: 1, plankSec: 1, sideL: 1, sideR: 1 };
+const EXT_DIRS = { '体重': -1, '体脂率': -1, '肺活量': 1, '台阶指数': 1, '握力': 1, '俯卧撑': 1, '坐位体前屈': 1, '闭眼单脚站立': 1, '选择反应时': -1, '血压': 0, '静息心率': -1 };
+function renderTest() {
+  updateSyncBadge();
+  const groups = [
+    { name: '① 静息心率', hint: '方法：取近7天静息心率均值，从健康App抄录。', fields: [['tRhr7', '近7天静息心率均值', '如 60']] },
+    { name: '② 台阶试验', hint: '方法：30-40cm台阶，60步/分，3分钟，佩戴Apple Watch，结束后从健康App抄峰值心率+结束后1分钟下降值。', fields: [['tStepPeak', '台阶峰值心率', '如 132'], ['tStepDrop', '结束后1分钟下降值', '如 28']] },
+    { name: '③ 力量', hint: '方法：深蹲、俯卧撑各做到力竭，记最多次数（动作标准优先）。', fields: [['tSquat', '深蹲最多次数', '如 30'], ['tPushup', '俯卧撑最多次数', '如 20']] },
+    { name: '④ 闭眼单腿站立', hint: '安全提示：站在墙或椅旁；右足疼痛日改睁眼并标注；建议足康复 Stage 1 完成后再测闭眼项目。', fields: [['tStandL', '左侧秒数', '如 25'], ['tStandR', '右侧秒数', '如 18']] },
+    { name: '⑤ 核心', hint: '方法：平板支撑与左右侧支撑各记最长坚持秒数。', fields: [['tPlank', '平板支撑秒数', '如 75'], ['tSideL', '左侧支撑秒数', '如 40'], ['tSideR', '右侧支撑秒数', '如 38']] },
+    { name: '⑥ 柔韧性备注', hint: '方法：主观记录活动度受限情况（可选文字）。', fields: [['tMobility', '柔韧性备注', '如 腘绳肌紧']] }
+  ];
+  let h = '<button class="btn-ghost" onclick="nav(\'pgProfile\')">← 返回档案</button>';
+  h += '<div class="card" style="margin-top:12px"><div class="card-title" style="margin-bottom:12px">家庭体测（6组 / 11字段）</div>'
+    + '<div class="field"><label>体测日期</label><input id="tDate" type="date" value="' + U.todayStr() + '"></div>';
+  groups.forEach((g) => {
+    h += '<div class="field"><label style="font-weight:600;color:var(--text)">' + g.name + '</label><div class="sub" style="margin:2px 0 8px">' + U.esc(g.hint) + '</div>';
+    g.fields.forEach((f) => { h += '<div class="field"><label>' + U.esc(f[1]) + '</label><input id="' + f[0] + '" inputmode="decimal" placeholder="' + U.esc(f[2]) + '"></div>'; });
+    h += '</div>';
+  });
+  h += '<button class="btn-primary" onclick="saveTest()">保存本次体测</button></div>';
+  h += '<div class="card"><details class="fold" style="margin:0;background:transparent;padding:0"><summary>外部检测录入（常驻，来源默认武汉国民体质监测中心）</summary><div class="fold-body">'
+    + '<div class="field"><label>检测日期</label><input id="eDate" type="date" value="' + U.todayStr() + '"></div>'
+    + '<div class="field"><label>来源</label><input id="eSource" value="武汉国民体质监测中心"></div>'
+    + CONFIG.externalItems.map((k) => '<div class="field"><label>' + U.esc(k) + '</label><input id="e_' + U.esc(k) + '" placeholder="可留空"></div>').join('')
+    + '<button class="btn-primary" onclick="saveExternal()">保存外部检测</button></div></details></div>';
+  h += '<div class="card">' + testHistoryHtml() + '</div>';
+  document.getElementById('testBody').innerHTML = h;
+}
+function saveTest() {
+  if (readOnly) { toast('离线只读模式，不能保存'); return; }
+  const date = document.getElementById('tDate').value || U.todayStr();
+  const g = (id) => U.num(document.getElementById(id).value);
+  const rec = recStamp({
+    date: date, rhr7: g('tRhr7'), stepPeakHr: g('tStepPeak'), stepHrDrop1min: g('tStepDrop'),
+    squatMax: g('tSquat'), pushupMax: g('tPushup'), standL: g('tStandL'), standR: g('tStandR'),
+    plankSec: g('tPlank'), sideL: g('tSideL'), sideR: g('tSideR'),
+    mobilityNote: document.getElementById('tMobility').value.trim()
+  });
+  const hasData = ['rhr7', 'stepPeakHr', 'stepHrDrop1min', 'squatMax', 'pushupMax', 'standL', 'standR', 'plankSec', 'sideL', 'sideR'].some((k) => rec[k] != null);
+  if (!hasData && !rec.mobilityNote) { toast('请至少填写一项数据'); return; }
+  upsertByDate(D.tests, rec);
+  D.state.lastTestDate = date;
+  D.state.updatedAt = Date.now();
+  persist();
+  renderTest();
+  toast('体测已保存，复测提醒按 ' + CONFIG.retestDays + ' 天更新');
+}
+function saveExternal() {
+  if (readOnly) { toast('离线只读模式，不能保存'); return; }
+  const date = document.getElementById('eDate').value || U.todayStr();
+  const src = document.getElementById('eSource').value.trim() || '武汉国民体质监测中心';
+  const items = {};
+  let any = false;
+  CONFIG.externalItems.forEach((k) => {
+    const v = document.getElementById('e_' + k).value.trim();
+    if (v !== '') { items[k] = v; any = true; }
+  });
+  if (!any) { toast('请至少填写一项'); return; }
+  upsertByDate(D.external, recStamp({ date: date, source: src, items: items }));
+  persist();
+  renderTest();
+  toast('外部检测已保存');
+}
+function cmpArrow(prev, cur, dir) {
+  if (prev == null || cur == null || !dir) return '<span class="same">—</span>';
+  const p = parseFloat(prev), c = parseFloat(cur);
+  if (isNaN(p) || isNaN(c)) return '<span class="same">—</span>';
+  if (c === p) return '<span class="same">持平</span>';
+  return (dir > 0 ? c > p : c < p) ? '<span class="up">↑ 进步</span>' : '<span class="down">↓ 退步</span>';
+}
+function testHistoryHtml() {
+  let h = '<div class="card-title" style="margin-bottom:8px">家庭体测历史对比（本次 vs 上次）</div>';
+  if (!D.tests.length) h += '<div class="sub">暂无家庭体测记录</div>';
+  else {
+    const cur = D.tests[D.tests.length - 1], prev = D.tests.length > 1 ? D.tests[D.tests.length - 2] : null;
+    const fields = [['rhr7', '近7天静息心率'], ['stepPeakHr', '台阶峰值心率'], ['stepHrDrop1min', '台阶1分钟下降'], ['squatMax', '深蹲'], ['pushupMax', '俯卧撑'], ['standL', '闭眼单腿·左'], ['standR', '闭眼单腿·右'], ['plankSec', '平板支撑'], ['sideL', '左侧支撑'], ['sideR', '右侧支撑'], ['mobilityNote', '柔韧性备注']];
+    h += '<div class="sub" style="margin-bottom:8px">本次：' + U.esc(cur.date) + (prev ? ' ｜ 上次：' + U.esc(prev.date) : ' ｜ 无上次记录') + '</div>';
+    h += '<table class="cmp"><tr><th>项目</th><th>本次</th><th>上次</th><th>变化</th></tr>'
+      + fields.map((f) => {
+        const cv = cur[f[0]], pv = prev ? prev[f[0]] : null;
+        return '<tr><td>' + f[1] + '</td><td>' + U.esc(cv == null || cv === '' ? '—' : cv) + '</td><td>' + U.esc(pv == null || pv === '' ? '—' : pv) + '</td><td>' + cmpArrow(pv, cv, TEST_DIRS[f[0]] || 0) + '</td></tr>';
+      }).join('') + '</table>';
+  }
+  h += '<div class="card-title" style="margin:14px 0 8px">外部检测历史对比（与家庭分开）</div>';
+  if (!D.external.length) h += '<div class="sub">暂无外部检测记录</div>';
+  else {
+    const cur = D.external[D.external.length - 1], prev = D.external.length > 1 ? D.external[D.external.length - 2] : null;
+    h += '<div class="sub" style="margin-bottom:8px">本次：' + U.esc(cur.date) + '（' + U.esc(cur.source || '') + '）' + (prev ? ' ｜ 上次：' + U.esc(prev.date) : ' ｜ 无上次记录') + '</div>';
+    h += '<table class="cmp"><tr><th>项目</th><th>本次</th><th>上次</th><th>变化</th></tr>'
+      + CONFIG.externalItems.map((k) => {
+        const cv = cur.items ? cur.items[k] : null, pv = (prev && prev.items) ? prev.items[k] : null;
+        return '<tr><td>' + U.esc(k) + '</td><td>' + U.esc(cv == null ? '—' : cv) + '</td><td>' + U.esc(pv == null ? '—' : pv) + '</td><td>' + cmpArrow(pv, cv, EXT_DIRS[k] || 0) + '</td></tr>';
+      }).join('') + '</table>';
+  }
+  return h;
+}
+
+/* ============ 档案页（iOS设置页风格分组列表） ============ */
+function renderProfile() {
+  updateSyncBadge();
+  const p = D.profile;
+  const s = D.state;
+  const phaseCond = [
+    '毕业到阶段1：连续4周每周完成率≥80%（打卡天数÷每周可练天数，休息日与病假计已打卡）且近14天无红灯',
+    '毕业到阶段2：Zone2（≤' + CONFIG.zone2Cap + '且记录心率）单次≥60分钟×4次，且足部前置（连续14天无足/踝痛打卡 + 最近体测闭眼单腿每侧≥20s）',
+    '毕业到阶段3：单次低强度活动≥3小时且RPE≤5，次日静息心率回基线±5',
+    '已到最高阶段3：户外长时活动。连续7天黄灯或出现红灯会降级（降1级+维持7天再评估）'
+  ];
+  let h = '';
+  // 档案信息
+  h += '<div class="card"><div class="card-title" style="margin-bottom:12px">档案信息</div>'
+    + '<div class="field"><label>生日（只读，年龄实时计算）</label><input type="date" value="' + U.esc(p.birthday) + '" readonly></div>'
+    + '<div class="field"><label>性别</label><select id="pGender"><option' + (p.gender === '男' ? ' selected' : '') + '>男</option><option' + (p.gender === '女' ? ' selected' : '') + '>女</option></select></div>'
+    + '<div class="field"><label>身高（cm）</label><input id="pHeight" type="number" inputmode="numeric" value="' + (p.height || '') + '"></div>'
+    + '<div class="field"><label>体重（kg）</label><input id="pWeight0" type="number" step="0.1" inputmode="decimal" value="' + (p.weight0 || '') + '"></div>'
+    + '<div class="field"><label>每周可练天数</label><input id="pWeekly" type="number" min="1" max="7" inputmode="numeric" value="' + (p.weeklyDays || 6) + '"></div>'
+    + '<div class="field row-between"><label>可爬楼梯（1-10楼，电梯下楼）</label><label class="switch"><input type="checkbox" id="pStairs"' + (p.stairs ? ' checked' : '') + '><span class="sl"></span></label></div>'
+    + '<div class="field"><label>装备</label><input id="pGear" value="' + U.esc(p.gear) + '"></div>'
+    + '<div class="field"><label>伤病描述</label><textarea id="pInjury" rows="2">' + U.esc(p.injury) + '</textarea></div>'
+    + '<div class="field"><label>目标时间窗（可留空）</label><input id="pTarget" value="' + U.esc(p.targetWindow || '') + '" placeholder="留空则目标页显示模式A"></div>'
+    + '<div class="field"><label>静息心率基线（手动修改后自动校准将关闭）</label><input id="pRhr" type="number" inputmode="numeric" value="' + (p.rhrBaseline != null ? p.rhrBaseline : 60) + '"></div>'
+    + '<div class="field"><label>HRV 基线（毫秒）</label><input id="pHrv" type="number" inputmode="numeric" value="' + (p.hrvBaseline != null ? p.hrvBaseline : 50) + '"></div>'
+    + '<div class="field"><label>睡眠基线（小时）</label><input id="pSleep" type="number" step="0.1" inputmode="decimal" value="' + (p.sleepBaseline != null ? p.sleepBaseline : 5.4) + '"></div>'
+    + '<button class="btn-primary" onclick="saveProfileEdit()">保存档案修改</button></div>';
+  // 当前阶段
+  h += '<div class="card"><div class="card-title" style="margin-bottom:8px">当前阶段</div>'
+    + '<div class="big-num" style="font-size:28px">阶段 ' + s.phase + '</div>'
+    + '<div class="body-tx" style="margin-top:4px">' + U.esc(CONFIG.copy.phase[s.phase]) + '</div>'
+    + '<div class="sub" style="margin-top:8px">' + U.esc(phaseCond[s.phase]) + '</div>'
+    + (s.downgradedAt ? '<div class="sub" style="color:var(--orange)">降级维持期至 ' + U.addDays(s.downgradedAt, CONFIG.downHoldDays) + '</div>' : '')
+    + '</div>';
+  // 足康复 Stage
+  const stg = CONFIG.footStages[s.footStage];
+  h += '<div class="card"><div class="card-title" style="margin-bottom:8px">足康复 Stage：' + s.footStage + '（' + U.esc(stg.name) + '）</div>'
+    + '<div class="sub">' + U.esc(stg.promo) + '</div>'
+    + '<div class="sub" style="margin-top:6px">当前连续无足/踝痛：' + M.footPainFreeDays() + ' 天；踝痛打卡自动降一级（Stage 0 不再降）。</div>'
+    + (s.footStage < 2 ? '<button class="btn-mini" style="margin-top:10px" onclick="promoteFootModal()">Stage 晋级测评</button>' : '')
+    + '</div>';
+  // 睡眠锚点
+  h += '<div class="card"><div class="card-title" style="margin-bottom:8px">睡眠锚点（K9：比几点起床更重要，先守21天）</div>'
+    + '<div class="field"><label>固定关灯时间</label><input id="pAnchor" type="time" value="' + U.esc(p.sleepAnchor || '23:30') + '"></div>'
+    + '<button class="btn-mini" onclick="saveAnchor()">保存锚点</button></div>';
+  // 每周体重
+  const wsNow = U.weekStart(U.todayStr());
+  const wrec = D.weekly.find((x) => x.weekStart === wsNow) || null;
+  h += '<div class="card"><div class="card-title" style="margin-bottom:8px">每周体重（晨起空腹，可空）</div>'
+    + '<div class="field"><label>本周（' + wsNow + ' 起）体重（kg）</label><input id="pWeightKg" type="number" step="0.1" inputmode="decimal" placeholder="如 60.5" value="' + (wrec && wrec.weightKg != null ? wrec.weightKg : '') + '"></div>'
+    + '<button class="btn-mini" onclick="saveWeight()">记录本周体重</button></div>';
+  // 历史回填入口
+  h += '<div class="card"><div class="card-title" style="margin-bottom:8px">历史数据回填</div>'
+    + '<div class="sub" style="margin-bottom:10px">把健康App近7天均值生成7天metrics历史。</div>'
+    + '<button class="btn-mini" onclick="openBackfill()">进入历史回填</button> '
+    + '<button class="btn-mini" onclick="nav(\'pgTest\')">家庭体测录入 →</button></div>';
+  // 导出/导入
+  h += '<div class="card"><div class="card-title" style="margin-bottom:8px">导出与导入备份</div>'
+    + '<button class="btn-mini" onclick="exportData()">导出备份（下载 JSON）</button> '
+    + '<label class="btn-mini" style="display:inline-block;margin-top:8px">导入备份<input id="importFile" type="file" accept="application/json,.json" hidden onchange="importData(this)"></label>'
+    + '<div class="sub" style="margin-top:10px">导入校验：JSON schema + 文件&gt;10MB 拒收。主存储：GitHub ' + CONFIG.GITHUB_USER + '/' + CONFIG.DATA_REPO + '（' + CONFIG.DATA_PATH + '）。</div></div>';
+  // 阈值只读
+  h += '<div class="card"><details class="fold" style="margin:0;background:transparent;padding:0"><summary>阈值查看（只读，均为估算值）</summary><div class="fold-body">'
+    + configRows().map((r) => '<div class="set-row"><span class="sr-k">' + U.esc(r[0]) + '</span><span class="sr-v">' + U.esc(r[1]) + '</span></div>').join('')
+    + '</div></details></div>';
+  // 关于
+  h += '<div class="card"><div class="card-title" style="margin-bottom:6px">关于</div>'
+    + '<div class="set-row"><span class="sr-k">版本</span><span class="sr-v">v3.2</span></div>'
+    + '<div class="sub" style="margin-top:8px">本应用为个人训练记录工具，非医疗设备；疼痛持续或加重请就医。</div></div>';
+  document.getElementById('profileBody').innerHTML = h;
+}
+function saveProfileEdit() {
+  if (readOnly) { toast('离线只读模式，不能保存'); return; }
+  const p = D.profile;
+  const h = U.num(document.getElementById('pHeight').value);
+  const w = U.num(document.getElementById('pWeight0').value);
+  if (!h || !w) { toast('身高、体重为必填'); return; }
+  p.gender = document.getElementById('pGender').value;
+  p.height = h;
+  p.weight0 = w;
+  p.weeklyDays = U.num(document.getElementById('pWeekly').value) || 6;
+  p.stairs = document.getElementById('pStairs').checked;
+  p.gear = document.getElementById('pGear').value.trim();
+  p.injury = document.getElementById('pInjury').value.trim() || CONFIG.copy.injuryPreset;
+  p.targetWindow = document.getElementById('pTarget').value.trim() || null;
+  const r = U.num(document.getElementById('pRhr').value);
+  if (r != null && r !== p.rhrBaseline) {
+    p.rhrBaseline = r;
+    D.state.autoCalibrateRHR = false; // 手动改后自动关
+    toast('静息心率基线已手动设为 ' + r + '，自动校准已关闭');
+  }
+  const hv = U.num(document.getElementById('pHrv').value);
+  if (hv != null) p.hrvBaseline = hv;
+  const sl = U.num(document.getElementById('pSleep').value);
+  if (sl != null) p.sleepBaseline = sl;
+  p.updatedAt = Date.now();
+  D.state.updatedAt = Date.now();
+  persist();
+  renderProfile();
+  toast('档案已保存');
+}
+function saveAnchor() {
+  if (readOnly) { toast('离线只读模式，不能保存'); return; }
+  const v = document.getElementById('pAnchor').value;
+  if (!v) { toast('请选择时间'); return; }
+  D.profile.sleepAnchor = v;
+  D.profile.updatedAt = Date.now();
+  persist();
+  toast('睡眠锚点已设为 ' + v + '（K9：先守21天）');
+}
+function saveWeight() {
+  if (readOnly) { toast('离线只读模式，不能保存'); return; }
+  const v = U.num(document.getElementById('pWeightKg').value);
+  if (v == null) { toast('请填写体重'); return; }
+  upsertByKey(D.weekly, recStamp({ weekStart: U.weekStart(U.todayStr()), weightKg: v }), 'weekStart');
+  persist();
+  renderProfile();
+  toast('本周体重已记录');
+}
+/* 足康复 Stage 晋级测评（K7 晋级条件） */
+function promoteFootModal() {
+  const st = D.state.footStage;
+  if (st >= 2) { toast('已到最高 Stage 2（维持：体测单腿每侧≥20s 且 连续30天无崴脚）'); return; }
+  let body = '';
+  if (st === 0) {
+    body = '<div class="sub" style="margin-bottom:10px">晋级条件：连续7天日常行走疼痛≤2/10。系统已核对连续无足/踝痛打卡 ' + M.footPainFreeDays() + ' 天。请自我确认后提交。</div>'
+      + '<div class="row-between" style="margin-bottom:10px"><label class="body-tx">近7天日常行走疼痛≤2/10</label>'
+      + '<label class="switch"><input type="checkbox" id="pmConfirm"><span class="sl"></span></label></div>';
+  } else {
+    body = '<div class="sub" style="margin-bottom:10px">晋级条件：连续14天日常行走无痛（系统核对：当前 ' + M.footPainFreeDays() + ' 天）且 睁眼单腿45秒×3组稳定（左右均达标）。</div>'
+      + '<div class="field"><label>左腿睁眼单腿（秒）</label><input id="pmL" type="number" min="0" inputmode="numeric" placeholder="如 45"></div>'
+      + '<div class="field"><label>右腿睁眼单腿（秒）</label><input id="pmR" type="number" min="0" inputmode="numeric" placeholder="如 45"></div>';
+  }
+  showModal('<div class="card-title" style="margin-bottom:8px">Stage 晋级测评（' + st + ' → ' + (st + 1) + '）</div>' + body
+    + '<div class="m-actions"><button class="btn-primary" onclick="promoteFoot()">提交测评</button>'
+    + '<button class="btn-ghost" onclick="closeModal()">取消</button></div>');
+}
+function promoteFoot() {
+  const st = D.state.footStage;
+  if (st >= 2) { closeModal(); return; }
+  if (st === 0) {
+    const ok = document.getElementById('pmConfirm').checked;
+    if (!ok) { toast('请先确认近7天行走疼痛≤2/10'); return; }
+    D.state.footStage = 1;
+  } else {
+    const need = 45; // 估算值：Stage1→2 睁眼单腿45秒
+    const l = U.num(document.getElementById('pmL').value);
+    const r = U.num(document.getElementById('pmR').value);
+    if (l == null || r == null) { toast('请填写左右秒数'); return; }
+    if (M.footPainFreeDays() < 14) { toast('连续无足/踝痛未满14天（当前 ' + M.footPainFreeDays() + ' 天），暂不晋级'); return; }
+    if (l < need || r < need) { toast('睁眼单腿需左右均≥' + need + '秒'); return; }
+    D.state.footStage = 2;
+  }
+  D.state.updatedAt = Date.now();
+  persist();
+  closeModal();
+  renderProfile();
+  toast('足康复晋级：Stage ' + D.state.footStage);
+}
+function configRows() {
+  const cap = M.hrHardCap();
+  return [
+    ['Zone2 心率上限', CONFIG.zone2Cap + '（180-31-10 保守修正）'],
+    ['心率硬上限', cap != null ? cap + ' = 180 - 周岁' + M.age() : '—'],
+    ['红灯', '疼痛为膝/腰/其他；或 RHR连续' + CONFIG.rhrRedDays + '天>基线+' + CONFIG.rhrRedDelta + ' 且当日状态差'],
+    ['黄灯', '连续' + CONFIG.sleepShortDays + '天睡眠<' + CONFIG.sleepShortH + 'h；RHR连续' + CONFIG.rhrYelDays + '天>基线+' + CONFIG.rhrYelDelta + '；状态差连续' + CONFIG.moodBadDays + '天；足痛；踝痛'],
+    ['踝痛规则', '黄灯 + footStage 自动-1（Stage 0 不再降）'],
+    ['RHR基线', '手动 > 近' + CONFIG.rhrBaseWindow + '天均值(≥' + CONFIG.rhrBaseMinDays + '天) > 预填60'],
+    ['周体重横幅', '较前值降>' + CONFIG.weightDropKg + 'kg（不变灯色）'],
+    ['复测周期', CONFIG.retestDays + ' 天'],
+    ['有氧周目标', CONFIG.aerobicGoalMin + ' 分钟（估算值）'],
+    ['阶段0→1', '连续' + CONFIG.phaseWeeks + '周完成率≥80% 且 近' + CONFIG.noRedDays + '天无红灯'],
+    ['阶段1→2', 'Zone2单次≥' + CONFIG.z2LongMin + '分钟×' + CONFIG.z2LongCount + '次 + 足部前置（14天无足/踝痛 + 单腿每侧≥' + CONFIG.ankleFrontStand + 's）'],
+    ['阶段2→3', '单次低强度≥' + CONFIG.longMin + '分钟 且 RPE≤' + CONFIG.longRpeMax + '，次日RHR回基线±' + CONFIG.rhrNextDayDelta],
+    ['降级', '连续' + CONFIG.yellowDownRun + '天黄灯 或 出现红灯 → 降1级，维持' + CONFIG.downHoldDays + '天再评估'],
+    ['力量渐进', 'RPE≤7加量 / 8持平 / ≥9减10%'],
+    ['同步超期', '> ' + CONFIG.syncStaleDays + ' 天标红']
+  ];
+}
+function exportData() {
+  const payload = Object.assign({}, D, { updatedAt: new Date().toISOString() });
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '体能系统备份-' + U.todayStr() + '.json';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  toast('备份已导出');
+}
+function importData(input) {
+  const f = input.files && input.files[0];
+  input.value = '';
+  if (!f) return;
+  if (f.size > CONFIG.IMPORT_MAX_BYTES) { toast('导入失败：文件超过 10MB，已拒收'); return; }
+  const rd = new FileReader();
+  rd.onload = () => {
+    let obj = null;
+    try { obj = JSON.parse(rd.result); } catch (e) { toast('导入失败：不是合法 JSON'); return; }
+    if (!obj || typeof obj !== 'object' || !obj.profile || typeof obj.profile !== 'object' || !obj.state || typeof obj.state !== 'object' || !Array.isArray(obj.daily) || !Array.isArray(obj.metrics)) {
+      toast('导入失败：格式校验不通过'); return;
+    }
+    D = normalizeData(obj);
+    persist();
+    renderProfile();
+    updateSyncBadge();
+    // "导入成功：X条记录，时间范围 YYYY-MM-DD 至 YYYY-MM-DD"
+    const dates = [];
+    ['daily', 'metrics', 'tests', 'external'].forEach((k) => D[k].forEach((r) => { if (r.date) dates.push(r.date); }));
+    D.weekly.forEach((r) => { if (r.weekStart) dates.push(r.weekStart); });
+    let msg = '导入成功：' + recCount(D) + ' 条记录';
+    if (dates.length) {
+      dates.sort();
+      msg += '，时间范围 ' + dates[0] + ' 至 ' + dates[dates.length - 1];
+    }
+    toast(msg);
+  };
+  rd.onerror = () => toast('读取文件失败');
+  rd.readAsText(f, 'utf-8');
+}
+
+/* ============ 启动 ============ */
+function bindUI() {
+  document.getElementById('btnUnlock').onclick = () => tryUnlock();
+  document.getElementById('gateKey').addEventListener('keydown', (e) => { if (e.key === 'Enter') tryUnlock(); });
+  document.getElementById('btnOffline').onclick = () => enterOffline();
+  document.getElementById('btnProfile').onclick = () => nav('pgProfile');
+  document.getElementById('btnSave').onclick = () => tfSave();
+  document.getElementById('bfSave').onclick = () => saveBackfill();
+  document.getElementById('bfSkip').onclick = () => skipBackfill();
+  document.getElementById('bfBackBtn').onclick = () => closeBackfill();
+  document.querySelectorAll('#tabbar .tab').forEach((b) => { b.onclick = () => nav(b.getAttribute('data-pg')); });
+  document.getElementById('modalWrap').onclick = (e) => { if (e.target.id === 'modalWrap') closeModal(); };
+  // 同步时机=切回前台（不做后台定时同步）
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && D && D.state.pendingSync && TOKEN && !readOnly) pushNow();
+  });
+}
+async function init() {
+  if ('serviceWorker' in navigator) {
+    try { navigator.serviceWorker.register('./sw.js').catch(() => {}); } catch (e) {}
+  }
+  bindUI();
+  await DB.open();
+  const saved = await DB.load();
+  D = saved ? normalizeData(saved) : defaultData();
+  updateSyncBadge();
+  let savedKey = null;
+  try { savedKey = sessionStorage.getItem('tineng_key'); } catch (e) {}
+  if (savedKey) {
+    document.getElementById('gateKey').value = savedKey;
+    tryUnlock();
+  }
+}
+document.addEventListener('DOMContentLoaded', init);
+
+
+</script>
+</body>
+</html>
