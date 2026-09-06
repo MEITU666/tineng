@@ -160,6 +160,15 @@ details.fold .fold-body{padding:2px 0 12px;font-size:14px;line-height:1.9;color:
 .wk-ring svg{width:100%;height:100%}
 .wk-ring .wt{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:44px;font-weight:700;line-height:1.1}
 .wk-btns{display:flex;flex-direction:column;gap:10px;width:100%;max-width:320px}
+.wk-bar{width:220px;height:6px;border-radius:3px;background:var(--line);margin:0 auto 18px;overflow:hidden}
+.wk-bar>div{height:100%;background:var(--accent);border-radius:3px;transition:width .4s}
+.wk-goal{font-size:28px;font-weight:700;color:var(--orange);margin:-12px 0 18px}
+.wk-tip{font-size:14px;color:var(--text2);max-width:320px;margin:0 auto 20px;line-height:1.7}
+.wr-badge{width:64px;height:64px;margin:4px auto 10px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.wr-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
+.wr-num{background:var(--bg);border-radius:12px;padding:12px 6px;text-align:center}
+.wr-v{font-size:20px;font-weight:700}
+.wr-l{font-size:12px;color:var(--text2);margin-top:2px}
 /* 阶段升级动画 */
 @keyframes phup{0%{transform:translateY(24px) scale(.85);opacity:0}18%{transform:translateY(0) scale(1.04);opacity:1}82%{transform:translateY(0) scale(1);opacity:1}100%{transform:translateY(-12px) scale(1);opacity:0}}
 #phaseUp{position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;pointer-events:none}
@@ -461,16 +470,6 @@ const CONFIG = {
       comp: '塌腰 / 耸肩 / 肘部完全横向90°',
       fix: '收紧腹部肚脐贴脊柱；主动沉肩肩胛骨往臀部压；肘收至45°靠近身体',
       link: 'https://search.bilibili.com/all?keyword=俯卧撑 退阶 教学' },
-    { name: '平板支撑', part: '核心抗伸展', repsKey: '平板', unit: '秒', sets: 3,
-      guide: '收腹夹臀、耳肩髋踝一线、正常呼吸',
-      comp: '塌腰 / 憋气 / 臀部抬高',
-      fix: '卷尾骨臀微上提；鼻吸口呼保持节奏；宁缩短时间不变形',
-      link: 'https://search.bilibili.com/all?keyword=平板支撑 正确姿势' },
-    { name: '侧桥', part: '核心抗侧屈', repsKey: '侧桥', unit: '秒/侧', sets: 3,
-      guide: '髋部前推、身体一线',
-      comp: '髋下沉 / 躯干旋转向前',
-      fix: '髋主动前推侧腹发力；保持侧面想象靠墙',
-      link: 'https://search.bilibili.com/all?keyword=侧平板支撑 教学' },
     { name: '箭步蹲', part: '单侧下肢', repsKey: '箭步蹲', unit: '次/侧', sets: 3,
       guide: '躯干直立、后膝近地',
       comp: '前膝内扣 / 躯干前倾用腰发力 / 用后脚蹬地站起',
@@ -480,7 +479,17 @@ const CONFIG = {
       guide: '顶峰收缩1秒、髋完全伸展',
       comp: '顶峰时腰部反弓 / 脚离臀太远用大腿后侧拉',
       fix: '顶峰夹紧臀部腰保持中立；脚跟靠近臀部',
-      link: 'https://search.bilibili.com/all?keyword=臀桥 正确做法' }
+      link: 'https://search.bilibili.com/all?keyword=臀桥 正确做法' },
+    { name: '平板支撑', part: '核心抗伸展', repsKey: '平板', unit: '秒', sets: 3,
+      guide: '收腹夹臀、耳肩髋踝一线、正常呼吸',
+      comp: '塌腰 / 憋气 / 臀部抬高',
+      fix: '卷尾骨臀微上提；鼻吸口呼保持节奏；宁缩短时间不变形',
+      link: 'https://search.bilibili.com/all?keyword=平板支撑 正确姿势' },
+    { name: '侧桥', part: '核心抗侧屈', repsKey: '侧桥', unit: '秒/侧', sets: 3,
+      guide: '髋部前推、身体一线',
+      comp: '髋下沉 / 躯干旋转向前',
+      fix: '髋主动前推侧腹发力；保持侧面想象靠墙',
+      link: 'https://search.bilibili.com/all?keyword=侧平板支撑 教学' }
   ],
   progressionCopy: '渐进规则：全部动作标准完成且 RPE≤7 → 下次各动作 +1次（平板/侧桥 +5秒）；RPE=8 → 持平；RPE≥9 或 连续2次未完成全部动作 → 各动作 -10%。每次只加一个变量，最困难组保留1-2次余力。',
 
@@ -1552,6 +1561,8 @@ function planHtml() {
         + '<button class="ci-btn" onclick="window.open(\'' + a.link + '\')">📺教学</button></div></div>';
     }).join('');
     h += '<div class="sub" style="margin-top:8px">' + U.esc(CONFIG.progressionCopy) + '</div>';
+    const Lp = R.todayLight();
+    if (Lp.level === 'yellow') h += '<div class="sub" style="margin-top:8px;color:var(--orange)">今日黄灯：开始训练时目标次数将自动减量 30%（估算）</div>'; // REH-2 预告
     const plog = D.state.progressionLog || []; // B-3：让用户看到每次次数调整的原因
     if (plog.length) {
       h += '<details class="fold" style="margin-top:8px"><summary>渐进记录（次数为什么变了）</summary><div class="fold-body sub">'
@@ -1567,7 +1578,11 @@ function planHtml() {
     h += '<details class="fold"><summary>热身与放松（各5分钟）</summary><div class="fold-body">'
       + '<b>热身：</b>' + U.esc(CONFIG.warmup) + '<br><b>放松：</b>' + U.esc(CONFIG.cooldown)
       + '<br><span class="sub">' + U.esc(CONFIG.weatherAlt) + '</span></div></details>';
-    h += '<button class="btn-primary" style="margin-top:12px" onclick="startWorkout()">开始训练</button>';
+    if (R.todayLight().level === 'red') { // REH-1 红灯门禁：不渲染开始按钮
+      h += '<div class="callout-warn" style="margin-top:12px">今日红灯：停训，仅可八段锦与足底放松，等灯转绿再练。</div>';
+    } else {
+      h += '<button class="btn-primary" style="margin-top:12px" onclick="startWorkout()">开始训练</button>';
+    }
   }
   return h;
 }
@@ -1691,7 +1706,7 @@ function prefillToday() {
 }
 
 /* 力量渐进计数器（K5）：≤7加 / 8持平 / ≥9减10%；B-3：每次调整写入渐进日志供用户查看 */
-function applyProgression(rpe) {
+function applyProgression(rpe, partial) {
   const sr = D.state.strengthReps;
   const changes = [];
   CONFIG.actions.forEach((a) => {
@@ -1709,7 +1724,7 @@ function applyProgression(rpe) {
       what: changes.join('、')
     }]).slice(-12);
   }
-  D.state.strengthFails = 0; // 完成力量日即复位"未完成"计数
+  if (!partial) D.state.strengthFails = 0; // 完整完成力量日才复位"未完成"计数；部分完成保留（K5 连续计数）
   D.state.updatedAt = Date.now();
 }
 
@@ -1720,6 +1735,8 @@ function tfSave() {
   if (readOnly) { fail('离线只读模式，不能保存'); return; }
   if (b) { b.disabled = true; b.textContent = '保存中…'; }
   const rec = makeDailyRecord(U.todayStr());
+  const fromWk = !!tf.fromWorkout; tf.fromWorkout = false; // N2：跟练流保存标志（用后即清）
+  let strengthFull = true; // 力量日是否全勾（供 applyProgression 判断 K5 复位）
   rec.type = tf.type;
   rec.footRehab = tf.footRehab;
   rec.baduanjin = tf.baduanjin;
@@ -1738,8 +1755,10 @@ function tfSave() {
     rec.cardioChoice = tf.cardioChoice;
   }
   if (tf.type === '力量') {
-    if (!tf.checks.every(Boolean)) {
-      // K5：连续2次力量日未完成全部动作 → 各动作 -10%（被阻止的尝试计为一次"未完成"）
+    const full = tf.checks.every(Boolean);
+    strengthFull = full;
+    if (!full && !fromWk) {
+      // K5：手动表单未勾全 → 阻止保存并计数（连续2次力量日未完成 → 各动作 -10%）
       D.state.strengthFails = (D.state.strengthFails || 0) + 1;
       if (D.state.strengthFails >= 2) {
         const ch2 = [];
@@ -1762,8 +1781,24 @@ function tfSave() {
       fail('力量日需勾选全部6个动作后再保存（连续2次未完成将自动-10%）');
       return;
     }
+    if (!full && fromWk) { // N2：跟练部分完成 → 如实记录并计入 K5 渐进（不阻止保存，训练真实发生过）
+      D.state.strengthFails = (D.state.strengthFails || 0) + 1;
+      if (D.state.strengthFails >= 2) {
+        const ch3 = [];
+        CONFIG.actions.forEach((a) => {
+          const k = a.repsKey;
+          const from = D.state.strengthReps[k];
+          D.state.strengthReps[k] = Math.max(1, Math.round(from * 0.9));
+          ch3.push(a.name + ' ' + from + '→' + D.state.strengthReps[k] + a.unit);
+        });
+        D.state.progressionLog = (D.state.progressionLog || []).concat([{ ts: Date.now(), why: '连续2次力量日未完成全部动作（各动作-10%）', what: ch3.join('、') }]).slice(-12);
+        D.state.strengthFails = 0;
+      }
+      D.state.updatedAt = Date.now();
+    } else if (full) {
+      D.state.strengthFails = 0;
+    }
     rec.strengthChecks = tf.checks.slice();
-    D.state.strengthFails = 0;
   }
   if (tf.painOpt === '其他') {
     const p = (document.getElementById('fPainText') || {}).value || '';
@@ -1803,8 +1838,8 @@ function tfSave() {
     const cap = M.hrHardCap();
     if (cap && rec.avgHr > cap) toast('平均心率 ' + rec.avgHr + ' 超过硬上限 ' + cap + '（180-周岁' + M.age() + '），请注意');
   }
-  // 力量渐进
-  if (tf.type === '力量' && rec.strengthChecks && rec.rpe != null) applyProgression(rec.rpe);
+  // 力量渐进（partial=跟练部分完成：保留 strengthFails 不复位）
+  if (tf.type === '力量' && rec.strengthChecks && rec.rpe != null) applyProgression(rec.rpe, fromWk && !strengthFull);
   // 阶段状态机
   R.evalPhase();
   persist();
@@ -2696,60 +2731,156 @@ function SPEAK(t) {
     window.speechSynthesis.speak(u);
   } catch (e) { /* 语音不可用时静默 */ }
 }
+/* ---- N1 整节课自动跟练流（仅力量日；有氧/长时活动沿用单动作正计时） ---- */
+var pendingCourse = null, pendingYellow = false; // 课单确认卡暂存
+function reduceTarget(base, unit) { // REH-2 黄灯减量30%：次数向上取整，秒类取5的倍数
+  if (String(unit).indexOf('秒') >= 0) return Math.max(5, Math.ceil((base * 0.7) / 5) * 5);
+  return Math.max(1, Math.ceil(base * 0.7));
+}
+function buildCourse(reduced) { // 课单：热身 + 6动作×3组（每组前预备3s、组后休息60s）+ 放松
+  const c = [{ kind: 'warm' }];
+  CONFIG.actions.forEach((a, i) => {
+    const base = D.state.strengthReps[a.repsKey] || 10;
+    const target = reduced ? reduceTarget(base, a.unit) : base;
+    const timed = a.unit.indexOf('秒') >= 0;
+    for (let s = 1; s <= 3; s++) {
+      c.push({ kind: 'pre', actionIdx: i, set: s, name: a.name });
+      c.push({ kind: 'set', actionIdx: i, set: s, name: a.name, unit: a.unit, target: target, timed: timed, secs: timed ? target : 0 });
+      const last = (i === CONFIG.actions.length - 1 && s === 3);
+      if (!last) c.push({ kind: 'rest', nextName: (s < 3 ? a.name : CONFIG.actions[i + 1].name), nextSet: (s < 3 ? s + 1 : 1) });
+    }
+  });
+  c.push({ kind: 'cooldown' });
+  return c;
+}
+function estimateMin(course) { // 预计时长（估算值：次数类按40秒/组，热身/放松各按5分钟）
+  let s = 300 + 300 + course.filter((p) => p.kind === 'pre').length * 3 + course.filter((p) => p.kind === 'rest').length * 60;
+  course.forEach((p) => { if (p.kind === 'set') s += p.timed ? p.secs : 40; });
+  return Math.max(1, Math.round(s / 60));
+}
+function lastPerfTxt() { // N3 上次成绩：最近一条（不含今天）含勾选的力量记录
+  const t = U.todayStr();
+  let best = null;
+  D.daily.forEach((d) => {
+    if (d.date < t && d.type === '力量' && d.strengthChecks && (!best || (d.updatedAt || 0) > (best.updatedAt || 0))) best = d;
+  });
+  if (!best) return '首次动作，做完就是你的起点';
+  const miss = best.strengthChecks.filter((x) => !x).length;
+  return '上次（' + U.fmtShort(best.date) + '）：RPE ' + (best.rpe != null ? best.rpe : '—') + (miss === 0 ? ' · 全勤' : ' · 缺' + miss + '个动作');
+}
+function weekTrainNo() { // 本周第 N 练（周一起算，含本次）
+  const ws = U.weekStart(U.todayStr());
+  let n = 1;
+  D.daily.forEach((d) => { if (d.date >= ws && d.date <= U.todayStr() && CONFIG.trainTypes.indexOf(d.type) >= 0) n++; });
+  return n;
+}
 function startWorkout() {
+  const L = R.todayLight();
+  if (L.level === 'red') { // REH-1 红灯门禁（按钮已隐藏，直调也拦）
+    showModal('<div class="card-title" style="margin-bottom:8px">今日红灯</div>'
+      + '<div class="body-tx">' + U.esc(CONFIG.copy.red) + '</div>'
+      + '<div class="m-actions"><button class="btn-primary" onclick="closeModal()">知道了</button></div>');
+    return;
+  }
   const dayType = CONFIG.weekTemplate[new Date().getDay()];
   const type = CONFIG.trainTypes.indexOf(tf.type) >= 0 ? tf.type : dayType;
   if (CONFIG.trainTypes.indexOf(type) < 0) { toast('休息日没有训练安排'); return; }
   if (type === '有氧' && !tf.cardioChoice) { toast('请先选择有氧方式（3选1）'); return; }
-  const startTs = Date.now();
-  if (type === '力量') {
-    const list = CONFIG.actions.map((a) => ({ name: a.name, unit: a.unit, repsKey: a.repsKey, sets: 3, secs: a.unit.indexOf('秒') >= 0 ? (D.state.strengthReps[a.repsKey] || 30) : 0 }));
-    wk = { kind: '力量', list: list, idx: 0, set: 1, phase: 'work', left: list[0].secs, phaseDur: list[0].secs, phaseStartTs: startTs, elapsed: 0, startTs: startTs, done: [false, false, false, false, false, false], spoken10: false };
-  } else {
-    wk = { kind: type, list: [{ name: type === '有氧' ? tf.cardioChoice : '长时活动', unit: '分钟', repsKey: null, sets: 1, secs: 0 }], idx: 0, set: 1, phase: 'work', left: 0, phaseDur: 0, phaseStartTs: startTs, elapsed: 0, startTs: startTs, done: null, countup: true, spoken10: false };
+  if (type !== '力量') { // 有氧/长时活动：单动作正计时
+    const startTs = Date.now();
+    wk = { kind: type, mode: 'solo', list: [{ name: type === '有氧' ? tf.cardioChoice : '长时活动', unit: '分钟', repsKey: null, sets: 1, secs: 0 }], idx: 0, set: 1, phase: 'work', left: 0, phaseDur: 0, phaseStartTs: startTs, startTs: startTs, pausedTotal: 0, pausedAt: null, elapsed: 0, done: null, spoken10: false };
+    document.getElementById('workout').hidden = false;
+    wk.timer = setInterval(wkTick, 1000);
+    SPEAK('开始');
+    renderWorkout();
+    return;
   }
+  pendingYellow = (L.level === 'yellow'); // REH-2 黄灯减量
+  pendingCourse = buildCourse(pendingYellow);
+  const names = CONFIG.actions.map((a) => {
+    const base = D.state.strengthReps[a.repsKey] || 10;
+    const tg = pendingYellow ? reduceTarget(base, a.unit) : base;
+    return a.name + ' 3×' + tg + a.unit;
+  }).join('、');
+  showModal('<div class="card-title" style="margin-bottom:8px">今日力量课</div>'
+    + (pendingYellow ? '<div class="sub" style="color:var(--orange);margin-bottom:8px">今日黄灯：目标已自动减量 30%（估算）</div>' : '')
+    + '<div class="body-tx" style="line-height:1.8">' + U.esc(names) + '</div>'
+    + '<div class="sub" style="margin-top:8px">热身与放松各约5分钟 · 全程约 ' + estimateMin(pendingCourse) + ' 分钟（估算）</div>'
+    + '<div class="m-actions"><button class="btn-primary" onclick="confirmCourse()">确认，开始</button>'
+    + '<button class="btn-ghost" onclick="closeModal()">再等等</button></div>');
+}
+function confirmCourse() {
+  if (!pendingCourse) return;
+  closeModal();
+  const startTs = Date.now();
+  wk = { kind: '力量', mode: 'course', course: pendingCourse, ci: 0, phase: 'warm', left: 0, phaseDur: 0, phaseStartTs: startTs, startTs: startTs, pausedTotal: 0, pausedAt: null, elapsed: 0, setsDone: [0, 0, 0, 0, 0, 0], totalSets: 18, yellow: pendingYellow, lastPerf: lastPerfTxt(), spoken10: false, spoken30: false, lastSpokenNum: -1, timer: null };
+  pendingCourse = null;
   document.getElementById('workout').hidden = false;
   wk.timer = setInterval(wkTick, 1000);
-  SPEAK('开始');
+  SPEAK('开始训练，先热身');
   renderWorkout();
 }
+function enterPhase(i) { // 进入课单第 i 项：重置计时三件套与播报标志
+  wk.ci = i;
+  const p = wk.course[i];
+  wk.phase = p.kind;
+  wk.spoken10 = false; wk.spoken30 = false; wk.lastSpokenNum = -1;
+  const now = Date.now();
+  if (p.kind === 'pre') { wk.phaseDur = 3; wk.left = 3; wk.phaseStartTs = now; SPEAK('预备'); }
+  else if (p.kind === 'rest') { wk.phaseDur = 60; wk.left = 60; wk.phaseStartTs = now; SPEAK('休息一下，下一个：' + p.nextName); }
+  else if (p.kind === 'set') { wk.phaseDur = p.timed ? p.secs : 0; wk.left = wk.phaseDur; wk.phaseStartTs = now; SPEAK(p.name + '，第' + p.set + '组，目标' + p.target + p.unit); }
+  else if (p.kind === 'warm') { wk.phaseDur = 0; wk.left = 0; wk.phaseStartTs = now; }
+  else { wk.phaseDur = 0; wk.left = 0; wk.phaseStartTs = now; SPEAK('最后，放松拉伸'); }
+  renderWorkout();
+}
+function wkAdvance() { if (wk && wk.ci + 1 < wk.course.length) enterPhase(wk.ci + 1); else finishWorkout(); }
+function pauseWorkout() { if (wk && !wk.pausedAt) { wk.pausedAt = Date.now(); renderWorkout(); } }
+function resumeWorkout() { // 暂停补偿：把暂停时长从计时三件套里平移掉
+  if (wk && wk.pausedAt) {
+    const d = Date.now() - wk.pausedAt;
+    wk.pausedTotal += d; wk.phaseStartTs += d; wk.startTs += d; wk.pausedAt = null;
+    renderWorkout();
+  }
+}
 function wkTick() {
-  if (!wk) return;
+  if (!wk || wk.pausedAt) return;
+  wk.elapsed = Math.floor((Date.now() - wk.startTs - wk.pausedTotal) / 1000);
+  if (wk.mode !== 'course') { // 有氧/长时：正计时，无自动流转
+    renderWorkout();
+    return;
+  }
   // A-2：显示值一律由时间戳差值算出，setInterval 仅作刷新触发器（防 iOS 锁屏后计时漂移）
+  const p = wk.course[wk.ci];
   const passed = Math.floor((Date.now() - wk.phaseStartTs) / 1000);
-  wk.elapsed = Math.floor((Date.now() - wk.startTs) / 1000);
-  const timed = wk.list[wk.idx].secs > 0;
-  if (wk.phase === 'rest') {
+  if (p.kind === 'pre') {
+    wk.left = Math.max(0, wk.phaseDur - passed);
+    if (wk.left > 0 && wk.left <= 3 && wk.left !== wk.lastSpokenNum) { wk.lastSpokenNum = wk.left; SPEAK(String(wk.left)); }
+    if (wk.left <= 0) { wkAdvance(); return; }
+  } else if (p.kind === 'rest') {
     wk.left = Math.max(0, wk.phaseDur - passed);
     if (wk.left <= 10 && wk.left > 0 && !wk.spoken10) { wk.spoken10 = true; SPEAK('还剩10秒'); }
-    if (wk.left <= 0) { wk.phase = 'work'; wk.phaseDur = wk.list[wk.idx].secs || 0; wk.phaseStartTs = Date.now(); wk.left = wk.phaseDur; wk.spoken10 = false; SPEAK('开始'); }
-  } else if (timed) {
+    if (wk.left <= 0) { wkAdvance(); return; }
+  } else if (p.kind === 'set' && p.timed) {
     wk.left = Math.max(0, wk.phaseDur - passed);
     if (wk.left <= 10 && wk.left > 0 && !wk.spoken10) { wk.spoken10 = true; SPEAK('还剩10秒'); }
     if (wk.left <= 0) { completeSet(); return; }
+  } else if (p.kind === 'set') { // 次数类：正计时+30秒语音催一次，手动完成（不代跳，防假记录）
+    if (passed >= 30 && !wk.spoken30) { wk.spoken30 = true; SPEAK('做完了就点完成本组'); }
   }
   renderWorkout();
 }
 function completeSet() {
-  if (!wk) return;
+  if (!wk || wk.mode !== 'course') return;
+  const p = wk.course[wk.ci];
+  if (p.kind !== 'set') return;
   SPEAK('本组完成');
-  const it = wk.list[wk.idx];
-  if (wk.set < it.sets) {
-    wk.set++; wk.phase = 'rest'; wk.left = 60; wk.phaseDur = 60; wk.phaseStartTs = Date.now(); wk.spoken10 = false;
-    SPEAK('休息一下');
-    renderWorkout();
-    return;
-  }
-  if (wk.kind === '力量') wk.done[wk.idx] = true;
-  wk.idx++; wk.set = 1; wk.spoken10 = false;
-  if (wk.idx >= wk.list.length) { finishWorkout(); return; }
-  wk.phase = 'work'; wk.left = wk.list[wk.idx].secs || 0; wk.phaseDur = wk.left; wk.phaseStartTs = Date.now();
-  SPEAK('开始');
-  renderWorkout();
+  wk.setsDone[p.actionIdx]++;
+  wkAdvance();
 }
 function skipRest() {
-  if (wk && wk.phase === 'rest') { wk.phase = 'work'; wk.left = wk.list[wk.idx].secs || 0; wk.phaseDur = wk.left; wk.phaseStartTs = Date.now(); wk.spoken10 = false; SPEAK('开始'); renderWorkout(); }
+  if (wk && wk.mode === 'course' && wk.course[wk.ci].kind === 'rest') { SPEAK('继续'); wkAdvance(); }
 }
+function warmDone() { if (wk && wk.mode === 'course' && wk.course[wk.ci].kind === 'warm') { SPEAK('热身完成'); wkAdvance(); } }
 function exitWorkout() {
   if (!wk) return;
   showModal('<div class="card-title" style="margin-bottom:8px">结束训练？</div>'
@@ -2760,9 +2891,16 @@ function exitWorkout() {
 function finishWorkout() {
   if (!wk) return;
   clearInterval(wk.timer);
-  const mins = Math.max(1, Math.round((Date.now() - wk.startTs) / 60000));
+  const mins = Math.max(1, Math.round((Date.now() - wk.startTs - wk.pausedTotal) / 60000));
   const kind = wk.kind;
-  const done = wk.done ? wk.done.slice() : null;
+  const mode = wk.mode;
+  const done = (mode === 'course') ? wk.setsDone.map((n) => n >= 3) : null;
+  const setsDone = (mode === 'course') ? wk.setsDone.reduce((a, b) => a + b, 0) : 0;
+  const totalSets = (mode === 'course') ? wk.totalSets : 0;
+  const yellow = (mode === 'course') ? wk.yellow : false;
+  const lastPerf = (mode === 'course') ? wk.lastPerf : '';
+  const log = D.state.progressionLog || [];
+  const progTxt = log.length ? log[log.length - 1].what.split('、')[0] : null; // 上期渐进示例（历史事实，非本次预测）
   wk = null;
   document.getElementById('workout').hidden = true;
   nav('pgToday');
@@ -2775,32 +2913,112 @@ function finishWorkout() {
   const fd = document.getElementById('fDur');
   if (fd) fd.value = mins;
   setRpeUI(5); // 滑块与文字一起重置为建议默认 5，用户按真实体感拖动确认
-  toast('训练完成：已预填类型与时长（' + mins + ' 分钟），请核对后保存');
+  if (kind === '力量' && mode === 'course' && setsDone > 0) {
+    showWorkoutReport({ mins: mins, setsDone: setsDone, totalSets: totalSets, yellow: yellow, progTxt: progTxt });
+  } else {
+    toast('训练完成：已预填类型与时长（' + mins + ' 分钟），请核对后保存');
+  }
+}
+/* N2 课结报告卡：全勤标记 + 四大数字 + RPE + 主观状态 → 一键保存（走统一保存链） */
+function showWorkoutReport(d) {
+  window.__wrMood = '';
+  const full = d.setsDone >= d.totalSets;
+  const badge = full
+    ? '<div class="wr-badge" style="background:var(--green)"><svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg></div><div class="card-title" style="text-align:center">全部完成</div>'
+    : '<div class="wr-badge" style="background:var(--orange)"><svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.5"/></svg></div><div class="card-title" style="text-align:center">完成 ' + d.setsDone + ' / ' + d.totalSets + ' 组</div>';
+  const prog = d.progTxt ? U.esc(d.progTxt) : '首期';
+  const big = (v, l) => '<div class="wr-num"><div class="wr-v">' + v + '</div><div class="wr-l">' + l + '</div></div>';
+  showModal('<div style="text-align:center">' + badge + '</div>'
+    + '<div class="wr-grid">'
+    + big(d.mins + '<span style="font-size:13px;font-weight:400"> 分钟</span>', '实际时长')
+    + big(d.setsDone + '/' + d.totalSets, '完成组数')
+    + big('<span style="font-size:14px">' + prog + '</span>', '当前目标（上期调整）')
+    + big('第 ' + weekTrainNo() + ' 练', '本周')
+    + '</div>'
+    + (d.yellow ? '<div class="sub" style="color:var(--orange);margin-bottom:6px">已按黄灯自动减量 30%（估算）。</div>' : '')
+    + '<div class="sub" style="margin-bottom:6px">保存后按 RPE 自动渐进：≤7 上调 / 8 持平 / ≥9 减10%</div>'
+    + '<div class="field"><label>体感强度 RPE（1-10）<span id="wrRpeVal" style="float:right;color:var(--accent);font-weight:600">RPE 5</span></label>'
+    + '<input id="wrRpe" type="range" min="1" max="10" step="1" value="5" oninput="wrSetRpe(this.value)"></div>'
+    + '<div class="field"><label>主观状态</label><div class="chips" id="wrMoodChips"></div></div>'
+    + '<div class="m-actions"><button class="btn-primary" onclick="saveFromReport()">保存并结束</button>'
+    + '<button class="btn-ghost" onclick="closeModal();toast(\'已预填，请到记录卡核对保存\')">稍后自己填</button></div>');
+  renderWorkoutMoodChips();
+}
+function renderWorkoutMoodChips() {
+  const el = document.getElementById('wrMoodChips');
+  if (el) el.innerHTML = CONFIG.moods.map((m) => '<button class="chip' + (window.__wrMood === m ? ' on' : '') + '" onclick="wrSetMood(\'' + m + '\')">' + m + '</button>').join('');
+}
+function wrSetRpe(v) { const r = document.getElementById('wrRpe'); if (r) r.value = v; const t = document.getElementById('wrRpeVal'); if (t) t.textContent = 'RPE ' + v; }
+function wrSetMood(m) { window.__wrMood = m; renderWorkoutMoodChips(); }
+function saveFromReport() { // 把报告卡的 RPE/状态写进已预填的表单，走统一保存链（含渐进/灯色/同步）
+  const r = U.num((document.getElementById('wrRpe') || {}).value);
+  if (r == null || r < 1 || r > 10) { toast('请先拖动体感强度 RPE'); return; }
+  if (!window.__wrMood) { toast('请选择主观状态'); return; }
+  setRpeUI(r);
+  tf.mood = window.__wrMood;
+  tf.fromWorkout = true; // 跟练流保存：部分完成不拦截，照实记录
+  closeModal();
+  tfSave();
 }
 function renderWorkout() {
   const el = document.getElementById('wkBody');
   if (!el || !wk) return;
-  const it = wk.list[wk.idx];
-  const timed = it.secs > 0;
-  const rest = wk.phase === 'rest';
-  const secs = rest ? wk.left : (timed ? wk.left : wk.elapsed);
-  const total = rest ? 60 : (timed ? it.secs : 60);
-  const frac = Math.max(0, Math.min(1, secs / total));
-  const C = 2 * Math.PI * 96;
-  const col = rest ? 'var(--orange)' : 'var(--accent)';
-  const sub = wk.kind === '力量'
-    ? ('第 ' + wk.set + ' 组 / 共 ' + it.sets + ' 组 · 目标 ' + D.state.strengthReps[it.repsKey] + it.unit)
-    : '低强度持续输出 · 全程能说话';
-  let btns = rest
-    ? '<button class="btn-primary" onclick="skipRest()">跳过休息</button>'
-    : '<button class="btn-primary" onclick="completeSet()">' + (timed ? '提前完成本组' : '完成本组') + '</button>';
-  btns += '<button class="btn-ghost" onclick="exitWorkout()">结束训练</button>';
-  el.innerHTML = '<div class="wk-name">' + U.esc(it.name) + '</div>'
-    + '<div class="wk-set">' + U.esc(sub) + (rest ? ' · 休息中' : '') + '</div>'
-    + '<div class="wk-ring"><svg viewBox="0 0 220 220"><circle cx="110" cy="110" r="96" fill="none" style="stroke:var(--line)" stroke-width="10"/>'
-    + '<circle cx="110" cy="110" r="96" fill="none" style="stroke:' + col + '" stroke-width="10" stroke-linecap="round" stroke-dasharray="' + (C * frac).toFixed(1) + ' ' + C.toFixed(1) + '" transform="rotate(-90 110 110)"/></svg>'
-    + '<div class="wt">' + secs + '<span style="font-size:14px;color:var(--text2)"> 秒</span></div></div>'
-    + '<div class="wk-btns">' + btns + '</div>';
+  const clock = (s) => Math.floor(s / 60) + ':' + U.pad(s % 60);
+  if (wk.mode !== 'course') { // 有氧/长时：单动作正计时
+    const it = wk.list[wk.idx];
+    const C0 = 2 * Math.PI * 96;
+    el.innerHTML = '<div class="wk-name">' + U.esc(it.name) + '</div>'
+      + '<div class="wk-set">低强度持续输出 · 全程能说话</div>'
+      + '<div class="wk-ring"><svg viewBox="0 0 220 220"><circle cx="110" cy="110" r="96" fill="none" style="stroke:var(--line)" stroke-width="10"/><circle cx="110" cy="110" r="96" fill="none" style="stroke:var(--accent)" stroke-width="10" stroke-linecap="round" stroke-dasharray="' + (C0 * Math.min(1, (wk.elapsed % 60) / 60)).toFixed(1) + ' ' + C0.toFixed(1) + '" transform="rotate(-90 110 110)"/></svg>'
+      + '<div class="wt">' + clock(wk.elapsed) + '</div></div>'
+      + '<div class="wk-btns"><button class="btn-primary" onclick="finishWorkout()">完成训练</button>'
+      + '<button class="btn-ghost" onclick="pauseWorkout()">' + (wk.pausedAt ? '继续' : '暂停') + '</button>'
+      + '<button class="btn-ghost" onclick="exitWorkout()">结束训练</button></div>'
+      + (wk.pausedAt ? '<div class="sub" style="margin-top:12px">已暂停</div>' : '');
+    return;
+  }
+  const p = wk.course[wk.ci];
+  const doneSets = wk.setsDone.reduce((a, b) => a + b, 0);
+  const bar = '<div class="wk-bar"><div style="width:' + Math.round(100 * doneSets / wk.totalSets) + '%"></div></div>';
+  const pauseBtn = '<button class="btn-ghost" onclick="' + (wk.pausedAt ? 'resumeWorkout()' : 'pauseWorkout()') + '">' + (wk.pausedAt ? '继续' : '暂停') + '</button>';
+  let h = '';
+  if (p.kind === 'warm') {
+    h = bar + '<div class="wk-name">热身</div><div class="wk-tip">' + U.esc(CONFIG.warmup) + '</div>'
+      + '<div class="wk-ring" style="width:170px;height:170px"><div class="wt" style="font-size:38px">' + clock(wk.elapsed) + '</div></div>'
+      + '<div class="wk-btns"><button class="btn-primary" onclick="warmDone()">热身完成，开始力量训练</button>' + pauseBtn + '<button class="btn-ghost" onclick="exitWorkout()">结束训练</button></div>';
+  } else if (p.kind === 'pre') {
+    h = bar + '<div class="wk-set">预备 · ' + U.esc(p.name) + ' · 第 ' + p.set + ' 组</div>'
+      + '<div style="font-size:96px;font-weight:700;line-height:1">' + wk.left + '</div>'
+      + '<div class="wk-btns" style="margin-top:30px"><button class="btn-ghost" onclick="exitWorkout()">结束训练</button></div>';
+  } else if (p.kind === 'set') {
+    const a = CONFIG.actions[p.actionIdx];
+    const frac = p.timed ? Math.max(0, Math.min(1, wk.left / Math.max(1, p.secs))) : Math.min(1, (wk.elapsed % 60) / 60);
+    const C = 2 * Math.PI * 96;
+    const shown = p.timed ? wk.left : clock(wk.elapsed);
+    h = bar + '<div class="wk-name">' + U.esc(p.name) + '</div>'
+      + '<div class="wk-set">第 ' + p.set + ' 组 / 共 3 组 · ' + U.esc(a.part) + (wk.yellow ? ' · <span style="color:var(--orange)">黄灯减量中</span>' : '') + '</div>'
+      + '<div class="wk-ring"><svg viewBox="0 0 220 220"><circle cx="110" cy="110" r="96" fill="none" style="stroke:var(--line)" stroke-width="10"/>'
+      + '<circle cx="110" cy="110" r="96" fill="none" style="stroke:var(--accent)" stroke-width="10" stroke-linecap="round" stroke-dasharray="' + (C * frac).toFixed(1) + ' ' + C.toFixed(1) + '" transform="rotate(-90 110 110)"/></svg>'
+      + '<div class="wt">' + shown + (p.timed ? '<span style="font-size:14px;color:var(--text2)"> 秒</span>' : '') + '</div></div>'
+      + (p.timed ? '' : '<div class="wk-goal">目标 ' + p.target + ' ' + U.esc(p.unit) + '</div>')
+      + '<div class="wk-tip" style="margin:2px 0 16px">' + U.esc(wk.lastPerf) + '</div>'
+      + '<div class="wk-btns"><button class="btn-primary" onclick="completeSet()">完成本组</button>' + pauseBtn + '<button class="btn-ghost" onclick="exitWorkout()">结束训练</button></div>'
+      + '<div class="wk-tip" style="margin-top:10px">' + U.esc(a.guide) + '</div>';
+  } else if (p.kind === 'rest') {
+    const frac = Math.max(0, Math.min(1, wk.left / 60));
+    const C = 2 * Math.PI * 96;
+    h = bar + '<div class="wk-name">休息</div><div class="wk-set">下一个：' + U.esc(p.nextName) + ' · 第 ' + p.nextSet + ' 组</div>'
+      + '<div class="wk-ring"><svg viewBox="0 0 220 220"><circle cx="110" cy="110" r="96" fill="none" style="stroke:var(--line)" stroke-width="10"/>'
+      + '<circle cx="110" cy="110" r="96" fill="none" style="stroke:var(--orange)" stroke-width="10" stroke-linecap="round" stroke-dasharray="' + (C * frac).toFixed(1) + ' ' + C.toFixed(1) + '" transform="rotate(-90 110 110)"/></svg>'
+      + '<div class="wt">' + wk.left + '<span style="font-size:14px;color:var(--text2)"> 秒</span></div></div>'
+      + '<div class="wk-btns"><button class="btn-primary" onclick="skipRest()">跳过休息</button></div>';
+  } else { // cooldown 放松
+    h = bar + '<div class="wk-name">放松</div><div class="wk-tip">' + U.esc(CONFIG.cooldown) + '</div>'
+      + '<div class="wk-ring" style="width:170px;height:170px"><div class="wt" style="font-size:38px">' + clock(wk.elapsed) + '</div></div>'
+      + '<div class="wk-btns"><button class="btn-primary" onclick="finishWorkout()">完成训练</button>' + pauseBtn + '<button class="btn-ghost" onclick="exitWorkout()">结束训练</button></div>';
+  }
+  if (wk.pausedAt) h += '<div style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:46;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px"><div class="wk-name" style="color:#fff">已暂停</div><button class="btn-primary" style="max-width:220px" onclick="resumeWorkout()">继续训练</button><button class="btn-ghost" style="max-width:220px;background:transparent" onclick="resumeWorkout();exitWorkout()">结束训练</button></div>';
+  el.innerHTML = h;
 }
 
 /* ============ 启动 ============ */
