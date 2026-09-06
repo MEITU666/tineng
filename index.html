@@ -2017,7 +2017,7 @@ function renderTrend() {
     + '<button class="ci-btn" onclick="heatShift(-1)" aria-label="上一年">‹</button><button class="ci-btn" style="margin-left:6px" onclick="heatShift(1)" aria-label="下一年">›</button></div>'
     + (totalDays < 30 ? '<div class="sub" style="margin-bottom:8px">数据积累中（已积累 ' + totalDays + ' 天）</div>' : '')
     + '<div id="heatEmpty"' + (D.daily.some((r) => r.date.slice(0, 4) === String(heatYear)) ? ' hidden' : '') + '><div class="sub" style="text-align:center;padding:20px 0">' + U.esc(CONFIG.copy.na) + '</div></div>'
-    + '<div id="heatBox">' + yearHeatSvg(heatYear) + '</div>'
+    + '<div id="heatBox" onclick="heatTap(event)">' + yearHeatSvg(heatYear) + '</div>'
     + '</div>';
   box.innerHTML = h;
   // 图表异步渲染
@@ -2104,7 +2104,7 @@ function yearHeatSvg(year) {
     else if (c.lv === 2) { fill = 'var(--green)'; op = '0.55'; }
     else if (c.lv === 3) { fill = 'var(--green)'; op = '1'; }
     const ring = c.d === today ? ' stroke="var(--accent)" stroke-width="1.5"' : '';
-    rects += '<rect x="' + x + '" y="' + y + '" width="' + CW + '" height="' + CW + '" rx="2.5" fill="' + fill + '" fill-opacity="' + op + '"' + ring + '><title>' + c.d + '</title></rect>';
+    rects += '<rect data-ds="' + c.d + '" x="' + x + '" y="' + y + '" width="' + CW + '" height="' + CW + '" rx="2.5" fill="' + fill + '" fill-opacity="' + op + '"' + ring + ' style="cursor:pointer"><title>' + c.d + '</title></rect>';
   });
   return '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;display:block" role="img" aria-label="训练年历">' + mlabels + wlabels + rects + '</svg>';
 }
@@ -2116,6 +2116,11 @@ function heatShift(n) {
   if (yl) yl.textContent = heatYear + ' 年';
   const empty = document.getElementById('heatEmpty');
   if (empty) empty.hidden = D.daily.some((r) => r.date.slice(0, 4) === String(heatYear));
+}
+function heatTap(e) { // 年历格子点击 → 复用月历的当天摘要弹窗（一致性）
+  const t = e.target;
+  const ds = t && t.getAttribute ? t.getAttribute('data-ds') : null;
+  if (ds) showDaySummary(ds);
 }
 
 /* 打卡日历（本月，周一开头；点格子看当天只读摘要） */
@@ -2679,6 +2684,127 @@ function resetSchedule() {
   toast('已恢复内置课表（训练目标保留现值）');
 }
 
+/* 历史补录：独立表单状态 __bf；保存走与 tfSave 相同的规则引擎（踝痛降级/阶段机/就医提醒），
+   但不动 applyProgression 与 strengthFails（用户拍板：渐进只由当天真实训练驱动） */
+function bfOpen() {
+  if (readOnly) { toast('离线只读模式，不能补录'); return; }
+  window.__bf = { date: '', type: '无', cardioChoice: null, checks: [false, false, false, false, false, false], dur: '', rpe: '', hr: '', painOpt: '无', painText: '', mood: '', footRehab: false, baduanjin: false, sleep: '', rhr: '', hrv: '', note: '' };
+  showModal('<div class="card-title" style="margin-bottom:8px">补录历史记录</div>'
+    + '<div class="field"><label>日期（只能补今天之前）</label><input id="bfDate" type="date" max="' + U.addDays(U.todayStr(), -1) + '" onchange="bfPickDate(this.value)"></div>'
+    + '<div id="bfFields"><div class="sub" style="padding:14px 0;text-align:center">先选日期</div></div>'
+    + '<div class="m-actions"><button class="btn-primary" onclick="bfSave()">保存补录</button>'
+    + '<button class="btn-ghost" onclick="closeModal()">取消</button></div>');
+}
+function bfPickDate(v) {
+  const s = window.__bf;
+  if (!s) return;
+  if (!v || v >= U.todayStr()) { toast('请选择今天之前的日期'); return; }
+  s.date = v;
+  const old = M.dailyOn(v), om = M.metricOn(v);
+  if (old) { // 已有记录：载入现值（修改场景）
+    s.type = old.type || '无'; s.cardioChoice = old.cardioChoice || null;
+    s.checks = old.strengthChecks ? old.strengthChecks.slice() : [false, false, false, false, false, false];
+    s.dur = old.durationMin != null ? old.durationMin : ''; s.rpe = old.rpe != null ? old.rpe : ''; s.hr = old.avgHr != null ? old.avgHr : '';
+    s.painOpt = '无'; s.painText = '';
+    if (old.pain && old.pain !== '无') { if (CONFIG.painOptions.indexOf(old.pain) >= 0) s.painOpt = old.pain; else { s.painOpt = '其他'; s.painText = old.pain; } }
+    s.mood = old.mood || ''; s.footRehab = !!old.footRehab; s.baduanjin = !!old.baduanjin; s.note = old.note || '';
+  }
+  s.sleep = om && om.sleepH != null ? om.sleepH : ''; s.rhr = om && om.rhr != null ? om.rhr : ''; s.hrv = om && om.hrv != null ? om.hrv : '';
+  bfRenderFields();
+}
+function bfChips(cur, list, fn) {
+  return list.map((x) => '<button class="chip' + (x === cur ? ' on' : '') + '" onclick="' + fn + '(\'' + x + '\')">' + x + '</button>').join('');
+}
+function bfRenderFields() {
+  const s = window.__bf;
+  const el = document.getElementById('bfFields');
+  if (!el || !s) return;
+  const hasTrain = CONFIG.trainTypes.indexOf(s.type) >= 0;
+  let h = '<div class="field"><label>训练类型</label><div class="chips" id="bfTypeChips">' + bfChips(s.type, CONFIG.typeList, 'bfType') + '</div></div>';
+  if (s.type === '有氧') {
+    h += '<div class="field"><label>有氧方式</label><div class="chips" id="bfCardioChips">' + bfChips(s.cardioChoice, CONFIG.cardio.map((c) => c.name), 'bfCardio') + '</div></div>';
+  }
+  if (s.type === '力量') {
+    h += '<div class="sub" style="margin-bottom:6px">勾选当天完成的动作（补录不触发渐进，照实勾选即可）：</div>'
+      + CONFIG.actions.map((a, i) => '<div class="check-item"><div class="ck' + (s.checks[i] ? ' on' : '') + '" onclick="bfCheck(' + i + ')" role="checkbox" aria-checked="' + s.checks[i] + '"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg></div><div class="ci-main"><div class="ci-name">' + a.name + '</div></div></div>').join('');
+  }
+  if (hasTrain) {
+    h += '<div class="field"><label>时长（分钟）<b style="color:var(--red)">*</b></label><input id="bfDur" type="number" min="1" max="600" inputmode="numeric" value="' + U.esc(s.dur) + '" onchange="bfField(\'dur\',this.value)"></div>'
+      + '<div class="field"><label>体感强度 RPE（1-10）<b style="color:var(--red)">*</b></label><input id="bfRpe" type="number" min="1" max="10" inputmode="numeric" value="' + U.esc(s.rpe) + '" onchange="bfField(\'rpe\',this.value)"></div>'
+      + '<div class="field"><label>平均心率（可选）</label><input type="number" min="60" max="220" inputmode="numeric" value="' + U.esc(s.hr) + '" onchange="bfField(\'hr\',this.value)"></div>';
+  }
+  h += '<div class="field"><label>疼痛</label><div class="chips" id="bfPainChips">' + bfChips(s.painOpt, CONFIG.painOptions, 'bfPain') + '</div>'
+    + (s.painOpt === '其他' ? '<input placeholder="部位描述" style="margin-top:8px" value="' + U.esc(s.painText) + '" onchange="bfField(\'painText\',this.value)">' : '') + '</div>'
+    + '<div class="field"><label>主观状态</label><div class="chips" id="bfMoodChips">' + bfChips(s.mood, CONFIG.moods, 'bfMood') + '</div></div>'
+    + '<div class="row-between" style="margin:8px 0"><label class="body-tx" style="font-weight:500">足康复打卡</label><label class="switch"><input type="checkbox"' + (s.footRehab ? ' checked' : '') + ' onchange="bfFlag(\'footRehab\',this.checked)"><span class="sl"></span></label></div>'
+    + '<div class="row-between" style="margin:8px 0"><label class="body-tx" style="font-weight:500">八段锦打卡</label><label class="switch"><input type="checkbox"' + (s.baduanjin ? ' checked' : '') + ' onchange="bfFlag(\'baduanjin\',this.checked)"><span class="sl"></span></label></div>'
+    + '<div class="field"><label>备注（可选）</label><input maxlength="60" value="' + U.esc(s.note) + '" onchange="bfField(\'note\',this.value)"></div>'
+    + '<div class="sub" style="margin:10px 0">被动指标（从健康App抄，可留空）</div>'
+    + '<div class="field"><label>睡眠（小时）</label><input type="number" step="0.1" min="0" max="24" inputmode="decimal" value="' + U.esc(s.sleep) + '" onchange="bfField(\'sleep\',this.value)"></div>'
+    + '<div class="field"><label>静息心率（次/分）</label><input type="number" min="30" max="120" inputmode="numeric" value="' + U.esc(s.rhr) + '" onchange="bfField(\'rhr\',this.value)"></div>'
+    + '<div class="field"><label>HRV（毫秒）</label><input type="number" min="5" max="200" inputmode="numeric" value="' + U.esc(s.hrv) + '" onchange="bfField(\'hrv\',this.value)"></div>';
+  el.innerHTML = h;
+}
+function bfType(t) { window.__bf.type = t; if (t !== '有氧') window.__bf.cardioChoice = null; bfRenderFields(); }
+function bfCardio(c) { window.__bf.cardioChoice = c; const el = document.getElementById('bfCardioChips'); if (el) el.innerHTML = bfChips(c, CONFIG.cardio.map((x) => x.name), 'bfCardio'); }
+function bfCheck(i) { const s = window.__bf; s.checks[i] = !s.checks[i]; bfRenderFields(); }
+function bfPain(p) { window.__bf.painOpt = p; if (p !== '其他') window.__bf.painText = ''; bfRenderFields(); }
+function bfMood(m) { window.__bf.mood = m; const el = document.getElementById('bfMoodChips'); if (el) el.innerHTML = bfChips(m, CONFIG.moods, 'bfMood'); }
+function bfFlag(k, v) { window.__bf[k] = v; }
+function bfField(k, v) { window.__bf[k] = v; }
+function bfSave() {
+  if (readOnly) { toast('离线只读模式，不能保存'); return; }
+  const s = window.__bf;
+  if (!s || !s.date) { toast('请先选择日期'); return; }
+  if (s.date >= U.todayStr()) { toast('补录日期必须是今天之前'); return; }
+  const rec = makeDailyRecord(s.date);
+  rec.type = s.type;
+  rec.footRehab = !!s.footRehab;
+  rec.baduanjin = !!s.baduanjin;
+  if (CONFIG.trainTypes.indexOf(s.type) >= 0) {
+    const dur = U.num(s.dur), rpe = U.num(s.rpe);
+    if (!dur || dur <= 0) { toast('请填写时长（分钟）'); return; }
+    if (rpe == null || rpe < 1 || rpe > 10) { toast('请填写体感强度 RPE（1-10）'); return; }
+    rec.durationMin = dur;
+    rec.rpe = rpe;
+    const hr = U.num(s.hr);
+    if (hr != null) rec.avgHr = hr;
+  }
+  if (s.type === '有氧') {
+    if (!s.cardioChoice) { toast('请选择有氧方式'); return; }
+    rec.cardioChoice = s.cardioChoice;
+  }
+  if (s.type === '力量') rec.strengthChecks = s.checks.slice(); // 照实记录；补录不触发渐进与 K5 计数
+  rec.pain = s.painOpt === '其他' ? (s.painText || '').trim() : s.painOpt;
+  if (s.painOpt === '其他' && !rec.pain) { toast('已选"其他"疼痛，请填写部位'); return; }
+  if (!s.mood) { toast('请选择主观状态'); return; }
+  rec.mood = s.mood;
+  rec.note = (s.note || '').trim();
+  const old = M.dailyOn(s.date);
+  if (old && old.painProcessed) rec.painProcessed = true; // 防重复降级
+  recStamp(rec);
+  upsertByDate(D.daily, rec);
+  const met = Object.assign({}, M.metricOn(s.date) || {}, { date: s.date });
+  met.sleepH = U.num(s.sleep);
+  met.rhr = U.num(s.rhr);
+  met.hrv = U.num(s.hrv);
+  recStamp(met);
+  upsertByDate(D.metrics, met);
+  let warn = '';
+  if (R.applyAnklePain(rec)) warn = '；防崴训练已降为 Stage ' + D.state.footStage; // 踝痛降级照常（规则一致性）
+  R.evalPhase();
+  persist();
+  if (M.isFootAnklePain(rec.pain) && M.footPainStreak() >= CONFIG.footDoctorDays) {
+    showModal('<div class="card-title" style="margin-bottom:10px">就医提醒</div>'
+      + '<div class="body-tx">' + U.esc(CONFIG.copy.footDoctor) + '</div>'
+      + '<div class="m-actions"><button class="btn-primary" onclick="closeModal()">知道了</button></div>');
+    warn = '';
+  }
+  closeModal();
+  renderToday();
+  toast('已补录 ' + s.date + (warn ? warn : ''));
+}
+
 function renderProfile() {
   updateSyncBadge();
   const p = D.profile;
@@ -2750,6 +2876,9 @@ function renderProfile() {
     + '<div class="chips">'
     + [['auto', '跟随系统'], ['light', '浅色'], ['dark', '深色']].map((x) => '<button class="chip' + (D.state.theme === x[0] ? ' on' : '') + '" onclick="setTheme(\'' + x[0] + '\')">' + x[1] + '</button>').join('')
     + '</div></div>';
+  // 补录历史（使用期打磨：哪天忘了记，补一条；渐进不补算，灯色/连续打卡自然消化）
+  h += '<div class="card"><div class="row-between"><div><div class="card-title" style="margin:0">补录历史</div><div class="sub">哪天忘了记，补一条；只补数据，不重算渐进</div></div>'
+    + '<button class="ci-btn" onclick="bfOpen()">补录</button></div></div>';
   // 我的课表（N5：周模板+组次文本化 v1）
   h += '<div class="card"><div class="card-title" style="margin-bottom:4px">我的课表</div>'
     + '<div class="sub" style="margin-bottom:8px">只改数字，点"应用课表"生效；动作名与星期写法不可改；写错不会生效，会提示第几行。</div>'
