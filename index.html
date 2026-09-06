@@ -239,7 +239,7 @@ table.cmp{width:100%;border-collapse:collapse;font-size:13px}
 .k-card.open .k-body{display:block}
 .k-body b{font-weight:600}
 /* 模态/提示/吸底保存 */
-#modalWrap{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;padding:24px}
+#modalWrap{position:fixed;inset:0;z-index:55;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;padding:24px}
 #modalBox{width:100%;max-width:340px;max-height:78vh;overflow:auto;background:var(--card);border-radius:var(--r-card);padding:20px 16px;box-shadow:var(--shadow)}
 #modalBox .m-actions{margin-top:16px;display:flex;flex-direction:column;gap:8px}
 #toastBox{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(80px + env(safe-area-inset-bottom));z-index:60;background:var(--text);color:var(--bg);padding:10px 18px;border-radius:var(--r-pill);font-size:13px;max-width:86vw;text-align:center}
@@ -636,7 +636,7 @@ function defaultData() {
       phase: 0, lastTestDate: null, footStage: 0, autoCalibrateRHR: true,
       lastSyncAt: 0, pendingSync: false, strengthFails: 0, theme: 'auto', lastForm: null,
       strengthReps: { '深蹲': 12, '俯卧撑': 8, '平板': 30, '侧桥': 20, '箭步蹲': 8, '臀桥': 15 },
-      backfillDone: false, profileDone: false, downgradedAt: null,
+      backfillDone: false, profileDone: false, downgradedAt: null, progressionLog: [],
       updatedAt: 0
     }
   };
@@ -648,6 +648,7 @@ function normalizeData(o) {
   out.profile = Object.assign({}, d.profile, o.profile || {});
   out.state = Object.assign({}, d.state, o.state || {});
   if (!out.state.strengthReps || typeof out.state.strengthReps !== 'object') out.state.strengthReps = d.state.strengthReps;
+  if (!Array.isArray(out.state.progressionLog)) out.state.progressionLog = [];
   if (['auto', 'light', 'dark'].indexOf(out.state.theme) < 0) out.state.theme = 'auto';
   ['daily', 'metrics', 'weekly', 'tests', 'external'].forEach((k) => {
     out[k] = Array.isArray(o[k]) ? o[k].filter((x) => x && typeof x === 'object') : [];
@@ -1256,12 +1257,12 @@ const M = {
 const R = {
   lightOn(date) {
     const rec = M.dailyOn(date);
-    // 灯态第一步：疼痛三分支（足=黄减负 / 踝=黄降级 / 膝腰其他=红）
+    // 灯态第一步：疼痛三分支（足=黄减负 / 踝=黄降级 / 膝腰其他=红）；ev=决策依据（B-2 透明化）
     if (rec && rec.pain && rec.pain !== '无') {
       const p = String(rec.pain);
-      if (p.indexOf('踝') >= 0) return { level: 'yellow', reason: CONFIG.copy.yellowAnkle };
-      if (p.indexOf('足') >= 0) return { level: 'yellow', reason: CONFIG.copy.yellowFoot };
-      return { level: 'red', reason: CONFIG.copy.red };
+      if (p.indexOf('踝') >= 0) return { level: 'yellow', reason: CONFIG.copy.yellowAnkle, ev: ['踝痛打卡 ⚠'] };
+      if (p.indexOf('足') >= 0) return { level: 'yellow', reason: CONFIG.copy.yellowFoot, ev: ['足痛打卡 ⚠'] };
+      return { level: 'red', reason: CONFIG.copy.red, ev: [p + '疼痛打卡 ⚠'] };
     }
     const base = M.rhrBaseline();
     let rhrRed = true, rhrYel = true;
@@ -1270,29 +1271,37 @@ const R = {
       if (!(m && m.rhr != null && m.rhr > base + CONFIG.rhrRedDelta)) rhrRed = false;
       if (!(m && m.rhr != null && m.rhr > base + CONFIG.rhrYelDelta)) rhrYel = false;
     }
-    if (rhrRed && rec && rec.mood === '差') return { level: 'red', reason: '静息心率连续' + CONFIG.rhrRedDays + '天超基线+' + CONFIG.rhrRedDelta + ' 且主观状态差' };
+    if (rhrRed && rec && rec.mood === '差') return { level: 'red', reason: '静息心率连续' + CONFIG.rhrRedDays + '天超基线+' + CONFIG.rhrRedDelta + ' 且主观状态差', ev: ['静息心率连续' + CONFIG.rhrRedDays + '天超基线+' + CONFIG.rhrRedDelta, '主观状态差'] };
     let sleepBad = true;
     for (let i = 0; i < CONFIG.sleepShortDays; i++) {
       const m = M.metricOn(U.addDays(date, -i));
       if (!(m && m.sleepH != null && m.sleepH < CONFIG.sleepShortH)) sleepBad = false;
     }
-    if (sleepBad) return { level: 'yellow', reason: CONFIG.copy.yellowSleep };
-    if (rhrYel) return { level: 'yellow', reason: '静息心率连续' + CONFIG.rhrYelDays + '天超基线+' + CONFIG.rhrYelDelta };
+    if (sleepBad) return { level: 'yellow', reason: CONFIG.copy.yellowSleep, ev: ['睡眠<' + CONFIG.sleepShortH + 'h 连续' + CONFIG.sleepShortDays + '天 ⚠'] };
+    if (rhrYel) return { level: 'yellow', reason: '静息心率连续' + CONFIG.rhrYelDays + '天超基线+' + CONFIG.rhrYelDelta, ev: ['静息心率连续' + CONFIG.rhrYelDays + '天超基线+' + CONFIG.rhrYelDelta] };
     let moodBad = true;
     for (let i = 0; i < CONFIG.moodBadDays; i++) {
       const r = M.dailyOn(U.addDays(date, -i));
       if (!(r && r.mood === '差')) moodBad = false;
     }
-    if (moodBad) return { level: 'yellow', reason: '主观状态连续' + CONFIG.moodBadDays + '天为"差"' };
-    return { level: 'green', reason: CONFIG.copy.green };
+    if (moodBad) return { level: 'yellow', reason: '主观状态连续' + CONFIG.moodBadDays + '天为"差"', ev: ['主观状态连续' + CONFIG.moodBadDays + '天为"差"'] };
+    // 绿灯：把通过的正向依据列出来（数据没填的如实标注"未记录"，不冒充✓）
+    const m0 = M.metricOn(date);
+    const ev = [];
+    if (m0 && m0.sleepH != null) ev.push(m0.sleepH < CONFIG.sleepShortH ? '睡眠 ' + m0.sleepH + 'h（连续' + CONFIG.sleepShortDays + '天不足才黄灯）' : '睡眠✓');
+    else ev.push('睡眠未记录');
+    if (m0 && m0.rhr != null) ev.push(m0.rhr > base + CONFIG.rhrYelDelta ? '静息心率 ' + m0.rhr + '（连续' + CONFIG.rhrYelDays + '天超基线才黄灯）' : 'RHR✓');
+    else ev.push('RHR未记录');
+    ev.push('无疼痛✓', '足康复 Stage ' + D.state.footStage + ' 进行中');
+    return { level: 'green', reason: CONFIG.copy.green, ev: ev };
   },
   todayLight() { // 疼痛取最近一条记录（最新已知状态）
     const latest = M.latestDaily();
     if (latest && latest.pain && latest.pain !== '无') {
       const p = String(latest.pain);
-      if (p.indexOf('踝') >= 0) return { level: 'yellow', reason: CONFIG.copy.yellowAnkle };
-      if (p.indexOf('足') >= 0) return { level: 'yellow', reason: CONFIG.copy.yellowFoot };
-      return { level: 'red', reason: CONFIG.copy.red };
+      if (p.indexOf('踝') >= 0) return { level: 'yellow', reason: CONFIG.copy.yellowAnkle, ev: ['踝痛打卡 ⚠'] };
+      if (p.indexOf('足') >= 0) return { level: 'yellow', reason: CONFIG.copy.yellowFoot, ev: ['足痛打卡 ⚠'] };
+      return { level: 'red', reason: CONFIG.copy.red, ev: [p + '疼痛打卡 ⚠'] };
     }
     return R.lightOn(U.todayStr());
   },
@@ -1367,6 +1376,31 @@ function streakCells(kind) {
   return s + '</div>';
 }
 
+/* B-1 睡眠锚点主动干预（K9）：昨日睡眠不足给警示，20:00 后给今晚锚点倒计时，超锚点催睡 */
+function sleepCardHtml() {
+  const ym = M.metricOn(U.addDays(U.todayStr(), -1));
+  const shortY = !!(ym && ym.sleepH != null && ym.sleepH < CONFIG.sleepShortH);
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  if (!shortY && nowMin < 20 * 60) return ''; // 白天且昨日数据正常时不占版面
+  const an = (D.profile.sleepAnchor || '23:30').split(':');
+  let aMin = (parseInt(an[0], 10) || 0) * 60 + (parseInt(an[1], 10) || 0);
+  let line = '';
+  if (nowMin >= 20 * 60) {
+    if (aMin < 720 && nowMin >= 720) aMin += 1440; // 锚点设在凌晨时按"明天凌晨"计算
+    const diff = aMin - nowMin;
+    line = diff > 0
+      ? '<div class="body-tx">今晚锚点 ' + U.esc(D.profile.sleepAnchor) + ' · 还剩 ' + Math.floor(diff / 60) + ' 小时 ' + (diff % 60) + ' 分</div>'
+      : '<div class="body-tx" style="color:var(--orange);font-weight:600">已过锚点 ' + (-diff) + ' 分，现在就睡</div>';
+  }
+  const warnLine = shortY
+    ? '<div class="body-tx" style="color:var(--orange);font-weight:600">昨晚 ' + ym.sleepH + 'h（小于' + CONFIG.sleepShortH + 'h），今晚请提前 30 分钟</div>'
+    : '';
+  return '<div class="card"><div class="card-head"><div class="bubble bg-purple" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20.5 14.5A8.5 8.5 0 1 1 9.5 3.5a7 7 0 0 0 11 11z"/></svg></div>'
+    + '<div style="flex:1"><div class="card-title" style="margin:0">睡眠锚点</div><div class="sub">K9 · 先守固定关灯时间，比几点起床更重要</div></div></div>'
+    + warnLine + line + '</div>';
+}
+
 function renderToday() {
   updateSyncBadge();
   const t = U.todayStr();
@@ -1396,9 +1430,12 @@ function renderToday() {
       + '<div class="lamp"></div><div class="light-main">'
       + '<div class="light-name">' + (L.level === 'red' ? '红灯' : (L.level === 'yellow' ? '黄灯' : '绿灯')) + '</div>'
       + '<div class="sub">' + U.esc(L.reason) + '</div>'
+      + (L.ev && L.ev.length ? '<div class="sub" style="margin-top:4px">依据：' + L.ev.map((x) => U.esc(x)).join(' · ') + '</div>' : '')
       + '<div class="body-tx" style="margin-top:8px;font-weight:500">今日建议：' + U.esc(R.advice(L)) + '</div>'
       + '</div></div>';
   }
+  // B-1 睡眠锚点主动干预卡（昨日不足警示 / 晚间锚点倒计时）
+  h += sleepCardHtml();
   // 顶栏状态灯：一眼可见今天能不能练
   const tl = document.getElementById('topLamp');
   if (tl) {
@@ -1469,7 +1506,7 @@ function renderToday() {
     + '<div class="card-title" style="margin:0">被动指标</div></div>'
     + '<div class="sub" style="margin-bottom:10px">从健康App抄写，可留空</div>'
     + '<div class="field"><label>睡眠（小时）</label><input id="fSleep" type="number" step="0.1" min="0" max="24" inputmode="decimal" placeholder="如 5.4"></div>'
-    + '<div class="field"><label>静息心率</label><input id="fRhr" type="number" min="30" max="120" inputmode="numeric" placeholder="如 60"></div>'
+    + '<div class="field"><label>静息心率（次/分）</label><input id="fRhr" type="number" min="30" max="120" inputmode="numeric" placeholder="如 60"></div>'
     + '<div class="field"><label>HRV（毫秒）</label><input id="fHrv" type="number" min="5" max="200" inputmode="numeric" placeholder="如 50"></div>'
     + '</div>';
   document.getElementById('todayBody').innerHTML = h;
@@ -1492,7 +1529,7 @@ function planHtml() {
   const dayType = CONFIG.weekTemplate[dayIdx];
   const eff = CONFIG.trainTypes.indexOf(tf.type) >= 0 ? tf.type : dayType;
   let h = '<div class="card-head"><div class="bubble bg-blue" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="3"/><path d="M8 3v4M16 3v4M4 10h16"/></svg></div>'
-    + '<div style="flex:1"><div class="card-title" style="margin:0">今日安排 · ' + dayType + '</div><div class="sub">按周模板（可在CONFIG修改）</div></div></div>';
+    + '<div style="flex:1"><div class="card-title" style="margin:0">今日安排 · ' + dayType + '</div><div class="sub">按周模板自动生成</div></div></div>';
   if (eff === '有氧') {
     h += '<div class="field"><label>有氧方式（3选1）</label><div class="chips" id="cardioChips">'
       + CONFIG.cardio.map((c) => '<button class="chip' + (tf.cardioChoice === c.name ? ' on' : '') + '" onclick="setCardio(\'' + c.name + '\')">' + c.name + '</button>').join('')
@@ -1515,6 +1552,12 @@ function planHtml() {
         + '<button class="ci-btn" onclick="window.open(\'' + a.link + '\')">📺教学</button></div></div>';
     }).join('');
     h += '<div class="sub" style="margin-top:8px">' + U.esc(CONFIG.progressionCopy) + '</div>';
+    const plog = D.state.progressionLog || []; // B-3：让用户看到每次次数调整的原因
+    if (plog.length) {
+      h += '<details class="fold" style="margin-top:8px"><summary>渐进记录（次数为什么变了）</summary><div class="fold-body sub">'
+        + plog.slice().reverse().map((e) => '<div style="padding:3px 0">' + U.fmtShort(U.todayStr(new Date(e.ts))) + ' · ' + U.esc(e.why) + '：' + U.esc(e.what) + '</div>').join('')
+        + '</div></details>';
+    }
   } else if (eff === '长时活动') {
     h += '<div class="body-tx" style="line-height:1.9">' + U.esc(CONFIG.longCopy) + '</div>';
   } else {
@@ -1594,6 +1637,15 @@ function showBaduanjin() {
     + '<div class="m-actions"><button class="btn-primary" onclick="closeModal()">知道了</button></div>');
 }
 
+/* RPE 滑块统一入口：滑块值与文字必须一起改（修复 rpeSlide 未定义、finishWorkout 只改文字不改滑块） */
+function setRpeUI(v) {
+  const fr = document.getElementById('fRpe');
+  if (fr) fr.value = v;
+  const rv = document.getElementById('rpeVal');
+  if (rv) rv.textContent = 'RPE ' + v;
+}
+function rpeSlide(v) { setRpeUI(v); }
+
 function prefillToday() {
   const rec = M.dailyOn(U.todayStr());
   const met = M.metricOn(U.todayStr());
@@ -1623,10 +1675,7 @@ function prefillToday() {
   if (pc) pc.innerHTML = planHtml();
   const setv = (id, v) => { const el = document.getElementById(id); if (el) el.value = (v != null ? v : ''); };
   setv('fDur', rec && rec.durationMin != null ? rec.durationMin : '');
-  const fr = document.getElementById('fRpe');
-  if (fr) fr.value = (rec && rec.rpe != null) ? rec.rpe : 5;
-  const rv = document.getElementById('rpeVal');
-  if (rv) rv.textContent = 'RPE ' + (fr ? fr.value : 5);
+  setRpeUI((rec && rec.rpe != null) ? rec.rpe : 5);
   setv('fHr', rec && rec.avgHr != null ? rec.avgHr : '');
   setv('fPainText', tf.painText);
   const pt = document.getElementById('fPainText');
@@ -1641,15 +1690,25 @@ function prefillToday() {
   setv('fHrv', met && met.hrv != null ? met.hrv : '');
 }
 
-/* 力量渐进计数器（K5）：≤7加 / 8持平 / ≥9减10% */
+/* 力量渐进计数器（K5）：≤7加 / 8持平 / ≥9减10%；B-3：每次调整写入渐进日志供用户查看 */
 function applyProgression(rpe) {
   const sr = D.state.strengthReps;
+  const changes = [];
   CONFIG.actions.forEach((a) => {
     const k = a.repsKey;
+    const from = sr[k];
     if (rpe <= 7) sr[k] = sr[k] + (a.unit.indexOf('秒') >= 0 ? 5 : 1);
     else if (rpe >= 9) sr[k] = Math.max(1, Math.round(sr[k] * 0.9));
-    // rpe==8 → 持平
+    else return; // rpe==8 → 持平，不记日志
+    changes.push(a.name + ' ' + from + '→' + sr[k] + a.unit);
   });
+  if (changes.length) {
+    D.state.progressionLog = (D.state.progressionLog || []).concat([{
+      ts: Date.now(),
+      why: '保存力量日 RPE ' + rpe + (rpe <= 7 ? '（≤7 上调）' : '（≥9 下调10%）'),
+      what: changes.join('、')
+    }]).slice(-12);
+  }
   D.state.strengthFails = 0; // 完成力量日即复位"未完成"计数
   D.state.updatedAt = Date.now();
 }
@@ -1683,10 +1742,14 @@ function tfSave() {
       // K5：连续2次力量日未完成全部动作 → 各动作 -10%（被阻止的尝试计为一次"未完成"）
       D.state.strengthFails = (D.state.strengthFails || 0) + 1;
       if (D.state.strengthFails >= 2) {
+        const ch2 = [];
         CONFIG.actions.forEach((a) => {
           const k = a.repsKey;
-          D.state.strengthReps[k] = Math.max(1, Math.round(D.state.strengthReps[k] * 0.9));
+          const from = D.state.strengthReps[k];
+          D.state.strengthReps[k] = Math.max(1, Math.round(from * 0.9));
+          ch2.push(a.name + ' ' + from + '→' + D.state.strengthReps[k] + a.unit);
         });
+        D.state.progressionLog = (D.state.progressionLog || []).concat([{ ts: Date.now(), why: '连续2次力量日未完成全部动作（各动作-10%）', what: ch2.join('、') }]).slice(-12);
         D.state.strengthFails = 0;
         D.state.updatedAt = Date.now();
         persist();
@@ -2357,7 +2420,7 @@ function renderProfile() {
     + '<div class="field row-between"><label>可爬楼梯（1-10楼，电梯下楼）</label><label class="switch"><input type="checkbox" id="pStairs"' + (p.stairs ? ' checked' : '') + '><span class="sl"></span></label></div>'
     + '<div class="field"><label>装备</label><input id="pGear" value="' + U.esc(p.gear) + '"></div>'
     + '<div class="field"><label>伤病描述</label><textarea id="pInjury" rows="2">' + U.esc(p.injury) + '</textarea></div>'
-    + '<div class="field"><label>目标时间窗（可留空）</label><input id="pTarget" value="' + U.esc(p.targetWindow || '') + '" placeholder="留空则目标页显示模式A"></div>'
+    + '<div class="field"><label>目标时间窗（可留空）</label><input id="pTarget" value="' + U.esc(p.targetWindow || '') + '" placeholder="如：2027年6月前完成转山"></div>'
     + '<div class="field"><label>静息心率基线（手动修改后自动校准将关闭）</label><input id="pRhr" type="number" inputmode="numeric" value="' + (p.rhrBaseline != null ? p.rhrBaseline : 60) + '"></div>'
     + '<div class="field"><label>HRV 基线（毫秒）</label><input id="pHrv" type="number" inputmode="numeric" value="' + (p.hrvBaseline != null ? p.hrvBaseline : 50) + '"></div>'
     + '<div class="field"><label>睡眠基线（小时）</label><input id="pSleep" type="number" step="0.1" inputmode="decimal" value="' + (p.sleepBaseline != null ? p.sleepBaseline : 5.4) + '"></div>'
@@ -2641,9 +2704,9 @@ function startWorkout() {
   const startTs = Date.now();
   if (type === '力量') {
     const list = CONFIG.actions.map((a) => ({ name: a.name, unit: a.unit, repsKey: a.repsKey, sets: 3, secs: a.unit.indexOf('秒') >= 0 ? (D.state.strengthReps[a.repsKey] || 30) : 0 }));
-    wk = { kind: '力量', list: list, idx: 0, set: 1, phase: 'work', left: list[0].secs, elapsed: 0, startTs: startTs, done: [false, false, false, false, false, false], spoken10: false };
+    wk = { kind: '力量', list: list, idx: 0, set: 1, phase: 'work', left: list[0].secs, phaseDur: list[0].secs, phaseStartTs: startTs, elapsed: 0, startTs: startTs, done: [false, false, false, false, false, false], spoken10: false };
   } else {
-    wk = { kind: type, list: [{ name: type === '有氧' ? tf.cardioChoice : '长时活动', unit: '分钟', repsKey: null, sets: 1, secs: 0 }], idx: 0, set: 1, phase: 'work', left: 0, elapsed: 0, startTs: startTs, done: null, countup: true, spoken10: false };
+    wk = { kind: type, list: [{ name: type === '有氧' ? tf.cardioChoice : '长时活动', unit: '分钟', repsKey: null, sets: 1, secs: 0 }], idx: 0, set: 1, phase: 'work', left: 0, phaseDur: 0, phaseStartTs: startTs, elapsed: 0, startTs: startTs, done: null, countup: true, spoken10: false };
   }
   document.getElementById('workout').hidden = false;
   wk.timer = setInterval(wkTick, 1000);
@@ -2652,15 +2715,17 @@ function startWorkout() {
 }
 function wkTick() {
   if (!wk) return;
-  wk.elapsed++;
+  // A-2：显示值一律由时间戳差值算出，setInterval 仅作刷新触发器（防 iOS 锁屏后计时漂移）
+  const passed = Math.floor((Date.now() - wk.phaseStartTs) / 1000);
+  wk.elapsed = Math.floor((Date.now() - wk.startTs) / 1000);
   const timed = wk.list[wk.idx].secs > 0;
   if (wk.phase === 'rest') {
-    wk.left--;
-    if (wk.left === 10 && !wk.spoken10) { wk.spoken10 = true; SPEAK('还剩10秒'); }
-    if (wk.left <= 0) { wk.phase = 'work'; wk.left = wk.list[wk.idx].secs || 0; wk.spoken10 = false; SPEAK('开始'); }
+    wk.left = Math.max(0, wk.phaseDur - passed);
+    if (wk.left <= 10 && wk.left > 0 && !wk.spoken10) { wk.spoken10 = true; SPEAK('还剩10秒'); }
+    if (wk.left <= 0) { wk.phase = 'work'; wk.phaseDur = wk.list[wk.idx].secs || 0; wk.phaseStartTs = Date.now(); wk.left = wk.phaseDur; wk.spoken10 = false; SPEAK('开始'); }
   } else if (timed) {
-    wk.left--;
-    if (wk.left === 10 && !wk.spoken10) { wk.spoken10 = true; SPEAK('还剩10秒'); }
+    wk.left = Math.max(0, wk.phaseDur - passed);
+    if (wk.left <= 10 && wk.left > 0 && !wk.spoken10) { wk.spoken10 = true; SPEAK('还剩10秒'); }
     if (wk.left <= 0) { completeSet(); return; }
   }
   renderWorkout();
@@ -2670,7 +2735,7 @@ function completeSet() {
   SPEAK('本组完成');
   const it = wk.list[wk.idx];
   if (wk.set < it.sets) {
-    wk.set++; wk.phase = 'rest'; wk.left = 60; wk.spoken10 = false;
+    wk.set++; wk.phase = 'rest'; wk.left = 60; wk.phaseDur = 60; wk.phaseStartTs = Date.now(); wk.spoken10 = false;
     SPEAK('休息一下');
     renderWorkout();
     return;
@@ -2678,12 +2743,12 @@ function completeSet() {
   if (wk.kind === '力量') wk.done[wk.idx] = true;
   wk.idx++; wk.set = 1; wk.spoken10 = false;
   if (wk.idx >= wk.list.length) { finishWorkout(); return; }
-  wk.phase = 'work'; wk.left = wk.list[wk.idx].secs || 0;
+  wk.phase = 'work'; wk.left = wk.list[wk.idx].secs || 0; wk.phaseDur = wk.left; wk.phaseStartTs = Date.now();
   SPEAK('开始');
   renderWorkout();
 }
 function skipRest() {
-  if (wk && wk.phase === 'rest') { wk.phase = 'work'; wk.left = wk.list[wk.idx].secs || 0; wk.spoken10 = false; SPEAK('开始'); renderWorkout(); }
+  if (wk && wk.phase === 'rest') { wk.phase = 'work'; wk.left = wk.list[wk.idx].secs || 0; wk.phaseDur = wk.left; wk.phaseStartTs = Date.now(); wk.spoken10 = false; SPEAK('开始'); renderWorkout(); }
 }
 function exitWorkout() {
   if (!wk) return;
@@ -2709,8 +2774,7 @@ function finishWorkout() {
   }
   const fd = document.getElementById('fDur');
   if (fd) fd.value = mins;
-  const rv = document.getElementById('rpeVal');
-  if (rv) rv.textContent = 'RPE 5';
+  setRpeUI(5); // 滑块与文字一起重置为建议默认 5，用户按真实体感拖动确认
   toast('训练完成：已预填类型与时长（' + mins + ' 分钟），请核对后保存');
 }
 function renderWorkout() {
