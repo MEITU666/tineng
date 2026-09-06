@@ -275,8 +275,8 @@ table.cmp{width:100%;border-collapse:collapse;font-size:13px}
       <label for="gateKey">访问密钥</label>
       <input id="gateKey" type="password" autocomplete="off" placeholder="输入密钥解锁">
     </div>
-    <button class="btn-primary" id="btnUnlock">解锁进入</button>
-    <button class="link-btn" id="btnOffline">离线只读模式（数据可能不是最新）</button>
+    <button type="button" class="btn-primary" id="btnUnlock">解锁进入</button>
+    <button type="button" class="link-btn" id="btnOffline">离线只读模式（数据可能不是最新）</button>
     <div id="gateMsg" class="gate-msg"></div>
   </div>
 </div>
@@ -288,7 +288,7 @@ table.cmp{width:100%;border-collapse:collapse;font-size:13px}
     <div class="top-right">
       <span id="topLamp" aria-hidden="true"></span>
       <span id="syncBadge"></span>
-      <button class="icon-btn" id="btnProfile" aria-label="档案与设置">
+      <button type="button" class="icon-btn" id="btnProfile" aria-label="档案与设置">
         <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.2-3.4 3.9-5 7-5s5.8 1.6 7 5"/></svg>
       </button>
     </div>
@@ -324,23 +324,23 @@ table.cmp{width:100%;border-collapse:collapse;font-size:13px}
     </section>
   </main>
   <nav id="tabbar">
-    <button class="tab on" data-pg="pgToday" aria-label="今天">
+    <button type="button" class="tab on" data-pg="pgToday" aria-label="今天">
       <svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="3"/><path d="M8 3v4M16 3v4M4 10h16M9.5 15.5l2 2 3.5-4"/></svg>
       <span class="tab-label">今天</span>
     </button>
-    <button class="tab" data-pg="pgTrend" aria-label="趋势">
+    <button type="button" class="tab" data-pg="pgTrend" aria-label="趋势">
       <svg viewBox="0 0 24 24"><path d="M4 19h16M4 15l5-6 4 3 6-8"/></svg>
       <span class="tab-label">趋势</span>
     </button>
-    <button class="tab" data-pg="pgAbility" aria-label="能力">
+    <button type="button" class="tab" data-pg="pgAbility" aria-label="能力">
       <svg viewBox="0 0 24 24"><path d="M12 3l8 6-3 10H7L4 9z"/><path d="M12 3v18M4 9l16 6M20 9L4 15" stroke-width="1"/></svg>
       <span class="tab-label">能力</span>
     </button>
-    <button class="tab" data-pg="pgGoal" aria-label="目标">
+    <button type="button" class="tab" data-pg="pgGoal" aria-label="目标">
       <svg viewBox="0 0 24 24"><path d="M7 21V4M7 4h11l-3 4 3 4H7"/></svg>
       <span class="tab-label">目标</span>
     </button>
-    <button class="tab" data-pg="pgGuide" aria-label="指南">
+    <button type="button" class="tab" data-pg="pgGuide" aria-label="指南">
       <svg viewBox="0 0 24 24"><path d="M12 5c-2-1.5-4.5-2-8-2v16c3.5 0 6 .5 8 2 2-1.5 4.5-2 8-2V3c-3.5 0-6 .5-8 2zM12 5v16"/></svg>
       <span class="tab-label">指南</span>
     </button>
@@ -352,7 +352,7 @@ table.cmp{width:100%;border-collapse:collapse;font-size:13px}
 <!-- S2 历史回填 -->
 <div id="backfill" class="fullscreen" hidden>
   <div class="fs-head">
-    <button class="fs-back" id="bfBackBtn" aria-label="返回">‹</button>
+    <button type="button" class="fs-back" id="bfBackBtn" aria-label="返回">‹</button>
     <div class="fs-steps">历史回填</div>
   </div>
   <div class="card">
@@ -365,8 +365,8 @@ table.cmp{width:100%;border-collapse:collapse;font-size:13px}
     <div class="field"><label>近7天静息心率均值（次/分）</label><input id="bfRhr" type="number" min="30" max="120" inputmode="numeric" placeholder="如 60"></div>
     <div class="field"><label>近7天 HRV 均值（毫秒）</label><input id="bfHrv" type="number" min="5" max="200" inputmode="numeric" placeholder="如 50"></div>
     <div class="sub" style="margin-bottom:14px">回填静息心率后（≥4天数据），自动重算静息心率基线为回填均值（覆盖预填 60）。</div>
-    <button class="btn-primary" id="bfSave">生成7天历史记录</button>
-    <button class="link-btn" id="bfSkip">跳过，稍后再填</button>
+    <button type="button" class="btn-primary" id="bfSave">生成7天历史记录</button>
+    <button type="button" class="link-btn" id="bfSkip">跳过，稍后再填</button>
   </div>
 </div>
 <div id="workout" hidden><div id="wkBody"></div></div>
@@ -1414,6 +1414,17 @@ function renderToday() {
   updateSyncBadge();
   const t = U.todayStr();
   let h = '';
+  // N7 年报入口卡（12/20-次年1/10 期间显示）
+  const nw = new Date();
+  const rptYear = (nw.getMonth() === 0 && nw.getDate() <= 10) ? nw.getFullYear() - 1 : nw.getFullYear();
+  const inWindow = (nw.getMonth() === 11 && nw.getDate() >= 20) || (nw.getMonth() === 0 && nw.getDate() <= 10);
+  const rpt = annualReportData(rptYear);
+  if (inWindow && rpt) {
+    h += rpt.trainDays >= 10
+      ? '<div class="card" onclick="openAnnualReport(' + rptYear + ')" style="cursor:pointer"><div class="row-between"><div><div class="card-title" style="margin:0">' + rptYear + ' · 我的训练年报</div><div class="sub">已生成，点开看看这一年的你</div></div>'
+        + '<div class="bubble bg-orange" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3zM12 12l8-4.5M12 12L4 7.5M12 12v9"/></svg></div></div></div>'
+      : '<div class="bannercard">再练 ' + (10 - rpt.trainDays) + ' 次解锁 ' + rptYear + ' 年训练年报。</div>';
+  }
   // K12 备战卡（9/23 前显示，之后自动隐藏）
   if (t <= CONFIG.k12Date) {
     h += '<div class="card"><div class="card-head">'
@@ -1980,6 +1991,16 @@ function renderTrend() {
   h += '<div class="card"><div class="card-head"><div class="bubble bg-gray" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="3"/><path d="M8 3v4M16 3v4M4 10h16"/></svg></div>'
     + '<div style="flex:1"><div class="card-title" style="margin:0">打卡日历 · 本月</div><div class="sub">蓝=有训练 浅蓝=康复/八段锦 灰=休息/病假 点格子看当天</div></div></div>'
     + calHtml() + '</div>';
+  // 训练年历（N4，GitHub 式年度热力）
+  heatYear = heatYear || new Date().getFullYear();
+  const totalDays = D.daily.length;
+  h += '<div class="card"><div class="card-head"><div class="bubble bg-green" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 4v16"/></svg></div>'
+    + '<div style="flex:1"><div class="card-title" style="margin:0">训练年历 · <span id="heatYearLabel">' + heatYear + ' 年</span></div><div class="sub">绿越深越投入：浅=康复/八段锦打卡 中=训练 深=训练+打卡</div></div>'
+    + '<button class="ci-btn" onclick="heatShift(-1)" aria-label="上一年">‹</button><button class="ci-btn" style="margin-left:6px" onclick="heatShift(1)" aria-label="下一年">›</button></div>'
+    + (totalDays < 30 ? '<div class="sub" style="margin-bottom:8px">数据积累中（已积累 ' + totalDays + ' 天）</div>' : '')
+    + '<div id="heatEmpty"' + (D.daily.some((r) => r.date.slice(0, 4) === String(heatYear)) ? ' hidden' : '') + '><div class="sub" style="text-align:center;padding:20px 0">' + U.esc(CONFIG.copy.na) + '</div></div>'
+    + '<div id="heatBox">' + yearHeatSvg(heatYear) + '</div>'
+    + '</div>';
   box.innerHTML = h;
   // 图表异步渲染
   const tasks = [
@@ -2022,6 +2043,61 @@ function renderTrend() {
     setTimeout(() => { const el = document.getElementById(tk[0]); if (el) el.innerHTML = tk[1](); }, 30);
   });
   runAnims(box);
+}
+
+/* N4 训练年历：绿系四阶 lv0无 lv1康复/八段锦打卡 lv2训练 lv3训练+打卡（DAT-2 口径） */
+let heatYear = null;
+function heatDayLv(ds) {
+  const r = M.dailyOn(ds);
+  if (!r) return 0;
+  const train = CONFIG.trainTypes.indexOf(r.type) >= 0;
+  const check = !!(r.footRehab || r.baduanjin);
+  if (train && check) return 3;
+  if (train) return 2;
+  return 1;
+}
+function yearHeatSvg(year) {
+  const start = U.weekStart(year + '-01-01'); // 年首所在周的周一（中文习惯周一开始）
+  const end = year + '-12-31';
+  const cells = [];
+  let d = start;
+  while (d <= end) {
+    cells.push({ d: d, lv: (d.slice(0, 4) === String(year)) ? heatDayLv(d) : -1 });
+    d = U.addDays(d, 1);
+  }
+  const weeks = Math.ceil(cells.length / 7);
+  const CW = 13, GAP = 2, TOP = 16, LFT = 13;
+  const W = LFT + weeks * (CW + GAP) + 2;
+  const H = TOP + 7 * (CW + GAP) + 2;
+  let mlabels = '', lastM = 0;
+  cells.forEach((c, i) => {
+    if (c.lv < 0) return;
+    const m = +c.d.slice(5, 7);
+    if (m !== lastM) { lastM = m; mlabels += '<text x="' + (LFT + Math.floor(i / 7) * (CW + GAP)) + '" y="10" font-size="9" fill="var(--text2)">' + m + '</text>'; }
+  });
+  const wlabels = [0, 2, 4].map((r) => '<text x="0" y="' + (TOP + r * (CW + GAP) + 10) + '" font-size="9" fill="var(--text2)">' + ['一', '三', '五'][[0, 2, 4].indexOf(r)] + '</text>').join('');
+  const today = U.todayStr();
+  let rects = '';
+  cells.forEach((c, i) => {
+    if (c.lv < 0) return;
+    const x = LFT + Math.floor(i / 7) * (CW + GAP), y = TOP + (i % 7) * (CW + GAP);
+    let fill = 'var(--line)', op = '0.55';
+    if (c.lv === 1) { fill = 'var(--green)'; op = '0.25'; }
+    else if (c.lv === 2) { fill = 'var(--green)'; op = '0.55'; }
+    else if (c.lv === 3) { fill = 'var(--green)'; op = '1'; }
+    const ring = c.d === today ? ' stroke="var(--accent)" stroke-width="1.5"' : '';
+    rects += '<rect x="' + x + '" y="' + y + '" width="' + CW + '" height="' + CW + '" rx="2.5" fill="' + fill + '" fill-opacity="' + op + '"' + ring + '><title>' + c.d + '</title></rect>';
+  });
+  return '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;display:block" role="img" aria-label="训练年历">' + mlabels + wlabels + rects + '</svg>';
+}
+function heatShift(n) {
+  heatYear = (heatYear || new Date().getFullYear()) + n;
+  const el = document.getElementById('heatBox');
+  if (el) el.innerHTML = yearHeatSvg(heatYear);
+  const yl = document.getElementById('heatYearLabel');
+  if (yl) yl.textContent = heatYear + ' 年';
+  const empty = document.getElementById('heatEmpty');
+  if (empty) empty.hidden = D.daily.some((r) => r.date.slice(0, 4) === String(heatYear));
 }
 
 /* 打卡日历（本月，周一开头；点格子看当天只读摘要） */
@@ -2219,6 +2295,70 @@ function showAnchor(key) {
   }
   showModal('<div class="card-title" style="margin-bottom:8px">' + U.esc(a.name) + ' · 等级锚点（估算值）</div>' + body
     + '<div class="m-actions"><button class="btn-primary" onclick="closeModal()">知道了</button></div>');
+}
+
+/* N7 训练年报：全部现算零新存储；口径按 PRD DAT-3/4 */
+function annualReportData(year) {
+  const y = String(year);
+  const ys = y + '-01-01', ye = y + '-12-31';
+  if (!D.daily.length) return null;
+  const days = D.daily.filter((r) => r.date >= ys && r.date <= ye);
+  const trainDays = days.filter((r) => CONFIG.trainTypes.indexOf(r.type) >= 0);
+  const totalMin = trainDays.reduce((s, r) => s + (r.durationMin || 0), 0);
+  const mets = D.metrics.filter((m) => m.date >= ys && m.date <= ye && m.sleepH != null);
+  const sleepAvg = mets.length ? Math.round(mets.reduce((s, m) => s + m.sleepH, 0) / mets.length * 10) / 10 : null;
+  const painDays = days.filter((r) => r.pain && r.pain !== '无').length;
+  let streak = 0, best = 0, prev = null; // 最长连续打卡（DAT-4：当天有记录且 训练/足康复/八段锦 任一为真）
+  days.slice().sort((a, b) => (a.date < b.date ? -1 : 1)).forEach((r) => {
+    if (!(CONFIG.trainTypes.indexOf(r.type) >= 0 || r.footRehab || r.baduanjin)) return;
+    if (prev && U.diffDays(prev, r.date) === 1) streak++; else streak = 1;
+    prev = r.date;
+    if (streak > best) best = streak;
+  });
+  const mc = {};
+  trainDays.forEach((r) => { const m = +r.date.slice(5, 7); mc[m] = (mc[m] || 0) + 1; });
+  let topM = null, topN = 0;
+  for (let m = 1; m <= 12; m++) if ((mc[m] || 0) > topN) { topN = mc[m]; topM = m; }
+  const firstDate = D.daily.reduce((a, b) => (a.date < b.date ? a : b)).date;
+  const startD = ys > firstDate ? ys : firstDate;
+  const endD = ye < U.todayStr() ? ye : U.todayStr();
+  const fullWeeks = Math.floor((Math.max(0, U.diffDays(startD, endD) + 1)) / 7);
+  const perWeek = Object.keys(CONFIG.weekTemplate).filter((k) => CONFIG.trainTypes.indexOf(CONFIG.weekTemplate[k]) >= 0).length;
+  const log = (D.state.progressionLog || []).filter((e) => /深蹲 \d+→\d+/.test(e.what));
+  let squatProg = null;
+  if (log.length) {
+    const f = log[0].what.match(/深蹲 (\d+)→(\d+)/), l = log[log.length - 1].what.match(/深蹲 (\d+)→(\d+)/);
+    if (f && l) squatProg = f[1] + '→' + l[2];
+  }
+  return { year: year, trainDays: trainDays.length, totalMin: totalMin, sleepAvg: sleepAvg, sleepN: mets.length, painDays: painDays, best: best, topM: topM, topN: topN, planDays: fullWeeks * perWeek, squatProg: squatProg };
+}
+function openAnnualReport(year) {
+  const nw = new Date();
+  const y = year || ((nw.getMonth() === 0 && nw.getDate() <= 10) ? nw.getFullYear() - 1 : nw.getFullYear());
+  const d = annualReportData(y);
+  if (!d) { toast(U.esc(CONFIG.copy.naEval)); return; }
+  if (d.trainDays < 10) {
+    showModal('<div class="card-title" style="margin-bottom:8px">' + y + ' 年报还没解锁</div>'
+      + '<div class="body-tx">今年已训练 ' + d.trainDays + ' 次，再练 ' + (10 - d.trainDays) + ' 次就能生成你的年度报告。</div>'
+      + '<div class="m-actions"><button class="btn-primary" onclick="closeModal()">知道了</button></div>');
+    return;
+  }
+  const na = '<span style="font-size:12px;color:var(--text2)">' + U.esc(CONFIG.copy.naEval) + '</span>';
+  const cell = (v, l) => '<div class="wr-num"><div class="wr-v">' + v + '</div><div class="wr-l">' + l + '</div></div>';
+  const att = d.planDays > 0 ? Math.min(999, Math.round(100 * d.trainDays / d.planDays)) + '%' : na;
+  showModal('<div class="card-title" style="text-align:center;margin-bottom:12px">' + y + ' · 我的训练年报</div>'
+    + '<div class="wr-grid">'
+    + cell(d.trainDays + ' 次', '训练天数')
+    + cell(d.totalMin + ' 分', '总训练时长')
+    + cell('<span style="font-size:16px">' + att + '</span>', '出勤率（按周模板，估算）')
+    + cell(d.best + ' 天', '最长连续打卡')
+    + cell(d.topM ? d.topM + ' 月' : na, '最勤月份' + (d.topM ? '（' + d.topN + ' 次）' : ''))
+    + cell(d.painDays + ' 天', '疼痛提醒')
+    + cell(d.squatProg ? '<span style="font-size:16px">' + d.squatProg + ' 次</span>' : na, '深蹲目标渐进')
+    + cell(d.sleepAvg != null ? d.sleepAvg + ' h' : na, '睡眠均值（' + d.sleepN + ' 天）')
+    + '</div>'
+    + '<div class="sub" style="margin-top:10px">数据全部来自你的手动记录，仅存于本机与你的私有仓库。出勤率=实际训练日÷周模板计划日（整周，估算值）。</div>'
+    + '<div class="m-actions"><button class="btn-primary" onclick="closeModal()">收下这份年报</button></div>');
 }
 
 /* ============ Tab4 目标（模式A） ============ */
@@ -2503,6 +2643,9 @@ function renderProfile() {
     + '<div class="chips">'
     + [['auto', '跟随系统'], ['light', '浅色'], ['dark', '深色']].map((x) => '<button class="chip' + (D.state.theme === x[0] ? ' on' : '') + '" onclick="setTheme(\'' + x[0] + '\')">' + x[1] + '</button>').join('')
     + '</div></div>';
+  // 训练年报（N7：档案页常驻入口）
+  h += '<div class="card"><div class="row-between"><div><div class="card-title" style="margin:0">训练年报</div><div class="sub">按年度回顾训练、打卡与渐进</div></div>'
+    + '<button class="ci-btn" onclick="openAnnualReport()">查看</button></div></div>';
   // 关于
   h += '<div class="card"><div class="card-title" style="margin-bottom:6px">关于</div>'
     + '<div class="set-row"><span class="sr-k">版本</span><span class="sr-v">v3.2</span></div>'
