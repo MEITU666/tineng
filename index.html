@@ -645,7 +645,7 @@ function defaultData() {
       phase: 0, lastTestDate: null, footStage: 0, autoCalibrateRHR: true,
       lastSyncAt: 0, pendingSync: false, strengthFails: 0, theme: 'auto', lastForm: null,
       strengthReps: { '深蹲': 12, '俯卧撑': 8, '平板': 30, '侧桥': 20, '箭步蹲': 8, '臀桥': 15 },
-      backfillDone: false, profileDone: false, downgradedAt: null, progressionLog: [],
+      backfillDone: false, profileDone: false, downgradedAt: null, progressionLog: [], scheduleText: null,
       updatedAt: 0
     }
   };
@@ -658,6 +658,7 @@ function normalizeData(o) {
   out.state = Object.assign({}, d.state, o.state || {});
   if (!out.state.strengthReps || typeof out.state.strengthReps !== 'object') out.state.strengthReps = d.state.strengthReps;
   if (!Array.isArray(out.state.progressionLog)) out.state.progressionLog = [];
+  out.state.scheduleText = (typeof out.state.scheduleText === 'string') ? out.state.scheduleText : null; // N5
   if (['auto', 'light', 'dark'].indexOf(out.state.theme) < 0) out.state.theme = 'auto';
   ['daily', 'metrics', 'weekly', 'tests', 'external'].forEach((k) => {
     out[k] = Array.isArray(o[k]) ? o[k].filter((x) => x && typeof x === 'object') : [];
@@ -1317,7 +1318,7 @@ const R = {
   advice(L) {
     if (L.level === 'red') return '停训，仅八段锦/足底放松';
     if (L.level === 'yellow') return '减量30-50%，仅低强度';
-    const day = CONFIG.weekTemplate[new Date().getDay()];
+    const day = effTemplate()[new Date().getDay()];
     return '今日按排表：' + day + '。' + CONFIG.copy.phase[D.state.phase];
   },
   /* 踝痛打卡：黄灯 + footStage 自动-1（0不再降），每条记录只处理一次 */
@@ -1546,7 +1547,7 @@ function moodChips() {
 /* 今日安排卡：按周模板（CONFIG可改），力量/有氧展开对应知识 */
 function planHtml() {
   const dayIdx = new Date().getDay();
-  const dayType = CONFIG.weekTemplate[dayIdx];
+  const dayType = effTemplate()[dayIdx];
   const eff = CONFIG.trainTypes.indexOf(tf.type) >= 0 ? tf.type : dayType;
   let h = '<div class="card-head"><div class="bubble bg-blue" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="3"/><path d="M8 3v4M16 3v4M4 10h16"/></svg></div>'
     + '<div style="flex:1"><div class="card-title" style="margin:0">今日安排 · ' + dayType + '</div><div class="sub">按周模板自动生成</div></div></div>';
@@ -2323,7 +2324,7 @@ function annualReportData(year) {
   const startD = ys > firstDate ? ys : firstDate;
   const endD = ye < U.todayStr() ? ye : U.todayStr();
   const fullWeeks = Math.floor((Math.max(0, U.diffDays(startD, endD) + 1)) / 7);
-  const perWeek = Object.keys(CONFIG.weekTemplate).filter((k) => CONFIG.trainTypes.indexOf(CONFIG.weekTemplate[k]) >= 0).length;
+  const perWeek = Object.keys(effTemplate()).filter((k) => CONFIG.trainTypes.indexOf(effTemplate()[k]) >= 0).length;
   const log = (D.state.progressionLog || []).filter((e) => /深蹲 \d+→\d+/.test(e.what));
   let squatProg = null;
   if (log.length) {
@@ -2572,6 +2573,95 @@ function testHistoryHtml() {
 }
 
 /* ============ 档案页（iOS设置页风格分组列表） ============ */
+/* N5 课表文本化 v1：周模板+组次可编辑；动作名/星期写法固定；解析失败不生效（回滚） */
+let schedCache = null; // {tpl:{0..6}, sets:{repsKey:n}}
+function parseSchedule(text) {
+  const WD = { '周一': 1, '周二': 2, '周三': 3, '周四': 4, '周五': 5, '周六': 6, '周日': 0 };
+  const OKT = ['力量', '有氧', '长时活动', '休息日'];
+  const sec = { tpl: null, sets: {} };
+  const lines = String(text || '').split('\n');
+  let zone = '';
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i].trim();
+    if (!raw || raw.charAt(0) === '#') continue;
+    if (raw.charAt(0) === '[') {
+      zone = (raw.indexOf('周模板') >= 0) ? 'tpl' : (raw.indexOf('目标组次') >= 0 ? 'sets' : '');
+      if (!zone) throw { line: i + 1, msg: '未知段落 ' + raw };
+      continue;
+    }
+    const ei = raw.indexOf('=');
+    if (ei <= 0) throw { line: i + 1, msg: '这一行缺少 = ' };
+    const k = raw.slice(0, ei).trim(), v = raw.slice(ei + 1).trim();
+    if (zone === 'tpl') {
+      if (!(k in WD)) throw { line: i + 1, msg: '星期写法应为 周一~周日：' + k };
+      if (OKT.indexOf(v) < 0) throw { line: i + 1, msg: '类型只能是 力量/有氧/长时活动/休息日：' + v };
+      sec.tpl = sec.tpl || {};
+      sec.tpl[WD[k]] = v;
+    } else if (zone === 'sets') {
+      const m = v.match(/^(\d+)x(\d+)$/);
+      const a = CONFIG.actions.filter((x) => x.repsKey === k)[0];
+      if (!a) throw { line: i + 1, msg: '动作名不存在（动作名不可改）：' + k };
+      if (!m) throw { line: i + 1, msg: '格式应为 组数x次数：' + v };
+      const st = +m[1], rp = +m[2];
+      if (st < 1 || st > 5 || rp < 1 || rp > 60) throw { line: i + 1, msg: '组数 1-5、次数 1-60：' + v };
+      sec.sets[k] = st;
+      sec['reps_' + k] = rp;
+    }
+  }
+  if (!sec.tpl || Object.keys(sec.tpl).length !== 7) throw { line: 0, msg: '周模板必须完整填写周一到周日' };
+  for (let ai = 0; ai < CONFIG.actions.length; ai++) if (!(CONFIG.actions[ai].repsKey in sec.sets)) throw { line: 0, msg: '目标组次缺少：' + CONFIG.actions[ai].repsKey };
+  return sec;
+}
+function rebuildSched() { // 从 scheduleText 重建生效缓存；解析失败回滚内置课表
+  schedCache = null;
+  if (D && D.state.scheduleText) {
+    try { schedCache = parseSchedule(D.state.scheduleText); }
+    catch (e) { schedCache = null; D.state.scheduleText = null; }
+  }
+}
+function effTemplate() { return (schedCache && schedCache.tpl) || CONFIG.weekTemplate; }
+function effSets(k) { return (schedCache && schedCache.sets && schedCache.sets[k]) || 3; }
+function generateScheduleText() { // 由现行生效课表生成文本（组次显示当前目标值）
+  const tpl = effTemplate();
+  const WDR = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+  let t = '# 课表（只改数字；动作名与星期写法不可改）\n[周模板]\n';
+  [1, 2, 3, 4, 5, 6, 0].forEach((k) => { t += WDR[k] + '=' + tpl[k] + '\n'; });
+  t += '\n[目标组次]（组数x次数；改这里会直接更新训练目标）\n';
+  CONFIG.actions.forEach((a) => { t += a.repsKey + '=' + effSets(a.repsKey) + 'x' + (D.state.strengthReps[a.repsKey] || 10) + '\n'; });
+  return t;
+}
+function applySchedule() {
+  if (readOnly) { toast('离线只读模式，不能修改'); return; }
+  const ta = document.getElementById('schedText');
+  const text = ta ? ta.value : '';
+  let sec;
+  try { sec = parseSchedule(text); }
+  catch (e) { toast((e.line ? '第 ' + e.line + ' 行：' : '') + e.msg + '（未生效）'); return; }
+  D.state.scheduleText = text;
+  schedCache = sec;
+  const changed = [];
+  CONFIG.actions.forEach((a) => {
+    const rp = sec['reps_' + a.repsKey];
+    if (rp != null && D.state.strengthReps[a.repsKey] !== rp) {
+      changed.push(a.repsKey + ' ' + D.state.strengthReps[a.repsKey] + '→' + rp);
+      D.state.strengthReps[a.repsKey] = rp;
+    }
+  });
+  D.state.updatedAt = Date.now();
+  persist();
+  renderProfile();
+  toast(changed.length ? '课表已生效：' + changed.join('、') : '课表已生效');
+}
+function resetSchedule() {
+  if (readOnly) { toast('离线只读模式，不能修改'); return; }
+  D.state.scheduleText = null;
+  rebuildSched();
+  D.state.updatedAt = Date.now();
+  persist();
+  renderProfile();
+  toast('已恢复内置课表（训练目标保留现值）');
+}
+
 function renderProfile() {
   updateSyncBadge();
   const p = D.profile;
@@ -2643,6 +2733,12 @@ function renderProfile() {
     + '<div class="chips">'
     + [['auto', '跟随系统'], ['light', '浅色'], ['dark', '深色']].map((x) => '<button class="chip' + (D.state.theme === x[0] ? ' on' : '') + '" onclick="setTheme(\'' + x[0] + '\')">' + x[1] + '</button>').join('')
     + '</div></div>';
+  // 我的课表（N5：周模板+组次文本化 v1）
+  h += '<div class="card"><div class="card-title" style="margin-bottom:4px">我的课表</div>'
+    + '<div class="sub" style="margin-bottom:8px">只改数字，点"应用课表"生效；动作名与星期写法不可改；写错不会生效，会提示第几行。</div>'
+    + '<textarea id="schedText" rows="13" style="width:100%;font-family:monospace;font-size:12px;line-height:1.7;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--text);resize:vertical">' + U.esc(D.state.scheduleText || generateScheduleText()) + '</textarea>'
+    + '<div style="display:flex;gap:8px;margin-top:10px"><button class="btn-primary" style="flex:1" onclick="applySchedule()">应用课表</button>'
+    + '<button class="btn-ghost" style="flex:1" onclick="resetSchedule()">恢复内置课表</button></div></div>';
   // 训练年报（N7：档案页常驻入口）
   h += '<div class="card"><div class="row-between"><div><div class="card-title" style="margin:0">训练年报</div><div class="sub">按年度回顾训练、打卡与渐进</div></div>'
     + '<button class="ci-btn" onclick="openAnnualReport()">查看</button></div></div>';
@@ -2880,17 +2976,18 @@ function reduceTarget(base, unit) { // REH-2 黄灯减量30%：次数向上取�
   if (String(unit).indexOf('秒') >= 0) return Math.max(5, Math.ceil((base * 0.7) / 5) * 5);
   return Math.max(1, Math.ceil(base * 0.7));
 }
-function buildCourse(reduced) { // 课单：热身 + 6动作×3组（每组前预备3s、组后休息60s）+ 放松
+function buildCourse(reduced) { // 课单：热身 + 各动作N组（组数走课表 effSets，每组前预备3s、组后休息60s）+ 放松
   const c = [{ kind: 'warm' }];
   CONFIG.actions.forEach((a, i) => {
     const base = D.state.strengthReps[a.repsKey] || 10;
     const target = reduced ? reduceTarget(base, a.unit) : base;
     const timed = a.unit.indexOf('秒') >= 0;
-    for (let s = 1; s <= 3; s++) {
+    const st = effSets(a.repsKey);
+    for (let s = 1; s <= st; s++) {
       c.push({ kind: 'pre', actionIdx: i, set: s, name: a.name });
       c.push({ kind: 'set', actionIdx: i, set: s, name: a.name, unit: a.unit, target: target, timed: timed, secs: timed ? target : 0 });
-      const last = (i === CONFIG.actions.length - 1 && s === 3);
-      if (!last) c.push({ kind: 'rest', nextName: (s < 3 ? a.name : CONFIG.actions[i + 1].name), nextSet: (s < 3 ? s + 1 : 1) });
+      const last = (i === CONFIG.actions.length - 1 && s === st);
+      if (!last) c.push({ kind: 'rest', nextName: (s < st ? a.name : CONFIG.actions[i + 1].name), nextSet: (s < st ? s + 1 : 1) });
     }
   });
   c.push({ kind: 'cooldown' });
@@ -2925,7 +3022,7 @@ function startWorkout() {
       + '<div class="m-actions"><button class="btn-primary" onclick="closeModal()">知道了</button></div>');
     return;
   }
-  const dayType = CONFIG.weekTemplate[new Date().getDay()];
+  const dayType = effTemplate()[new Date().getDay()];
   const type = CONFIG.trainTypes.indexOf(tf.type) >= 0 ? tf.type : dayType;
   if (CONFIG.trainTypes.indexOf(type) < 0) { toast('休息日没有训练安排'); return; }
   if (type === '有氧' && !tf.cardioChoice) { toast('请先选择有氧方式（3选1）'); return; }
@@ -2956,7 +3053,7 @@ function confirmCourse() {
   if (!pendingCourse) return;
   closeModal();
   const startTs = Date.now();
-  wk = { kind: '力量', mode: 'course', course: pendingCourse, ci: 0, phase: 'warm', left: 0, phaseDur: 0, phaseStartTs: startTs, startTs: startTs, pausedTotal: 0, pausedAt: null, elapsed: 0, setsDone: [0, 0, 0, 0, 0, 0], totalSets: 18, yellow: pendingYellow, lastPerf: lastPerfTxt(), spoken10: false, spoken30: false, lastSpokenNum: -1, timer: null };
+  wk = { kind: '力量', mode: 'course', course: pendingCourse, ci: 0, phase: 'warm', left: 0, phaseDur: 0, phaseStartTs: startTs, startTs: startTs, pausedTotal: 0, pausedAt: null, elapsed: 0, setsDone: [0, 0, 0, 0, 0, 0], setsPer: CONFIG.actions.map((a) => effSets(a.repsKey)), totalSets: pendingCourse.filter((p) => p.kind === 'set').length, yellow: pendingYellow, lastPerf: lastPerfTxt(), spoken10: false, spoken30: false, lastSpokenNum: -1, timer: null };
   pendingCourse = null;
   document.getElementById('workout').hidden = false;
   wk.timer = setInterval(wkTick, 1000);
@@ -3037,7 +3134,7 @@ function finishWorkout() {
   const mins = Math.max(1, Math.round((Date.now() - wk.startTs - wk.pausedTotal) / 60000));
   const kind = wk.kind;
   const mode = wk.mode;
-  const done = (mode === 'course') ? wk.setsDone.map((n) => n >= 3) : null;
+  const done = (mode === 'course') ? wk.setsDone.map((n, i) => n >= (wk.setsPer ? wk.setsPer[i] : 3)) : null;
   const setsDone = (mode === 'course') ? wk.setsDone.reduce((a, b) => a + b, 0) : 0;
   const totalSets = (mode === 'course') ? wk.totalSets : 0;
   const yellow = (mode === 'course') ? wk.yellow : false;
@@ -3139,7 +3236,7 @@ function renderWorkout() {
     const C = 2 * Math.PI * 96;
     const shown = p.timed ? wk.left : clock(wk.elapsed);
     h = bar + '<div class="wk-name">' + U.esc(p.name) + '</div>'
-      + '<div class="wk-set">第 ' + p.set + ' 组 / 共 3 组 · ' + U.esc(a.part) + (wk.yellow ? ' · <span style="color:var(--orange)">黄灯减量中</span>' : '') + '</div>'
+      + '<div class="wk-set">第 ' + p.set + ' 组 / 共 ' + (wk.setsPer ? wk.setsPer[p.actionIdx] : 3) + ' 组 · ' + U.esc(a.part) + (wk.yellow ? ' · <span style="color:var(--orange)">黄灯减量中</span>' : '') + '</div>'
       + '<div class="wk-ring"><svg viewBox="0 0 220 220"><circle cx="110" cy="110" r="96" fill="none" style="stroke:var(--line)" stroke-width="10"/>'
       + '<circle cx="110" cy="110" r="96" fill="none" style="stroke:var(--accent)" stroke-width="10" stroke-linecap="round" stroke-dasharray="' + (C * frac).toFixed(1) + ' ' + C.toFixed(1) + '" transform="rotate(-90 110 110)"/></svg>'
       + '<div class="wt">' + shown + (p.timed ? '<span style="font-size:14px;color:var(--text2)"> 秒</span>' : '') + '</div></div>'
@@ -3194,6 +3291,7 @@ async function init() {
   } catch (e) {
     D = defaultData(); // 本地数据异常兜底：保证应用可启动，不白屏
   }
+  rebuildSched(); // N5：恢复自定义课表生效缓存
   applyTheme();
   updateSyncBadge();
   let savedKey = null;
