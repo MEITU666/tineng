@@ -169,6 +169,16 @@ details.fold .fold-body{padding:2px 0 12px;font-size:14px;line-height:1.9;color:
 .wr-num{background:var(--bg);border-radius:12px;padding:12px 6px;text-align:center}
 .wr-v{font-size:20px;font-weight:700}
 .wr-l{font-size:12px;color:var(--text2);margin-top:2px}
+/* N6 火柴人动作动画（两帧 steps 循环，示意级轮廓；深浅色走 currentColor） */
+.stick{display:block;margin:0 auto;color:var(--text)}
+.stick path{stroke:currentColor;stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.stick circle{stroke:currentColor;stroke-width:3;fill:none}
+.stick .hd{fill:currentColor;stroke:none}
+.stick .f1{animation:stickA 1.3s steps(1) infinite}
+.stick .f2{animation:stickB 1.3s steps(1) infinite}
+@keyframes stickA{0%,49.9%{opacity:1}50%,100%{opacity:0}}
+@keyframes stickB{0%,49.9%{opacity:0}50%,100%{opacity:1}}
+@media (prefers-reduced-motion: reduce){.stick .f1,.stick .f2{animation:none}.stick .f2{display:none}}
 /* 阶段升级动画 */
 @keyframes phup{0%{transform:translateY(24px) scale(.85);opacity:0}18%{transform:translateY(0) scale(1.04);opacity:1}82%{transform:translateY(0) scale(1);opacity:1}100%{transform:translateY(-12px) scale(1);opacity:0}}
 #phaseUp{position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;pointer-events:none}
@@ -1479,7 +1489,12 @@ function renderToday() {
         return '<div class="prose" style="margin-bottom:10px">' + main + '</div>'
           + '<div class="callout-warn">若 4 周无改善或疼痛加重' + U.esc(parts[1] || '') + '</div>';
       })()
-    + stg.items.map((x) => '<div class="body-tx" style="padding:4px 0">· ' + U.esc(x) + '</div>').join('')
+    + stg.items.map((x) => {
+        const fm = FOOT_ANIMS.filter((f) => x.indexOf(f[0]) >= 0)[0];
+        return '<div class="body-tx" style="padding:4px 0">· ' + U.esc(x)
+          + (fm ? ' <button class="ci-btn" style="min-height:26px;padding:2px 8px;vertical-align:middle" onclick="showFootAnim(\'' + fm[1] + '\',\'' + fm[2] + '\')">' + ic('play', 11) + ' 演示</button>' : '')
+          + '</div>';
+      }).join('')
     + '<div class="sub" style="margin-top:6px">' + U.esc(stg.promo) + '</div>'
     + '<div style="display:flex;gap:8px;margin:10px 0">'
     + CONFIG.footLinks.map((l) => '<button class="ci-btn" onclick="window.open(\'' + l.u + '\')">' + l.t + '</button>').join('')
@@ -1652,7 +1667,9 @@ function showRpeModal() {
 }
 function showComp(i) {
   const a = CONFIG.actions[i];
+  const an = animOfAction(a.name);
   showModal('<div class="card-title" style="margin-bottom:8px">' + U.esc(a.name) + ' · 代偿自查</div>'
+    + (an ? stickSvg(an, 130) : '')
     + '<div class="body-tx" style="line-height:2"><b>代偿（自查）：</b>' + U.esc(a.comp) + '<br><b>纠正：</b>' + U.esc(a.fix) + '</div>'
     + '<div class="m-actions"><button class="btn-primary" onclick="closeModal()">知道了</button>'
     + '<button class="btn-ghost" onclick="window.open(\'' + a.link + '\')">📺教学</button></div>');
@@ -2929,6 +2946,35 @@ const ICONS = {
   list: '<path d="M4 6h16M4 12h16M4 18h10"/>',
   camera: '<rect x="3" y="7" width="18" height="13" rx="3"/><path d="M9 7l2-3h2l2 3"/><circle cx="12" cy="13" r="3.5"/>'
 };
+/* N6 火柴人动作动画库：两帧示意（viewBox 0 0 120 120，地面 y≈104）；纯内联零依赖 */
+const ANIMS = {
+  squat: '<g class="f1"><circle class="hd" cx="70" cy="16" r="7"/><path d="M70 23v33M70 30l22 6M70 56l-8 22 2 24M64 104h12M70 56l4 22"/></g><g class="f2"><circle class="hd" cx="70" cy="36" r="7"/><path d="M70 43v22M70 49l22 3M70 65l18 12 -2 26M86 104h12"/></g>',
+  pushup: '<g class="f1"><circle class="hd" cx="26" cy="50" r="7"/><path d="M33 56l48 6M38 60v34M32 94h12M81 62l20 30M101 92l8-6"/></g><g class="f2"><circle class="hd" cx="26" cy="62" r="7"/><path d="M33 68l48 4M40 70l6 24M40 94h12M81 72l20 22M101 94l8-6"/></g>',
+  lunge: '<g class="f1"><circle class="hd" cx="60" cy="16" r="7"/><path d="M60 23v35M56 58l-4 46M64 58l4 46M50 104h8M60 104h8M60 30l-8 10M60 30l8 10"/></g><g class="f2"><circle class="hd" cx="60" cy="30" r="7"/><path d="M60 37v30M60 67l20 20v17M60 67l-18 28 -4 9M74 104h10M36 104h8"/></g>',
+  glute: '<g class="f1"><circle class="hd" cx="22" cy="76" r="7"/><path d="M29 80l38 6M67 86l18 12 10 4M95 102h12M33 82l10 14"/></g><g class="f2"><circle class="hd" cx="22" cy="70" r="7"/><path d="M29 74l32 -10M61 64l24 30 10 6M95 100h12M33 76l8 18"/></g>',
+  plank: '<g class="f1"><circle class="hd" cx="24" cy="56" r="7"/><path d="M31 62l52 6M36 66v28M30 94h14M83 68l18 26M101 94l8-6"/></g><g class="f2"><circle class="hd" cx="24" cy="60" r="7"/><path d="M31 66l52 5M36 70v24M30 94h14M83 72l18 22M101 94l8-6"/></g>',
+  side: '<g class="f1"><circle class="hd" cx="34" cy="40" r="7"/><path d="M38 47l34 30M40 52v42M34 94h14M72 77l22 18M86 62l-10 12"/></g><g class="f2"><circle class="hd" cx="34" cy="44" r="7"/><path d="M38 51l30 36M40 56v38M34 94h14M68 87l24 8M86 62l-12 14"/></g>',
+  calf: '<g class="f1"><circle class="hd" cx="58" cy="16" r="7"/><path d="M58 23v35M58 58l-2 40M50 100h18M58 30l16 8"/></g><g class="f2"><circle class="hd" cx="58" cy="12" r="7"/><path d="M58 19v33M58 52l6 36M50 100h18M58 100l8-10M58 26l16 8"/></g>',
+  towel: '<g class="f1"><circle cx="60" cy="52" r="10"/><path d="M28 44q32 22 64 0M28 44l-8-6M92 44l8-6"/></g><g class="f2"><circle cx="60" cy="48" r="10"/><path d="M28 40q32 12 64 0M28 40l-8-6M92 40l8-6"/></g>',
+  roll: '<g class="f1"><path d="M30 92h30q18 0 30-8"/><circle cx="72" cy="80" r="11"/></g><g class="f2"><path d="M30 92h30q14 0 24-8"/><circle cx="52" cy="80" r="11"/></g>',
+  pump: '<g class="f1"><path d="M40 40q20 20 24 38M64 78l18-10M40 40q-8 22 0 38"/></g><g class="f2"><path d="M40 40q20 20 24 38M64 78l20 12M40 40q-8 22 0 38"/></g>'
+};
+function stickSvg(id, size) {
+  const a = ANIMS[id];
+  if (!a) return '';
+  return '<svg class="stick" viewBox="0 0 120 120" style="width:' + size + 'px;height:' + size + 'px" aria-hidden="true">' + a + '</svg>';
+}
+function animOfAction(name) {
+  return ({ '自重深蹲': 'squat', '俯卧撑': 'pushup', '箭步蹲': 'lunge', '臀桥': 'glute', '平板支撑': 'plank', '侧桥': 'side' })[name] || null;
+}
+const FOOT_ANIMS = [['踝泵', 'pump', '踝泵'], ['抓毛巾', 'towel', '脚趾抓毛巾'], ['滚动', 'roll', '足底滚压'], ['滚压', 'roll', '足底滚压'], ['提踵', 'calf', '提踵']];
+function showFootAnim(id, name) {
+  showModal('<div class="card-title" style="text-align:center;margin-bottom:6px">' + U.esc(name) + ' · 动作演示</div>'
+    + stickSvg(id, 150)
+    + '<div class="sub" style="text-align:center;margin:10px 0">示意动画，以文字要领为准；疼痛即停，加重就医。</div>'
+    + '<div class="m-actions"><button class="btn-primary" onclick="closeModal()">关闭</button></div>');
+}
+
 function ic(name, sz) {
   return '<svg viewBox="0 0 24 24" width="' + (sz || 16) + '" height="' + (sz || 16) + '" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' + (ICONS[name] || '') + '</svg>';
 }
@@ -3227,7 +3273,9 @@ function renderWorkout() {
       + '<div class="wk-ring" style="width:170px;height:170px"><div class="wt" style="font-size:38px">' + clock(wk.elapsed) + '</div></div>'
       + '<div class="wk-btns"><button class="btn-primary" onclick="warmDone()">热身完成，开始力量训练</button>' + pauseBtn + '<button class="btn-ghost" onclick="exitWorkout()">结束训练</button></div>';
   } else if (p.kind === 'pre') {
+    const pa = CONFIG.actions[p.actionIdx];
     h = bar + '<div class="wk-set">预备 · ' + U.esc(p.name) + ' · 第 ' + p.set + ' 组</div>'
+      + (animOfAction(p.name) ? stickSvg(animOfAction(p.name), 96) : '')
       + '<div style="font-size:96px;font-weight:700;line-height:1">' + wk.left + '</div>'
       + '<div class="wk-btns" style="margin-top:30px"><button class="btn-ghost" onclick="exitWorkout()">结束训练</button></div>';
   } else if (p.kind === 'set') {
@@ -3240,7 +3288,8 @@ function renderWorkout() {
       + '<div class="wk-ring"><svg viewBox="0 0 220 220"><circle cx="110" cy="110" r="96" fill="none" style="stroke:var(--line)" stroke-width="10"/>'
       + '<circle cx="110" cy="110" r="96" fill="none" style="stroke:var(--accent)" stroke-width="10" stroke-linecap="round" stroke-dasharray="' + (C * frac).toFixed(1) + ' ' + C.toFixed(1) + '" transform="rotate(-90 110 110)"/></svg>'
       + '<div class="wt">' + shown + (p.timed ? '<span style="font-size:14px;color:var(--text2)"> 秒</span>' : '') + '</div></div>'
-      + (p.timed ? '' : '<div class="wk-goal">目标 ' + p.target + ' ' + U.esc(p.unit) + '</div>')
+      + (animOfAction(p.name) ? stickSvg(animOfAction(p.name), 100) : '')
+      + (p.timed ? '' : '<div class="wk-goal" style="margin-top:6px">目标 ' + p.target + ' ' + U.esc(p.unit) + '</div>')
       + '<div class="wk-tip" style="margin:2px 0 16px">' + U.esc(wk.lastPerf) + '</div>'
       + '<div class="wk-btns"><button class="btn-primary" onclick="completeSet()">完成本组</button>' + pauseBtn + '<button class="btn-ghost" onclick="exitWorkout()">结束训练</button></div>'
       + '<div class="wk-tip" style="margin-top:10px">' + U.esc(a.guide) + '</div>';
