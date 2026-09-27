@@ -664,7 +664,7 @@ function defaultData() {
     state: {
       phase: 0, lastTestDate: null, footStage: 0, autoCalibrateRHR: true,
       lastSyncAt: 0, pendingSync: false, strengthFails: 0, theme: 'auto', lastForm: null,
-      strengthReps: { '深蹲': 12, '俯卧撑': 8, '平板': 30, '侧桥': 20, '箭步蹲': 8, '臀桥': 15, '俯卧YW': 8, '俯卧超人': 10 },
+      strengthReps: { '深蹲': 12, '俯卧撑': 8, '下斜俯卧撑': 10, '平板': 30, '侧桥': 20, '箭步蹲': 8, '臀桥': 15, '俯卧YW': 8, '俯卧超人': 10 },
       backfillDone: false, profileDone: false, downgradedAt: null, progressionLog: [], scheduleText: null,
       updatedAt: 0
     }
@@ -788,6 +788,8 @@ function mergeData(local, remote) {
   st.lastSyncAt = Math.max(local.state.lastSyncAt || 0, remote.state.lastSyncAt || 0);
   st.pendingSync = !!(local.state.pendingSync || remote.state.pendingSync);
   out.state = st;
+  out.state.strengthReps = out.state.strengthReps || {};
+  CONFIG.actions.forEach((a) => { if (out.state.strengthReps[a.repsKey] == null) out.state.strengthReps[a.repsKey] = 10; }); // Codex 复核 P1-1 修复：合并后补缺键，防 undefined/NaN 污染
   out.daily = mergeByKey(local.daily, remote.daily, 'date');
   out.metrics = mergeByKey(local.metrics, remote.metrics, 'date');
   out.tests = mergeByKey(local.tests, remote.tests, 'date');
@@ -928,6 +930,7 @@ async function tryUnlock() {
   catch (e) { btn.disabled = false; gateMsg('密钥错误或数据损坏，可重试'); return; }
   TOKEN = token; // 仅内存
   try { sessionStorage.setItem('tineng_key', pass); } catch (e) {} // 密钥仅 sessionStorage
+  if (pass.length < 12) toast('已解锁。提示：密钥不足 12 位，建议更换更强口令（口令是唯一防线，密文在公开 Gist 可被离线爆破）'); // Codex 复核 P1-4：不强锁已用口令（防自锁），只提示
   enterApp();
 }
 function enterOffline() {
@@ -986,6 +989,7 @@ function askRestore(remote) {
     + '<button class="btn-ghost" id="mSkipRestore">暂不，使用本机</button></div>');
   document.getElementById('mRestore').onclick = async () => {
     D = mergeData(D, remote);
+    rebuildSched(); // Codex 复核 P1-3 修复：云端恢复后立即重建课表生效缓存
     await DB.save(D);
     closeModal();
     toast('已恢复云端数据');
@@ -1553,7 +1557,8 @@ function todayActionLine(level) { // 引擎输出首句=今天干嘛（开工单
     return '今天按' + (level === 'down' ? '降档' : '正常') + '档练：' + items.join('、') + (level === 'down' ? '（每组少做 2 次或留 2-3 次余力）' : '');
   }
   if (dayType === '有氧') {
-    const c = CONFIG.cardio.find((x) => x.name === tf.cardioChoice) || CONFIG.cardio[0];
+    const c = tf.cardioChoice ? CONFIG.cardio.find((x) => x.name === tf.cardioChoice) : null;
+    if (!c) return '今天按' + (level === 'down' ? '降档' : '正常') + '档练：有氧（先选方式：快走/单车/爬楼梯）+ 每日包'; // Codex 复核 P2-3 修复：与计划卡"请先选择有氧方式"同口径，不再默默默认快走
     return '今天按' + (level === 'down' ? '降档' : '正常') + '档练：有氧 ' + U.esc(c.dur) + '（' + c.name + '，全程能说话）+ 每日包';
   }
   return '今天按' + (level === 'down' ? '降档' : '正常') + '档练：长走 ≥60 分钟低强度' + (weekGoalLine() ? '（' + weekGoalLine() + '）' : '') + ' + 每日包';
@@ -1564,6 +1569,7 @@ function feelChips() {
   return FEELS.map((f) => '<button class="chip' + (cur === f ? ' on' : '') + '" onclick="stFeel(\'' + f + '\')">' + f + '</button>').join('');
 }
 function stFeel(f) { // 主观点选：写当日标记并重判
+  if (readOnly) { toast('离线只读模式，改动不保存'); return; } // Codex 复核 P2-1 修复：补只读守卫
   D.state.feelMark = { date: U.todayStr(), feel: f };
   D.state.updatedAt = Date.now();
   persist();
@@ -1914,6 +1920,7 @@ function applyProgression(rpe, partial) {
   CONFIG.actions.forEach((a) => {
     const k = a.repsKey;
     const from = sr[k];
+    if (rpe <= 7 && partial) return; // Codex 复核 P1-2 修复：K5 规则=全部动作标准完成才+1，部分完成持平
     if (rpe <= 7) sr[k] = sr[k] + (a.unit.indexOf('秒') >= 0 ? 5 : 1);
     else if (rpe >= 9) sr[k] = Math.max(1, Math.round(sr[k] * 0.9));
     else return; // rpe==8 → 持平，不记日志
@@ -1979,7 +1986,7 @@ function tfSave() {
         return;
       }
       D.state.updatedAt = Date.now();
-      DB.save(D).catch(() => { toast('本地保存失败，请重试'); });
+      persist(); // Codex 复核 P2-2 修复：与完整保存分支同口径走 persist（计 pendingSync），防渐进计数只存本地不进同步
       fail('力量日需勾选全部 ' + CONFIG.actions.length + ' 个动作后再保存（连续2次未完成将自动-10%）');
       return;
     }
@@ -3245,6 +3252,7 @@ function promoteFootModal() {
     + '<button class="btn-ghost" onclick="closeModal()">取消</button></div>');
 }
 function promoteFoot() {
+  if (readOnly) { toast('离线只读模式，改动不保存'); return; } // Codex 复核 P2-1 修复：补只读守卫
   const st = D.state.footStage;
   if (st >= 2) { closeModal(); return; }
   if (st === 0) {
@@ -3311,6 +3319,7 @@ function importData(input) {
       toast('导入失败：格式校验不通过'); return;
     }
     D = normalizeData(obj);
+    rebuildSched(); // Codex 复核 P1-3 修复：导入可能带自定义课表，立即重建生效缓存（否则 effSets 沿用旧表到重启）
     persist();
     renderProfile();
     updateSyncBadge();
@@ -3458,6 +3467,7 @@ function ic(name, sz) {
 
 /* ============ 外观设置（P1-3） ============ */
 function setTheme(t) {
+  if (readOnly) { toast('离线只读模式，改动不保存'); return; } // Codex 复核 P2-1 修复：补只读守卫
   D.state.theme = t;
   D.state.updatedAt = Date.now();
   applyTheme();

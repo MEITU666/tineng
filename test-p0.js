@@ -75,9 +75,10 @@ check('①空态 pgGoal/pgProfile/pgTest 关键字补查', () => {
 });
 w.eval(`D = normalizeData(window.__bkBackup);
   upsertByDate(D.external, recStamp({ date: '2026-09-23', source: '武汉国民体质监测中心',
-    items: { '身高': '174.1', '体重': '59.6', '握力': '42.7', '俯卧撑': '22', '坐位体前屈': '-8.1',
-      '闭眼单脚站立': '63.07', '选择反应时': '0.59', '背力': '109.1', '血压': '120/76', '静息心率': '60', 'BMI': '19.7' } }));
-  upsertByDate(D.tests, recStamp({ date: '2026-09-23', pushupMax: 22, standL: 63.07, standR: 20 }));`);
+    items: { '身高': '173.0', '体重': '61.2', '握力': '40.0', '俯卧撑': '18', '坐位体前屈': '-5.0',
+      '闭眼单脚站立': '55.0', '选择反应时': '0.55', '背力': '100.0', '血压': '118/76', '静息心率': '58', 'BMI': '20.4' } }));
+  upsertByDate(D.tests, recStamp({ date: '2026-09-23', pushupMax: 18, standL: 55.0, standR: 18 }));`);
+  /* 注：以上为合成样例值（Codex 外部复核隐私项修复：本文件在公开仓，真实体测数据不得内嵌，真实值只存在于本机 backup/gitignore 文件） */
 for (const [pg, [fn, bodyId]] of Object.entries(PAGES_SPEC)) {
   check(`①数据态 ${pg}：${fn}() 不抛异常且 ${bodyId} 内容>500`, () => {
     if (loadErr) throw loadErr;
@@ -107,8 +108,9 @@ check('② pushupMax=15 → strengthReps["俯卧撑"]=8（走标准档）', () =
     window.__t2 = { push: D.state.strengthReps['俯卧撑'], xiaxie: D.state.strengthReps['下斜俯卧撑'], changed: ch2.join(' | ') };`);
   const t = w.eval('window.__t2');
   if (t.push !== 8) throw new Error('strengthReps["俯卧撑"] = ' + t.push + '，应为 8（15×50%=7.5 → 四舍五入 8）');
-  if (t.xiaxie !== undefined) throw new Error('不应创建"下斜俯卧撑"，实际 ' + t.xiaxie);
-  return `俯卧撑=${t.push}，下斜俯卧撑未创建，changed="${t.changed}"`;
+  if (t.xiaxie !== 10) throw new Error('低俯卧撑值不应动"下斜俯卧撑"档位，应保持出厂默认 10，实际 ' + t.xiaxie); // ⑬ P1-1 修复后出厂含该键=10；断言从"不创建"改为"不动档位"
+  if (String(t.changed).indexOf('下斜俯卧撑') >= 0) throw new Error('changed 不应含下斜俯卧撑：' + t.changed);
+  return `俯卧撑=${t.push}，下斜俯卧撑保持 10 未动，changed="${t.changed}"`;
 });
 
 /* ---------- ③ normalizeData 双数据不抛异常 ---------- */
@@ -435,7 +437,7 @@ check('⑫ 隐私：默认档案无生辰，源码全文无真实生日串', () 
   if (loadErr) throw loadErr;
   const b = w.eval('defaultData().profile.birthday');
   if (b !== '') throw new Error('默认 birthday 应为空串，实为 ' + JSON.stringify(b));
-  if (html.indexOf('1994-11-28') >= 0) throw new Error('源码仍含生辰串');
+  if (/\b(19|20)\d{2}-(0[1-9]|1[0-2])-([0-2]\d|3[01])\b/.test(w.eval('JSON.stringify(defaultData().profile)'))) throw new Error('默认档案含日期型生辰'); // 模式匹配而非字面量（不把真实生辰写进本文件）
   return '生辰仅由本机向导/档案页录入';
 });
 check('⑫ K9 睡前1h窄规则（Stutz）+宁丢肌肉人话层（Nedeltcheva）在位', () => {
@@ -458,6 +460,47 @@ check('⑫ K20 抽筋机理层（多因素/通用补盐证据不足）在位', (
   const h = w.eval("document.getElementById('guideTabBody').innerHTML");
   if (h.indexOf('多因素') < 0 || h.indexOf('通用补盐建议证据不足') < 0) throw new Error('机理层缺失');
   return 'Miller/Schwellnus 口径落产品';
+});
+
+/* ---------- ⑬ 攻击面回归（Codex 外部复核修复验证，2026-09-27：测试跟着攻击面走，不只跟着功能走） ---------- */
+check('⑬ P1-1 缺键防线：出厂全键齐 + 合并后缺键自动补 10', () => {
+  if (loadErr) throw loadErr;
+  const miss = w.eval('CONFIG.actions.filter(a => defaultData().state.strengthReps[a.repsKey] == null).map(a => a.repsKey).join(",")');
+  if (miss) throw new Error('defaultData 缺键：' + miss);
+  const patched = w.eval('(function(){ var l = defaultData(); delete l.state.strengthReps["下斜俯卧撑"]; var r = JSON.parse(JSON.stringify(l)); return mergeData(l, r).state.strengthReps["下斜俯卧撑"]; })()');
+  if (patched !== 10) throw new Error('mergeData 未补键，实为 ' + patched);
+  return '出厂+合并双路径无缺键';
+});
+check('⑬ P1-2 部分完成不上调：applyProgression(6,true) 档位持平', () => {
+  if (loadErr) throw loadErr;
+  const same = w.eval('(function(){ var b = JSON.stringify(D.state.strengthReps); applyProgression(6, true); return JSON.stringify(D.state.strengthReps) === b; })()');
+  if (same !== true) throw new Error('部分完成 RPE6 仍上调档位');
+  return 'K5 规则（全部动作标准完成才+1）已对齐';
+});
+check('⑬ P1-3 导入/恢复路径重建课表缓存（结构性）', () => {
+  if (loadErr) throw loadErr;
+  if (String(w.eval('importData')).indexOf('rebuildSched') < 0) throw new Error('importData 未调 rebuildSched');
+  if (String(w.eval('askRestore')).indexOf('rebuildSched') < 0) throw new Error('askRestore 未调 rebuildSched');
+  return '两条恢复路径都含 rebuildSched';
+});
+check('⑬ P2-1 只读守卫在位：stFeel/promoteFoot/setTheme', () => {
+  if (loadErr) throw loadErr;
+  ['stFeel', 'promoteFoot', 'setTheme'].forEach((fn) => {
+    if (String(w.eval(fn)).indexOf('readOnly') < 0) throw new Error(fn + ' 缺只读守卫');
+  });
+  return '三函数守卫齐';
+});
+check('⑬ P2-3 有氧首句口径：未选方式→提示先选，不默认快走', () => {
+  if (loadErr) throw loadErr;
+  if (String(w.eval('todayActionLine')).indexOf('先选方式') < 0) throw new Error('todayActionLine 无先选口径');
+  const line = w.eval('(function(){ tf.cardioChoice = null; return todayActionLine(); })()');
+  if (line.indexOf('有氧') >= 0 && line.indexOf('先选方式') < 0) throw new Error('有氧日首句仍默认：' + line);
+  return '与计划卡口径一致';
+});
+check('⑬ 隐私：出厂档案无日期型生辰', () => {
+  if (loadErr) throw loadErr;
+  if (/\b(19|20)\d{2}-(0[1-9]|1[0-2])-([0-2]\d|3[01])\b/.test(w.eval('JSON.stringify(defaultData().profile)'))) throw new Error('默认档案含日期型生辰');
+  return '出厂档案无生辰（测试值已全合成）';
 });
 
 /* ---------- 输出 ---------- */
