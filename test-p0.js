@@ -147,6 +147,172 @@ check('④ CONFIG.externalItems 含「背力」且无重复', () => {
   return arr.length + ' 项：' + arr.join('/');
 });
 
+/* ---------- ⑤ 动作要领弹窗（v3.3 修复回归：上一版此弹窗渲染 undefined/空白） ---------- */
+check('⑤ showActionTips("俯卧撑") 渲染编号要点行且无 undefined', () => {
+  if (loadErr) throw loadErr;
+  w.eval('showActionTips("俯卧撑")');
+  const h = w.eval("document.getElementById('modalBox').innerHTML");
+  if (h.indexOf('undefined') >= 0) throw new Error('弹窗含 undefined');
+  if (h.indexOf('手掌在胸两侧') < 0 || h.indexOf('动作要领') < 0) throw new Error('要点缺失');
+  if (!h.includes('>1</span>')) throw new Error('无编号行');
+  return '渲染正常';
+});
+check('⑤ ACTION_TIPS 全部条目（含康复动作）逐个弹窗无 undefined', () => {
+  const names = w.eval('Object.keys(ACTION_TIPS).join("|")').split('|');
+  for (const n of names) {
+    w.eval('showActionTips(' + JSON.stringify(n) + ')');
+    const h = w.eval("document.getElementById('modalBox').innerHTML");
+    if (h.indexOf('undefined') >= 0) throw new Error(n + ' 弹窗含 undefined');
+  }
+  return names.length + ' 个动作全过';
+});
+check('⑤ 内容修订在位：足底滚压（湿疹禁忌/冰瓶）、俯卧超人式（口径更新）', () => {
+  w.eval('showActionTips("足底滚压")');
+  const h1 = w.eval("document.getElementById('modalBox').innerHTML");
+  if (h1.indexOf('湿疹时暂停滚压') < 0 || h1.indexOf('可冷冻成冰瓶') < 0) throw new Error('足底滚压修订缺失');
+  w.eval('showActionTips("俯卧超人式")');
+  const h2 = w.eval("document.getElementById('modalBox').innerHTML");
+  if (h2.indexOf('腰背整体发力') < 0 || h2.indexOf('腰部不悬空') >= 0) throw new Error('俯卧超人式修订缺失');
+  return '两条修订命中';
+});
+
+/* ---------- ⑥ 状态建议卡规则引擎全分支 ---------- */
+function setRD(metricArr, dailyArr) { // 造数：日期用 U.addDays(U.todayStr(),-n) 保证随时钟成立
+  w.eval('D = defaultData(); D.state.autoCalibrateRHR = true;');
+  (metricArr || []).forEach((s, i) => w.eval('D.metrics.push(recStamp({ date: U.addDays(U.todayStr(),-' + s.n + '), sleepH:' + (s.sleepH == null ? 'null' : s.sleepH) + ', rhr:' + (s.rhr == null ? 'null' : s.rhr) + ', hrv:' + (s.hrv == null ? 'null' : s.hrv) + ' }))'));
+  (dailyArr || []).forEach((d) => w.eval('D.daily.push(recStamp({ date: U.addDays(U.todayStr(),-' + d.n + '), pain: ' + JSON.stringify(d.pain) + ' }))'));
+}
+check('⑥ 新装无信号 → 正常练（不因缺数据惩罚）', () => {
+  setRD([], []);
+  if (w.eval('readinessEval(U.todayStr()).level') !== 'ok') throw new Error('期望 ok');
+  return 'ok';
+});
+check('⑥ 睡眠线：5.5h → 降档；4.5h → 只做每日包', () => {
+  setRD([{ n: 1, sleepH: 5.5 }], []);
+  if (w.eval('readinessEval(U.todayStr()).level') !== 'down') throw new Error('5.5h 应 down');
+  setRD([{ n: 1, sleepH: 4.5 }], []);
+  if (w.eval('readinessEval(U.todayStr()).level') !== 'floor') throw new Error('4.5h 应 floor');
+  return '两条睡眠线正确';
+});
+check('⑥ RHR 线（基线=档案60）：+5 → 降档；+12 → 每日包', () => {
+  setRD([{ n: 1, rhr: 65 }], []);
+  if (w.eval('readinessEval(U.todayStr()).level') !== 'down') throw new Error('65 应 down');
+  setRD([{ n: 1, rhr: 72 }], []);
+  if (w.eval('readinessEval(U.todayStr()).level') !== 'floor') throw new Error('72 应 floor');
+  return '两条 RHR 线正确';
+});
+check('⑥ HRV 低于基线 12% → 降档（基线=档案50）', () => {
+  setRD([{ n: 1, hrv: 44 }], []);
+  if (w.eval('readinessEval(U.todayStr()).level') !== 'down') throw new Error('44 应 down');
+  return 'HRV 线正确';
+});
+check('⑥ 疼痛（K7 同口径）：右足底 → 降档；膝 → 每日包', () => {
+  setRD([], [{ n: 1, pain: '右足底' }]);
+  if (w.eval('readinessEval(U.todayStr()).level') !== 'down') throw new Error('右足底应 down');
+  setRD([], [{ n: 1, pain: '膝' }]);
+  if (w.eval('readinessEval(U.todayStr()).level') !== 'floor') throw new Error('膝应 floor');
+  return '疼痛口径正确';
+});
+check('⑥ 主观点选：累 → 降档；很累 → 每日包（卡面同步）', () => {
+  setRD([], []);
+  w.eval('D.state.feelMark = { date: U.todayStr(), feel: "累" }');
+  if (w.eval('readinessEval(U.todayStr()).level') !== 'down') throw new Error('累应 down');
+  w.eval('D.state.feelMark = { date: U.todayStr(), feel: "很累" }');
+  w.eval('renderToday()');
+  const h = w.eval("document.getElementById('todayBody').innerHTML");
+  if (h.indexOf('只做每日包') < 0) throw new Error('卡面未判每日包');
+  return '点选生效且卡面同步';
+});
+check('⑥ 连续两天降档 → 卡面判完全休息', () => {
+  setRD([{ n: 1, sleepH: 5.5 }, { n: 2, sleepH: 5.5 }], []);
+  w.eval('renderToday()');
+  const h = w.eval("document.getElementById('todayBody').innerHTML");
+  if (h.indexOf('完全休息') < 0) throw new Error('应判休息');
+  return '休息分支正确';
+});
+check('⑥ 回归（真机抓到的 bug）：今天点"累"不得泄漏进昨日判定而误判休息', () => {
+  setRD([{ n: 1, sleepH: 5.5 }], []); // 只有昨天睡眠不足 → 今天应降档，不是休息
+  w.eval('D.state.feelMark = { date: U.todayStr(), feel: "累" }');
+  if (w.eval('readinessEval(U.addDays(U.todayStr(),-1)).level') !== 'ok') throw new Error('昨日判定不应吃今天的感受');
+  w.eval('renderToday()');
+  const h = w.eval("document.getElementById('todayBody').innerHTML");
+  if (h.indexOf('降档练') < 0 || h.indexOf('完全休息') >= 0) throw new Error('应为降档练而非完全休息');
+  return '作用域修复验证通过';
+});
+check('⑥ 红灯词命中 → 卡面出就医横幅（分诊红线）', () => {
+  setRD([], [{ n: 1, pain: '右足底夜间痛加重' }]);
+  w.eval('renderToday()');
+  const h = w.eval("document.getElementById('todayBody').innerHTML");
+  if (h.indexOf('就医评估') < 0) throw new Error('未出红线横幅');
+  return '红线横幅在位';
+});
+check('⑥ 卡面要素齐全：判定依据/主观点选/缺睡眠提示', () => {
+  setRD([{ n: 1, rhr: 65 }], []);
+  w.eval('renderToday()');
+  const h = w.eval("document.getElementById('todayBody').innerHTML");
+  if (h.indexOf('判定依据') < 0 || h.indexOf('feelChips') < 0 || h.indexOf('昨夜睡眠未记录') < 0) throw new Error('要素缺失');
+  return '要素齐全';
+});
+
+/* ---------- ⑦ 训练感受弹窗（跟练结束 → 三键定 RPE + 疼痛点选） ---------- */
+check('⑦ 课结报告含感受三键与疼痛点选', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData();');
+  w.eval('showWorkoutReport({ mins: 32, setsDone: 9, totalSets: 9, yellow: false, progTxt: "深蹲 12→13" })');
+  const h = w.eval("document.getElementById('modalBox').innerHTML");
+  if (h.indexOf('wrFeelChips') < 0 || h.indexOf('轻松') < 0 || h.indexOf('刚好') < 0 || h.indexOf('很累') < 0) throw new Error('感受三键缺失');
+  if (h.indexOf('wrPainChips') < 0 || h.indexOf('右足底') < 0) throw new Error('疼痛点选缺失');
+  return '弹窗元素在位';
+});
+check('⑦ 感受→RPE 映射：轻松6/刚好8/很累9；疼痛"其他"展开描述框', () => {
+  w.eval('wrSetFeel("轻松")');
+  if (w.eval('document.getElementById("wrRpe").value') !== '6') throw new Error('轻松应=6');
+  w.eval('wrSetFeel("刚好")');
+  if (w.eval('document.getElementById("wrRpe").value') !== '8') throw new Error('刚好应=8');
+  w.eval('wrSetFeel("很累")');
+  if (w.eval('document.getElementById("wrRpe").value') !== '9') throw new Error('很累应=9');
+  w.eval('wrSetPain("其他")');
+  if (w.eval('document.getElementById("wrPainSpot").style.display') !== 'block') throw new Error('描述框未展开');
+  w.eval('wrSetPain("无")');
+  if (w.eval('document.getElementById("wrPainSpot").style.display') !== 'none') throw new Error('描述框未收起');
+  return '映射与联动正确';
+});
+check('⑦ 保存守卫：未选感受时 saveFromReport 不落盘', () => {
+  const before = w.eval('JSON.stringify(D.daily)');
+  w.eval('saveFromReport()');
+  const after = w.eval('JSON.stringify(D.daily)');
+  if (before !== after) throw new Error('守卫失效：未选感受仍落盘');
+  return '守卫生效（daily 未变）';
+});
+
+/* ---------- ⑧ 指南页知识包 / 阶段对齐 / 字段扩容 ---------- */
+check('⑧ 指南页含 K14 红旗卡与 K15 报告红线卡', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); renderGuideTab()');
+  const h = w.eval("document.getElementById('guideTabBody').innerHTML");
+  if (h.indexOf('红旗自查卡') < 0) throw new Error('缺 K14');
+  if (h.indexOf('不适用（既定康复红线）') < 0) throw new Error('缺 K15 红线附注');
+  return '两卡在位';
+});
+check('⑧ 档案页含阶段对齐卡（总评≥60 / 右脚≥47s）', () => {
+  w.eval('renderProfile()');
+  const h = w.eval("document.getElementById('profileBody').innerHTML");
+  if (h.indexOf('阶段对齐') < 0 || h.indexOf('≥60') < 0 || h.indexOf('≥47s') < 0) throw new Error('阶段对齐卡缺失');
+  return '卡与两条有据合格线在位';
+});
+check('⑧ CONFIG.externalItems 17 项含 3 新字段且无重复', () => {
+  const arr = w.eval('CONFIG.externalItems');
+  for (const k of ['最大摄氧量', '纵跳', '体测总分']) if (arr.indexOf(k) < 0) throw new Error('缺 ' + k);
+  const dup = arr.filter((x, i) => arr.indexOf(x) !== i);
+  if (dup.length) throw new Error('重复：' + dup.join(','));
+  return arr.length + ' 项：' + arr.join('/');
+});
+check('⑧ normalizeData 半残数据不抛异常', () => {
+  w.eval('window.__n3 = normalizeData({ daily: "x", state: { phase: "x" }, profile: null, metrics: 3 })');
+  const keys = w.eval('Object.keys(window.__n3).join(",")');
+  return '半残数据归一化通过：' + keys;
+});
+
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);
 console.log('================ P0 jsdom 断言报告（node ' + process.version + ' · jsdom ' + require('jsdom/package.json').version + '） ================');

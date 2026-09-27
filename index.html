@@ -1190,6 +1190,16 @@ const M = {
     if (days.length >= CONFIG.rhrBaseMinDays) return Math.round(days.reduce((s, x) => s + x, 0) / days.length);
     return D.profile.rhrBaseline;
   },
+  hrvBaseline() { // v3.3：HRV 滚动基线，口径与 rhrBaseline 一致（近7天均值≥4天 > 档案预填50）
+    if (!D.state.autoCalibrateRHR) return D.profile.hrvBaseline;
+    const days = [];
+    for (let i = 0; i < CONFIG.rhrBaseWindow; i++) {
+      const m = M.metricOn(U.addDays(U.todayStr(), -i));
+      if (m && m.hrv != null) days.push(m.hrv);
+    }
+    if (days.length >= CONFIG.rhrBaseMinDays) return Math.round(days.reduce((s, x) => s + x, 0) / days.length);
+    return D.profile.hrvBaseline;
+  },
   weekChecked(ws) { // 休息日与病假均计为已打卡
     let n = 0;
     for (let i = 0; i < 7; i++) if (M.dailyOn(U.addDays(ws, i))) n++;
@@ -1435,10 +1445,85 @@ function sleepCardHtml() {
     + warnLine + line + '</div>';
 }
 
+/* ============ 状态建议卡（v3.3 核心：按身体状态给今天档位） ============ */
+/* 判定口径（有出处，勿拍脑改）：
+   - 档位规则 = 体能系统 v3.3 优化清单 1.4 拍板：睡眠 6.5/5h 绝对线；RHR 相对基线 +3/+7/+10；HRV 低于基线 10%；脚疼即降；连续 2 天降档 → 完全休息
+   - 基线偏差法 = 运动科学常规（个人基线滚动对比，同 AI Endurance 30 天基线思路；夜间 HRV/RHR 优于日间，Kubios 口径）
+   - 权重参照 = Vitalstat 公开恢复分方案（睡眠 40%/HRV 25%/静息心率 10%）：本卡按清单用序贯判定，不折算总分
+   - 疼痛分诊 = 知识包分诊红线卡（K14）：红灯词命中 → 停训就医；膝/腰疼痛 → 停训（与 K7 灯色规则同口径） */
+function readinessEval(dateStr) { // 返回 {level:'ok'|'down'|'floor', reasons:[]}：dateStr 当天的练量档位，看它前一天的身体信号
+  const m = M.metricOn(U.addDays(dateStr, -1));
+  const d = M.dailyOn(U.addDays(dateStr, -1));
+  const reasons = [];
+  let floor = false, down = false;
+  if (m && m.sleepH != null) { // 睡眠（清单绝对线）
+    if (m.sleepH < 5) { floor = true; reasons.push('睡眠 ' + m.sleepH + 'h（<5h）'); }
+    else if (m.sleepH < 6.5) { down = true; reasons.push('睡眠 ' + m.sleepH + 'h（5-6.5h）'); }
+  }
+  if (m && m.rhr != null) { // 静息心率相对滚动基线
+    const dev = m.rhr - M.rhrBaseline();
+    if (dev > 10) { floor = true; reasons.push('静息心率超基线 +' + dev); }
+    else if (dev > 3) { down = true; reasons.push('静息心率超基线 +' + dev); }
+  }
+  if (m && m.hrv != null && M.hrvBaseline() > 0) { // HRV 相对基线
+    const devPct = Math.round((m.hrv - M.hrvBaseline()) / M.hrvBaseline() * 100);
+    if (devPct <= -10) { down = true; reasons.push('HRV 低于基线 ' + devPct + '%'); }
+  }
+  const pain = d && d.pain && d.pain !== '无' ? d.pain : null; // 疼痛部位口径与 K7 灯色规则一致
+  if (pain && (pain.indexOf('足') >= 0 || pain.indexOf('踝') >= 0)) { down = true; reasons.push('昨日足/踝疼痛（' + pain + '）'); }
+  else if (pain) { floor = true; reasons.push('昨日' + pain + '疼痛'); }
+  const fm = D.state.feelMark; // 主观点选（只作用于"今天"的判定；历史日评估不引入今天的感受，否则会误判连续降档）
+  if (fm && fm.date === dateStr && fm.date === U.todayStr()) {
+    if (fm.feel === '很累') { floor = true; reasons.push('主观状态：很累'); }
+    else if (fm.feel === '累') { down = true; reasons.push('主观状态：累'); }
+  }
+  return { level: floor ? 'floor' : (down ? 'down' : 'ok'), reasons: reasons };
+}
+function footRedCheck() { // 红灯筛查：近 2 天疼痛文本命中红线词 → 停训就医横幅（知识包分诊卡口径）
+  const words = ['夜间痛', '夜间疼', '肿胀', '无法承重', '压痛', '畸形', '绞锁'];
+  for (let i = 0; i < 2; i++) {
+    const d = M.dailyOn(U.addDays(U.todayStr(), -i));
+    if (!d || !d.pain || d.pain === '无') continue;
+    const hit = words.filter((w) => (d.pain + (d.mobilityNote || '')).indexOf(w) >= 0);
+    if (hit.length) return '<div class="sub" style="color:var(--red);font-weight:600">🚩 疼痛描述命中红线信号（' + hit.join('、') + '）：立即停训，就医评估——这不是训练强度问题。</div>';
+  }
+  return '';
+}
+const FEELS = ['正常', '累', '很累'];
+function feelChips() {
+  const cur = (D.state.feelMark && D.state.feelMark.date === U.todayStr()) ? D.state.feelMark.feel : '';
+  return FEELS.map((f) => '<button class="chip' + (cur === f ? ' on' : '') + '" onclick="stFeel(\'' + f + '\')">' + f + '</button>').join('');
+}
+function stFeel(f) { // 主观点选：写当日标记并重判
+  D.state.feelMark = { date: U.todayStr(), feel: f };
+  D.state.updatedAt = Date.now();
+  persist();
+  renderToday();
+}
 function renderToday() {
   updateSyncBadge();
   const t = U.todayStr();
   let h = '';
+  // v3.3 状态建议卡：昨睡眠/RHR/HRV/疼痛/主观点选 → 今天四档位
+  const rdNow = readinessEval(U.todayStr());
+  const rdPrev = readinessEval(U.addDays(U.todayStr(), -1));
+  let level = rdNow.level;
+  if (level === 'down' && rdPrev.level === 'down') level = 'rest'; // 连续 2 天降档 → 完全休息
+  const RD = {
+    ok:   ['正常练', 'var(--green)', '身体状态够，按下方"今日安排"执行（休息日就做休息日内容）；建议放在傍晚 17-19 点。'],
+    down: ['降档练', 'var(--orange)', '强度降一档：力量每组少做一点、留 2-3 次余力，有氧时长打七折。'],
+    floor: ['只做每日包', 'var(--red)', '今天只做每日包 12 分钟，其他全免——做完就是赢。'],
+    rest: ['完全休息', 'var(--red)', '连续两天身体报警：今天完全休息，复盘睡眠与负荷，明天再战。']
+  }[level];
+  const lastMet = M.metricOn(U.addDays(U.todayStr(), -1)) || {};
+  const todayMet = M.metricOn(U.todayStr()) || {};
+  const hasSleep = lastMet.sleepH != null || todayMet.sleepH != null;
+  h += '<div class="card" id="readinessCard"><div class="card-head"><div class="bubble" style="background:' + RD[1] + '" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.6-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.4-9 9-9 9z"/></svg></div>'
+    + '<div style="flex:1"><div class="card-title" style="margin:0">今日状态 · ' + RD[0] + '</div><div class="sub">' + RD[2] + '</div></div></div>'
+    + '<div class="sub" style="margin-top:6px">判定依据：' + (rdNow.reasons.length ? rdNow.reasons.map(U.esc).join('；') : '各项信号正常') + (level === 'rest' ? '；昨日同样触发降档' : '') + '</div>'
+    + (hasSleep ? '' : '<div class="sub" style="color:var(--orange);margin-top:4px">昨夜睡眠未记录——打卡时从健康App抄一个数，判定更准。</div>')
+    + footRedCheck()
+    + '<div class="field" style="margin-top:10px"><label>今天的你（点一下立即重判）</label><div class="chips" id="feelChips">' + feelChips() + '</div></div></div>';
   // N7 年报入口卡（12/20-次年1/10 期间显示）
   const nw = new Date();
   const rptYear = (nw.getMonth() === 0 && nw.getDate() <= 10) ? nw.getFullYear() - 1 : nw.getFullYear();
@@ -2493,7 +2578,9 @@ CONFIG.knowledge = [
   { id: 'K10', group: '理念', title: 'K10 阶段全景', body: '阶段0 习惯建立(约4周)：有氧20-30分钟+力量基础+足康复Stage0+睡眠锚点<br>阶段1 有氧容量：Zone2至60分钟+下肢肌耐力+足康复Stage1<br>阶段2 爬升负重：楼梯专项+背包负重引入(5kg起)+足康复Stage2<br>阶段3 户外转移：周末真实山地、负重15kg级、背靠背两日<br><span class="sub">各阶段解锁条件与阶段状态机一致（第七部分），当前阶段见「档案与设置」。</span>' },
   { id: 'K11', group: '生活', title: 'K11 营养与体重', body: '偏瘦者(176/60, BMI 19.4)加量期原则：<br>· 不节食；训练日适当增加蛋白质与碳水(鸡蛋/奶/米饭多一口)<br>· 每周晨起空腹称重一次(可空)；较前值降&gt;2kg→系统横幅提醒加餐<br>· 目标不是减重，是让体重稳定或缓升(肌肉增长)' },
   { id: 'K12', group: '生活', title: 'K12 9/23 国民体测备战卡', body: CONFIG.k12.map((x) => '· ' + U.esc(x)).join('<br>') + '<br><span class="sub">本卡在目标页顶部 9/23 前显示、之后自动隐藏；「体测页-外部检测」折叠区常驻，不随日期关闭。</span>' },
-  { id: 'K13', group: '理念', title: 'K13 高海拔行程前检查清单', body: '你有 5000 米未登顶史。任何高海拔行程（&gt;3500m）出发前必须完成：<br>· 心肺体检（心电图+血压）<br>· 阶梯适应日程（每上升 1000m 住一晚适应）<br>· 血氧仪+应急药品清单<br>· 下撤预案（什么症状必须下撤，写下来）<br><span class="sub">阶段3前仅展示、不可勾选。系统不提供"高原准备度"分数——高原适应无法在家训练，任何分数都是假的。</span>' }
+  { id: 'K13', group: '理念', title: 'K13 高海拔行程前检查清单', body: '你有 5000 米未登顶史。任何高海拔行程（&gt;3500m）出发前必须完成：<br>· 心肺体检（心电图+血压）<br>· 阶梯适应日程（每上升 1000m 住一晚适应）<br>· 血氧仪+应急药品清单<br>· 下撤预案（什么症状必须下撤，写下来）<br><span class="sub">阶段3前仅展示、不可勾选。系统不提供"高原准备度"分数——高原适应无法在家训练，任何分数都是假的。</span>' },
+  { id: 'K14', group: '康复', title: 'K14 红旗自查卡：命中立即就医/下撤', body: '看训练建议之前先过这一关。命中任意一条 → 立即就医或下撤，不要再问练不练：<br>· <b>外伤后无法承重 4 步 / 骨性压痛 / 畸形 / 关节绞锁 / 伤后 1-2h 迅速肿胀</b> → 影像就医；户外=固定+撤离<br>· <b>夜间静息痛（与活动无关）/ 发热伴红肿热痛 / 不明原因消瘦</b> → 就医评估（不是训练问题）<br>· <b>高原：共济失调或意识改变（HACE）/ 静息呼吸困难（HAPE）</b> → 立即下撤，不等评分<br>· <b>寒战停止+嗜睡（中度失温）</b> → 复温+撤离；禁酒禁搓轻搬<br>· <b>突发胸闷气促胸痛</b> → 立即停止活动+急救呼叫<br><span class="sub">出处：三角色知识包·分诊红线卡（2026-09-27 对抗审查通过版）。今日状态卡检测到红灯词会直接引用本卡。</span>' },
+  { id: 'K15', group: '训练', title: 'K15 体测报告通用建议 vs 个人红线', body: '9/23 报告"运动建议"原文三条，逐条对红线：<br>· 跳绳 <b style="color:var(--orange)">⚠️ 右脚伤愈毕业前不适用（既定康复红线）</b><br>· 跑步 <b style="color:var(--orange)">⚠️ 右脚伤愈毕业前不适用（既定康复红线）</b><br>· 深蹲跳 <b style="color:var(--orange)">⚠️ 右脚伤愈毕业前不适用（既定康复红线）</b><br>替代方案：Zone2 快走/椭圆机/游泳（足底无痛为前提）；弹跳类等阶段机放行后再说。<br><span class="sub">报告建议是给普通人的通用模板，不覆盖个人红线——这是既定原则，不是报告写错。</span>' }
 ];
 const K_GROUPS = ['理念', '训练', '康复', '生活'];
 
@@ -2523,7 +2610,7 @@ function kFilter(v) { window.__kq = v; const sc = window.scrollY; renderGuideTab
 
 /* ============ 体测页（6组11字段 + 外部检测 + 历史对比） ============ */
 const TEST_DIRS = { rhr7: -1, stepPeakHr: -1, stepHrDrop1min: 1, squatMax: 1, pushupMax: 1, standL: 1, standR: 1, plankSec: 1, sideL: 1, sideR: 1 };
-const EXT_DIRS = { '体重': -1, '体脂率': -1, '肺活量': 1, '台阶指数': 1, '握力': 1, '俯卧撑': 1, '坐位体前屈': 1, '闭眼单脚站立': 1, '选择反应时': -1, '背力': 1, '血压': 0, '静息心率': -1 };
+const EXT_DIRS = { '体重': -1, '体脂率': -1, '肺活量': 1, '台阶指数': 1, '握力': 1, '俯卧撑': 1, '坐位体前屈': 1, '闭眼单脚站立': 1, '选择反应时': -1, '背力': 1, '最大摄氧量': 1, '纵跳': 1, '体测总分': 1, '血压': 0, '静息心率': -1 };
 /* W1：外部检测的字段清单。renderTest / saveExternal / testHistoryHtml 三处都引用它，
    此前只有使用没有定义，一进体测页就抛 TypeError（Cannot read properties of undefined），
    整个页面渲染中断。必须放在 EXT_DIRS 之后——它依赖 Object.keys(EXT_DIRS)。
@@ -2892,6 +2979,26 @@ function bfSave() {
   toast('已补录 ' + s.date + (warn ? warn : ''));
 }
 
+/* v3.3 阶段机对齐：0→3 阶段挂"不合格→合格→习惯→加量"业务名。
+   合格线只列有依据的两条（总评≥60=国民体质评级合格档；右脚≥47s=康复工程 75% 日常门槛），
+   其余弱项展示当前值、不发明阈值（达标线以体测报告评级为准）。 */
+function stageWeaknessHtml() {
+  const names = ['不合格期', '合格期', '习惯期', '加量期'];
+  const ph = Math.min(D.state.phase || 0, names.length - 1); // 防御：phase 异常越界时不显示 undefined
+  const ext = D.external.length ? D.external[D.external.length - 1] : null;
+  const it = (ext && ext.items) || {};
+  const tests = M.latestTest();
+  const row = (label, cur, line) => '<tr><td>' + label + '</td><td>' + (cur == null ? '—' : cur) + '</td><td>' + line + '</td></tr>';
+  return '<div class="card"><div class="card-title" style="margin-bottom:6px">阶段对齐：不合格 → 合格 → 习惯 → 加量</div>'
+    + '<div class="sub" style="margin-bottom:8px">当前是阶段 ' + ph + '（' + names[ph] + '），毕业条件见上。</div>'
+    + '<table class="cmp"><tr><th>弱项</th><th>当前</th><th>合格线</th></tr>'
+    + row('体测总分', it['体测总分'] == null ? null : U.esc(it['体测总分']), '≥60（国民体质评级合格档）')
+    + row('右脚闭眼单腿站立', tests && tests.standR != null ? tests.standR + 's' : null, '≥47s（康复期 75% 日常门槛）')
+    + row('最大摄氧量', it['最大摄氧量'] == null ? null : U.esc(it['最大摄氧量']), '以报告评级为准')
+    + row('纵跳', it['纵跳'] == null ? null : U.esc(it['纵跳']), '以报告评级为准')
+    + row('坐位体前屈', it['坐位体前屈'] == null ? null : U.esc(it['坐位体前屈']), '以报告评级为准')
+    + '</table><div class="sub" style="margin-top:6px">数据源：体测页外部检测最新一次' + (ext ? '（' + U.esc(ext.date) + '）' : '——还没录，去体测页补') + '；右脚取家庭体测最新一次。</div></div>';
+}
 function renderProfile() {
   updateSyncBadge();
   const p = D.profile;
@@ -2927,6 +3034,7 @@ function renderProfile() {
     + '<div class="sub" style="margin-top:8px">' + U.esc(phaseCond[s.phase]) + '</div>'
     + (s.downgradedAt ? '<div class="sub" style="color:var(--orange)">降级维持期至 ' + U.addDays(s.downgradedAt, CONFIG.downHoldDays) + '</div>' : '')
     + '</div>';
+  h += stageWeaknessHtml(); // v3.3 阶段机对齐：不合格→合格→习惯→加量 + 合格线弱项表
   // 足康复 Stage
   const stg = CONFIG.footStages[s.footStage];
   h += '<div class="card"><div class="card-title" style="margin-bottom:8px">足康复 Stage：' + s.footStage + '（' + U.esc(stg.name) + '）</div>'
@@ -3175,10 +3283,10 @@ const ACTION_TIPS = {
   '平板支撑': ['前臂撑地，肘在肩正下方', '头-肩-髋-踝一条直线，核心收紧', '不憋气，自然呼吸'],
   '侧桥': ['单侧前臂撑地，身体侧向一条直线', '髋部不下沉，顶端可停顿'],
   '俯卧YW伸展': ['俯卧，双臂成Y形抬离地面', '再收成W形，肩胛骨向中间夹', '动作缓慢，感受上背发力'],
-  '俯卧超人式': ['俯卧，同时抬起对侧手脚', '顶端停1秒，缓慢下落', '交替进行，腰部不悬空'],
+  '俯卧超人式': ['俯卧，同时抬起对侧手脚', '顶端停1秒，缓慢下落', '交替进行，核心保持收紧，腰背整体发力'],
   '踝泵': ['坐姿或躺姿，腿伸直', '脚尖缓慢勾起（朝向自己）到最大，停1秒', '再缓慢绷直到最大，停1秒', '全程无痛范围，每组20-30次'],
   '抓毛巾': ['坐姿，脚下平铺毛巾', '用脚趾将毛巾抓起、蜷向自己', '重复至毛巾全卷入'],
-  '足底滚压': ['坐姿，网球或水瓶放足底', '从脚跟到前掌缓慢来回滚动', '痛点处停留轻压10秒，力度以微酸不痛为准'],
+  '足底滚压': ['坐姿，网球或水瓶放足底（水瓶可冷冻成冰瓶）', '从脚跟到前掌缓慢来回滚动', '痛点处停留轻压10秒，力度以微酸不痛为准', '足底皮肤有破损/湿疹时暂停滚压'],
   '提踵': ['站立扶墙，双脚与肩同宽', '缓慢抬脚跟至最高，停1秒', '缓慢下落，不靠惯性']
 };
 
@@ -3204,16 +3312,20 @@ function tipKeyOf(text) {
   return null;
 }
 
-/* 动作要领弹窗：替代原「火柴人演示」。有匹配到要领才弹，否则给提示 */
+/* 动作要领弹窗：替代原「火柴人演示」。有匹配到要领才弹，否则给提示。
+   v3.3 修复：ACTION_TIPS 是字符串数组，原实现按 tip.point/wrong/fix 对象取值导致弹窗空白
+   （知识包 2.4 对抗审查确认的线上 bug），改为遍历数组逐条渲染。 */
 function showActionTips(name) {
   const key = ACTION_TIPS[name] ? name : tipKeyOf(name);
   const tip = key ? ACTION_TIPS[key] : null;
   if (!tip) { toast('该动作暂无要领卡片'); return; }
   const kw = encodeURIComponent(key + ' 标准动作');
+  const rows = tip.map(function (t, i) {
+    return '<div class="tip-row"><span class="tip-k">' + (i + 1) + '</span>'
+      + '<span class="tip-v">' + U.esc(t) + '</span></div>';
+  }).join('');
   showModal('<div class="card-title" style="text-align:center;margin-bottom:12px">' + U.esc(key) + ' · 动作要领</div>'
-    + '<div class="tip-row"><span class="tip-k">要点</span><span class="tip-v">' + U.esc(tip.point) + '</span></div>'
-    + '<div class="tip-row"><span class="tip-k">常见错</span><span class="tip-v">' + U.esc(tip.wrong) + '</span></div>'
-    + '<div class="tip-row"><span class="tip-k">纠正</span><span class="tip-v">' + U.esc(tip.fix) + '</span></div>'
+    + rows
     + '<div class="sub" style="margin-top:10px">以文字要领为准；动作中出现疼痛立即停止。</div>'
     + '<div class="m-actions"><button class="btn-primary" onclick="closeModal()">知道了</button>'
     + '<button class="btn-ghost" onclick="window.open(\'https://search.bilibili.com/all?keyword=' + kw + '\')">📺 看教学视频</button></div>');
@@ -3475,6 +3587,8 @@ function finishWorkout() {
 /* N2 课结报告卡：全勤标记 + 四大数字 + RPE + 主观状态 → 一键保存（走统一保存链） */
 function showWorkoutReport(d) {
   window.__wrMood = '';
+  window.__wrFeel = '';      // v3.3：训练感受三键（轻松/刚好/很累）
+  window.__wrPain = '无';    // v3.3：疼痛部位点选，默认无
   const full = d.setsDone >= d.totalSets;
   const badge = full
     ? '<div class="wr-badge" style="background:var(--green)"><svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg></div><div class="card-title" style="text-align:center">全部完成</div>'
@@ -3489,10 +3603,13 @@ function showWorkoutReport(d) {
     + big('第 ' + weekTrainNo() + ' 练', '本周')
     + '</div>'
     + (d.yellow ? '<div class="sub" style="color:var(--orange);margin-bottom:6px">已按黄灯自动减量 30%（估算）。</div>' : '')
-    + '<div class="sub" style="margin-bottom:6px">保存后按 RPE 自动渐进：≤7 上调 / 8 持平 / ≥9 减10%</div>'
-    + '<div class="field"><label>体感强度 RPE（1-10）<span id="wrRpeVal" style="float:right;color:var(--accent);font-weight:600">RPE 5</span></label>'
+    + '<div class="sub" style="margin-bottom:6px">先点感受（自动定 RPE，可再微调）；保存后按 RPE 自动渐进：≤7 上调 / 8 持平 / ≥9 减10%</div>'
+    + '<div class="field"><label>训练感受</label><div class="chips" id="wrFeelChips">' + wrFeelChips() + '</div></div>'
+    + '<div class="field"><label>体感强度 RPE（1-10，可微调）<span id="wrRpeVal" style="float:right;color:var(--accent);font-weight:600">RPE 5</span></label>'
     + '<input id="wrRpe" type="range" min="1" max="10" step="1" value="5" oninput="wrSetRpe(this.value)"></div>'
     + '<div class="field"><label>主观状态</label><div class="chips" id="wrMoodChips"></div></div>'
+    + '<div class="field"><label>疼痛部位（如实点选）</label><div class="chips" id="wrPainChips">' + wrPainChips() + '</div></div>'
+    + '<input id="wrPainSpot" placeholder="疼的部位/感觉描述（如：右足底走多了微酸）" style="display:none;margin-bottom:8px">'
     + '<div class="m-actions"><button class="btn-primary" onclick="saveFromReport()">保存并结束</button>'
     + '<button class="btn-ghost" onclick="closeModal();toast(\'已预填，请到记录卡核对保存\')">稍后自己填</button></div>');
   renderWorkoutMoodChips();
@@ -3503,12 +3620,43 @@ function renderWorkoutMoodChips() {
 }
 function wrSetRpe(v) { const r = document.getElementById('wrRpe'); if (r) r.value = v; const t = document.getElementById('wrRpeVal'); if (t) t.textContent = 'RPE ' + v; }
 function wrSetMood(m) { window.__wrMood = m; renderWorkoutMoodChips(); }
+/* v3.3 训练感受三键：一键定 RPE（轻松=6 有余力上调 / 刚好=8 持平 / 很累=9 减10%），滑块仍可微调 */
+const WR_FEELS = [['轻松', 6], ['刚好', 8], ['很累', 9]];
+function wrFeelChips() {
+  return WR_FEELS.map((f) => '<button class="chip' + (window.__wrFeel === f[0] ? ' on' : '') + '" onclick="wrSetFeel(\'' + f[0] + '\')">' + f[0] + '</button>').join('');
+}
+function wrSetFeel(f) {
+  const hit = WR_FEELS.find((x) => x[0] === f);
+  window.__wrFeel = f;
+  if (hit) wrSetRpe(hit[1]);
+  const el = document.getElementById('wrFeelChips');
+  if (el) el.innerHTML = wrFeelChips();
+}
+function wrPainChips() { // 与记录表单 CONFIG.painOptions 同一套口径的快速子集，'其他'展开描述框
+  return ['无', '右足底', '右踝', '其他'].map((p) => '<button class="chip' + (window.__wrPain === p ? ' on' : '') + '" onclick="wrSetPain(\'' + p + '\')">' + p + '</button>').join('');
+}
+function wrSetPain(p) {
+  window.__wrPain = p;
+  const el = document.getElementById('wrPainChips');
+  if (el) el.innerHTML = wrPainChips();
+  const s = document.getElementById('wrPainSpot');
+  if (s) s.style.display = (p === '其他') ? 'block' : 'none';
+}
 function saveFromReport() { // 把报告卡的 RPE/状态写进已预填的表单，走统一保存链（含渐进/灯色/同步）
   const r = U.num((document.getElementById('wrRpe') || {}).value);
-  if (r == null || r < 1 || r > 10) { toast('请先拖动体感强度 RPE'); return; }
+  if (r == null || r < 1 || r > 10) { toast('请先点训练感受（或拖动 RPE）'); return; }
+  if (!window.__wrFeel) { toast('请选择训练感受（轻松/刚好/很累）'); return; }
   if (!window.__wrMood) { toast('请选择主观状态'); return; }
+  if (window.__wrPain === '其他' && !((document.getElementById('wrPainSpot') || {}).value || '').trim()) { toast('疼痛选了"其他"，请写一句部位/感觉'); return; }
   setRpeUI(r);
   tf.mood = window.__wrMood;
+  setPain(window.__wrPain); // 与表单疼痛链共用 setPain：同步 tf.painOpt + chips + fPainText 显隐
+  if (window.__wrPain === '其他') {
+    const spot = document.getElementById('wrPainSpot').value.trim();
+    const pp = document.getElementById('fPainText');
+    if (pp) pp.value = spot; // saveDaily 从 fPainText 读"其他"文本
+    tf.painText = spot;
+  }
   tf.fromWorkout = true; // 跟练流保存：部分完成不拦截，照实记录
   closeModal();
   tfSave();
