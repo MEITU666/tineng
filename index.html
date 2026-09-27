@@ -666,6 +666,7 @@ function defaultData() {
       lastSyncAt: 0, pendingSync: false, strengthFails: 0, theme: 'auto', lastForm: null,
       strengthReps: { '深蹲': 12, '俯卧撑': 8, '下斜俯卧撑': 10, '平板': 30, '侧桥': 20, '箭步蹲': 8, '臀桥': 15, '俯卧YW': 8, '俯卧超人': 10 },
       backfillDone: false, profileDone: false, downgradedAt: null, progressionLog: [], scheduleText: null,
+      preTrip: null, tour7: null, weekRev: null, // 最终版增量（可选键）：行前判定缓存/新手7天引导/周复盘去重——normalize/merge 补默认
       updatedAt: 0
     }
   };
@@ -790,6 +791,8 @@ function mergeData(local, remote) {
   out.state = st;
   out.state.strengthReps = out.state.strengthReps || {};
   CONFIG.actions.forEach((a) => { if (out.state.strengthReps[a.repsKey] == null) out.state.strengthReps[a.repsKey] = 10; }); // Codex 复核 P1-1 修复：合并后补缺键，防 undefined/NaN 污染
+  // 最终版增量键缺键防线（与 4f52b7f 同套路）：老远端备份无这些键时补默认
+  ['preTrip', 'tour7', 'weekRev'].forEach((k) => { if (out.state[k] === undefined) out.state[k] = null; });
   out.daily = mergeByKey(local.daily, remote.daily, 'date');
   out.metrics = mergeByKey(local.metrics, remote.metrics, 'date');
   out.tests = mergeByKey(local.tests, remote.tests, 'date');
@@ -1540,7 +1543,8 @@ function mountainGoalHtml(dateStr) { // 今日页"转山倒排"卡（M6 目标�
   }
   return '<div class="card"><div class="card-head"><div class="bubble bg-purple" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 20l6-11 4 7 3-5 5 9z"/></svg></div>'
     + '<div style="flex:1"><div class="card-title" style="margin:0">' + head + '</div><div class="sub">目标：12 周后冈仁波齐 52km/5630m/3 天</div></div></div>'
-    + '<div class="sub" style="margin-top:6px">' + body + '</div></div>';
+    + '<div class="sub" style="margin-top:6px">' + body + '</div>'
+    + '<button class="ci-btn" style="margin-top:10px" onclick="openPreTrip()">🧭 行前选线判定：想走哪条，先对一遍</button></div>';
 }
 function ankleGateLine() { // 踝门：右踝<47s → 土路/越野/下坡建议劝退（毕业线 47/50/57；只加户外提示，不改力量档位）
   const t = M.latestTest();
@@ -1704,6 +1708,142 @@ function rehabWorkbenchHtml() { // 复测可视化+禁区解锁（康复师折�
   h += zoneLockHtml();
   h += '</div></details>';
   return h;
+}
+/* ============ 最终版·户外指导员席（2026-09-27 深夜批2）：行前判定+行中模式+行后复盘+晋升标记 ============ */
+/* 诚实边界（总纲第九节）：判定=参考不是许可；线路难度要素逐字来自 K22/K21 已核档，K22 没有的线路标"待核"；
+   鳌太类风险线永不给"能走"；高原线只给节奏条件（Chen 2023：低氧血液学适应平原练不到，靠行程节奏补）。
+   全程纯前端离线可用（无 fetch、无 timer——折返对照只在打开时算一次，不碰时间戳计时红线）。 */
+const TRIP_ROUTES = [
+  { id: 'gangrenboqi', name: '冈仁波齐转山', grade: 'L3', days: '3 天', alt: '垭口 5630m/夜宿 4670m+', standNeed: 57, plateau: true, src: 'K22 详档：12 周目标线，难度不在走路在连续 3 天高海拔' },
+  { id: 'lianbaoyeze', name: '莲宝叶则', grade: 'L1', days: '1 天', alt: '4000-4500m', standNeed: null, plateau: true, src: 'K22 详档：检阅/适应线；行前必查当季官方公告' },
+  { id: 'jiesigou', name: '结斯沟穿山洞', grade: 'L3', days: '1 天往返 12km/爬升 1100m', alt: '顶 4880m', standNeed: 47, plateau: false, src: 'K22 详档：实历未登顶，卡点=体力分配（先看节奏纪律再谈加体能）' },
+  { id: 'wugongshan', name: '武功山', grade: 'L2', days: '2-4 天', alt: '1900m 级', standNeed: null, plateau: false, src: 'K21/K22：实历客栈型已过' },
+  { id: 'nantaihang', name: '南太行', grade: '待核', days: '—', alt: '—', standNeed: null, plateau: false, custom: true, src: 'K22 无详档（待核，不拍板）；实历短板=碎石下坡慢' },
+  { id: 'aotai', name: '鳌太', grade: 'L5', days: '—', alt: '3000m+ 石海', standNeed: null, plateau: false, riskLine: true, src: 'K22 风险教育卡：2018 年起明令禁止穿越，永不种草' }
+];
+function standGateNow() { // 踝门现状（联动康复师席同一数据源）
+  const t = M.latestTest();
+  return { v: (t && t.standR != null) ? t.standR : null, date: t ? (t.date || '') : '' };
+}
+function preTripEval(r) { // 三档判定：go 能走 / cond 有条件能走 / no 还不能走——对照锚点全部来自现有数据
+  if (r.riskLine) return { out: 'no', lines: ['这条线不在讨论范围：' + r.name + ' 是技术探险线（L5），2018 年起明令禁止穿越。本产品只做风险认知（K22），任何体能状态下都不给"能走"。'] };
+  const sg = standGateNow(), lines = [], gaps = [];
+  if (r.standNeed != null) {
+    if (sg.v == null) { gaps.push('踝门未测：先在体测页录一次右脚闭眼单腿站（门槛 ' + r.standNeed + 's）'); }
+    else if (sg.v < r.standNeed) { gaps.push('踝门 ' + sg.v + 's，这条线门槛 ' + r.standNeed + 's，还差 ' + (r.standNeed - sg.v) + 's'); }
+  }
+  const wk = mountainWeekOf(U.todayStr());
+  if (r.grade === 'L3' && wk < 12) lines.push('12 周倒排当前第 ' + (wk >= 1 ? wk : 0) + '/12 周——L3 线按检阅周（12/20）过了再定行程');
+  if (r.plateau) lines.push('高原线节奏条件（K20/K22）：到达后缓冲 1-2 天再起转、全程谈话测试、高走低睡——平原练不到的血氧适应，靠节奏补。');
+  if (gaps.length) {
+    const rx = r.standNeed != null && sg.v != null && sg.v < r.standNeed
+      ? '差的部分怎么练：踝门差 ' + (r.standNeed - sg.v) + 's → 每日包 + 足康复平衡项（现有课表内，不加新动作）；下坡慢 → 下楼禁区未解锁前不排下坡专项（K1）。'
+      : '';
+    return { out: 'no', lines: gaps.concat(rx ? [rx] : []) };
+  }
+  if (r.grade === 'L3' && wk < 12) return { out: 'cond', lines: lines };
+  return { out: 'go', lines: lines };
+}
+function preTripHtml() { // 行前判定 modal（M6 卡点入）：选线→要素卡→三档判定
+  const saved = D.state.preTrip || {};
+  let h = '<div class="card-title" style="margin-bottom:8px">行前选线判定</div>'
+    + '<div class="sub" style="margin-bottom:8px">选一条线，我拿你的踝门/倒排进度/实历对一遍，告诉你能不能走、差什么、练哪几项。<b>判定=参考不是许可，最终以你当天身体和现场为准。</b></div>'
+    + '<div class="chips" style="margin-bottom:10px">' + TRIP_ROUTES.map((r) => '<button class="chip' + (saved.routeId === r.id ? ' on' : '') + '" onclick="preTripPick(\'' + r.id + '\')">' + r.name + '</button>').join('') + '</div>'
+    + '<div id="preTripBody">' + (saved.routeId ? preTripCard(saved.routeId) : '<div class="sub">先选一条线（难度要素全部来自指南页 K22/K21 已核档，全程离线可用）。</div>') + '</div>'
+    + '<div class="m-actions"><button class="btn-primary" onclick="closeModal()">关闭</button>'
+    + '<button class="btn-ghost" onclick="closeModal();openMidTrip()">🎒 行中模式</button></div>';
+  return h;
+}
+function preTripCard(id) { // 选中线路的要素卡+判定
+  const r = TRIP_ROUTES.find((x) => x.id === id);
+  if (!r) return '';
+  const ev = preTripEval(r);
+  const MAP = { go: ['✓ 能走', 'var(--green)'], cond: ['△ 有条件能走', 'var(--orange)'], no: ['✗ 还不能走', 'var(--red)'] }[ev.out];
+  const lastTrip = (function () { const ds = (D.daily || []).filter((d) => d && d.trip); return ds.length ? ds[ds.length - 1].trip : null; })();
+  return '<div class="body-tx" style="font-weight:600">' + U.esc(r.name) + '（' + U.esc(r.grade) + '）</div>'
+    + '<div class="sub">要素：' + U.esc(r.days) + '｜' + U.esc(r.alt) + '｜出处：' + U.esc(r.src) + '</div>'
+    + (lastTrip ? '<div class="sub" style="color:var(--orange)">上次行后复盘：' + U.esc(lastTrip.res || '') + (lastTrip.pit ? '，踩坑：' + U.esc(lastTrip.pit) : '') + '</div>' : '')
+    + '<div style="margin:10px 0;padding:8px;border-radius:8px;background:color-mix(in srgb, ' + MAP[1] + ' 12%, transparent)"><b style="color:' + MAP[1] + '">' + MAP[0] + '</b>'
+    + ev.lines.map((l) => '<div class="sub" style="margin-top:4px">' + U.esc(l) + '</div>').join('') + '</div>'
+    + '<button class="btn-primary" onclick="closeModal();openMidTrip()">出发当天 → 行中模式</button>';
+}
+function preTripPick(id) { // 选线：写缓存 → 重渲 modal
+  if (!D.state.preTrip) D.state.preTrip = { routeId: id, t: Date.now() };
+  else { D.state.preTrip.routeId = id; D.state.preTrip.t = Date.now(); }
+  D.state.updatedAt = Date.now();
+  persist();
+  document.getElementById('preTripBody').innerHTML = preTripCard(id);
+  showModal(preTripHtml());
+}
+function openPreTrip() { showModal(preTripHtml()); }
+const MID_CHECK = [ // 行中 checklist：逐字锚点=K18 第一层预防 + K20 节奏纪律，不新造
+  '离线地图+轨迹已下载，并在家演练调出过（临场学=没有）',
+  '充电宝按天数带足，连接线一并带；低温天贴身放',
+  '纸图+指北针带了吗（行前练过才算数，没练过=一块砖）',
+  '行程计划已告诉家人/朋友（路线+预计回来时间）',
+  '咸味补给带足（榨菜/盐丸/运动饮料），开局就开始补',
+  '折返时间点定好了（写在下面，到了就折返，不商量）'
+];
+let midChk = [];
+function openMidTrip() { // 行中模式：checklist+保命卡一键置顶+折返纪律对照，全程离线纯前端
+  midChk = [];
+  const now = new Date();
+  const hm = ('0' + now.getHours()).slice(-2) + ':' + ('0' + now.getMinutes()).slice(-2);
+  showModal('<div class="card-title" style="margin-bottom:8px">行中模式（离线可用）</div>'
+    + '<div class="sub" style="margin-bottom:8px">出发前把清单勾满再走；进山后这一页不需要网络。</div>'
+    + '<div class="body-tx" style="font-weight:600;margin-top:8px">出发 checklist（K18/K20 口径）</div>'
+    + MID_CHECK.map((c, i) => '<label class="sub" style="display:block;padding:4px 0"><input type="checkbox" onchange="midChk[' + i + ']=this.checked"> ' + U.esc(c) + '</label>').join('')
+    + '<div class="body-tx" style="font-weight:600;margin-top:10px">折返纪律</div>'
+    + '<div class="field"><label>预定折返时间（过了这个点没到目标=原路折返，不商量）</label><input id="midTurn" type="time" value="14:00"></div>'
+    + '<div class="sub" id="midTurnLine">现在 ' + hm + '。折返线是纪律，不是建议——前半程透支=后程崩（K20）。</div>'
+    + '<div class="body-tx" style="font-weight:600;margin-top:10px">保命卡一键置顶</div>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 12px">'
+    + '<button class="ci-btn" onclick="showK(\'K16\')">⚡ 保命树① 雷电/雨天/冰雪</button>'
+    + '<button class="ci-btn" onclick="showK(\'K17\')">🚑 保命树② 高原病/失温/求救/踝扭伤</button>'
+    + '<button class="ci-btn" onclick="showK(\'K18\')">🔋 手机没电三层</button>'
+    + '<button class="ci-btn" onclick="showK(\'K20\')">🥵 节奏纪律与抽筋</button></div>'
+    + '<div class="m-actions"><button class="btn-primary" onclick="closeModal()">关闭</button>'
+    + '<button class="btn-ghost" onclick="closeModal();openPostTrip()">回来后 → 行后复盘</button></div>');
+}
+function openPostTrip() { // 行后复盘：一笔记录回灌引擎（daily[n].trip）+ 下次行前判定引用
+  showModal('<div class="card-title" style="margin-bottom:8px">行后复盘（1 分钟）</div>'
+    + '<div class="sub" style="margin-bottom:8px">记这一笔，下次行前判定会引用它——引擎靠这个学你。</div>'
+    + '<div class="field"><label>结果</label><div class="chips">'
+    + ['按计划完成', '部分完成', '提前折返'].map((x) => '<button class="chip" onclick="tripPick(\'res\',\'' + x + '\',this)">' + x + '</button>').join('') + '</div></div>'
+    + '<div class="field"><label>最大的坑（单选）</label><div class="chips">'
+    + ['开局抽筋', '高反', '下坡吃力/慢', '电量/导航', '节奏前快后崩', '没有坑'].map((x) => '<button class="chip" onclick="tripPick(\'pit\',\'' + x + '\',this)">' + x + '</button>').join('') + '</div></div>'
+    + '<div class="field"><label>一句话（想写就写）</label><input id="tripNote" type="text" placeholder="如：垭口日早出发是对的"></div>'
+    + '<div class="m-actions"><button class="btn-primary" onclick="tripSubmit()">记下来</button>'
+    + '<button class="btn-ghost" onclick="closeModal()">不记了</button></div>');
+}
+let tripSel = { res: '', pit: '' };
+function tripPick(k, v, el) { tripSel[k] = v; document.querySelectorAll('#modalBox .chips .chip').forEach((b) => { if (b.textContent === v) b.classList.add('on'); else if (tripSel.res !== v && tripSel.pit !== v) b.classList.remove('on'); }); }
+function tripSubmit() { // 行后复盘提交：写 daily[today].trip + 联动提示（下坡吃力→链回禁区进度）
+  if (readOnly) { toast('离线只读模式，改动不保存'); return; }
+  if (!tripSel.res) { toast('先选一下结果'); return; }
+  let rec = M.dailyOn(U.todayStr());
+  if (!rec) { rec = recStamp(makeDailyRecord(U.todayStr())); upsertByDate(D.daily, rec); }
+  rec.trip = { res: tripSel.res, pit: tripSel.pit, note: (document.getElementById('tripNote') || {}).value || '', t: Date.now() };
+  recStamp(rec);
+  D.state.updatedAt = Date.now();
+  persist();
+  closeModal();
+  toast('已记录，下次行前判定会引用');
+  if (tripSel.pit === '下坡吃力/慢') setTimeout(() => openStopCard('行后复盘：下坡吃力——下楼禁区未解锁前不排下坡专项，康复进度在今日页「康复师工作台」'), 400);
+  tripSel = { res: '', pit: '' };
+}
+function youAreHere(kId) { // 晋升标记（批2⑧）：K21/K23 卡头动态"你在这里"——数据源=mountainWeekOf+踝门，与全产品同一口径
+  if (kId === 'K21') {
+    const wk = mountainWeekOf(U.todayStr());
+    return '<div style="margin:0 0 8px;padding:8px;border-radius:8px;background:color-mix(in srgb, var(--purple) 12%, transparent)">'
+      + '<b>📍 你在这里：阶段 3（高原环线）</b>——武功山客栈型已过（阶段 2），12 周转山倒排' + (wk >= 1 ? '进行中：第 ' + wk + '/12 周' : '9/28 开营（现在是准备周）') + '。晋升四件里"过夜能力/导航冗余"仍未验证（K21 原文）。</div>';
+  }
+  if (kId === 'K23') {
+    const sg = standGateNow();
+    return '<div style="margin:0 0 8px;padding:8px;border-radius:8px;background:color-mix(in srgb, var(--purple) 12%, transparent)">'
+      + '<b>📍 你在这里：R0（闸门前）</b>——两把闸门（踝毕业评审+医生放行）未开，R1 不启动' + (sg.v != null ? '；当前踝门 ' + sg.v + 's（毕业三线 47/50/57 在今日页康复师工作台）' : '；踝门还没测') + '。"提前跑一点点试试"=红线。</div>';
+  }
+  return '';
 }
 function renderToday() {
   updateSyncBadge();
@@ -2774,7 +2914,7 @@ function showK(id) {
   const k = CONFIG.knowledge.find((x) => x.id === id);
   if (!k) return;
   const body = typeof k.bodyFn === 'function' ? k.bodyFn() : k.body;
-  showModal('<div class="card-title" style="margin-bottom:8px">' + U.esc(k.title) + '</div><div class="body-tx" style="line-height:2">' + body + '</div>'
+  showModal('<div class="card-title" style="margin-bottom:8px">' + U.esc(k.title) + '</div>' + youAreHere(id) + '<div class="body-tx" style="line-height:2">' + body + '</div>'
     + '<div class="m-actions"><button class="btn-primary" onclick="closeModal()">知道了</button></div>');
 }
 

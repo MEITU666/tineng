@@ -589,6 +589,116 @@ check('⑭ 老数据兼容：线上备份（daily 无 chk 字段）normalize 后
   return '线上备份渲染 ✓';
 });
 
+/* ---------- ⑮ 户外指导员席（最终版批2）：行前判定+行中模式+行后复盘+晋升标记 ---------- */
+check('⑮ 线路库：六条预埋在位，鳌太带 riskLine，南太行标待核', () => {
+  if (loadErr) throw loadErr;
+  const n = w.eval('TRIP_ROUTES.length');
+  if (n !== 6) throw new Error('线路数=' + n);
+  const names = w.eval('TRIP_ROUTES.map(r=>r.id).join(",")');
+  if (names !== 'gangrenboqi,lianbaoyeze,jiesigou,wugongshan,nantaihang,aotai') throw new Error(names);
+  if (w.eval('TRIP_ROUTES.find(r=>r.id==="aotai").riskLine') !== true) throw new Error('鳌太缺 riskLine');
+  if (String(w.eval('TRIP_ROUTES.find(r=>r.id==="nantaihang").src')).indexOf('待核') < 0) throw new Error('南太行未标待核');
+  return '6 线路 ✓';
+});
+check('⑮ 行前判定：鳌太→no+明令禁止穿越，永不给能走', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval('preTripEval(TRIP_ROUTES.find(x=>x.id==="aotai"))');
+  if (r.out !== 'no') throw new Error('应为 no');
+  if (String(r.lines[0]).indexOf('禁止穿越') < 0) throw new Error('缺风险口径：' + r.lines[0]);
+  return '风险线口径 ✓';
+});
+check('⑮ 行前判定：冈仁波齐踝门未测→no（不瞎猜）', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData()');
+  const r = w.eval('preTripEval(TRIP_ROUTES.find(x=>x.id==="gangrenboqi"))');
+  if (r.out !== 'no') throw new Error('应为 no');
+  if (String(r.lines[0]).indexOf('未测') < 0) throw new Error('缺未测口径：' + r.lines[0]);
+  return 'no ✓';
+});
+check('⑮ 行前判定：踝门 30s 走冈仁波齐→no+差 27s+链回每日包（不发明新动作）', () => {
+  if (loadErr) throw loadErr;
+  w.eval('upsertByDate(D.tests, recStamp({ date: "2026-09-27", standR: 30 }))');
+  const r = w.eval('preTripEval(TRIP_ROUTES.find(x=>x.id==="gangrenboqi"))');
+  if (r.out !== 'no') throw new Error('应为 no');
+  const j = JSON.stringify(r.lines);
+  if (j.indexOf('还差 27s') < 0) throw new Error('缺差值：' + j);
+  if (j.indexOf('每日包') < 0 || j.indexOf('不加新动作') < 0) throw new Error('缺练哪几项链接：' + j);
+  return 'no+处方 ✓';
+});
+check('⑮ 行前判定：结斯沟踝门 50s（过 47 线）→有条件能走（12 周未满）', () => {
+  if (loadErr) throw loadErr;
+  w.eval('upsertByDate(D.tests, recStamp({ date: "2026-09-27", standR: 50 }))');
+  const r = w.eval('preTripEval(TRIP_ROUTES.find(x=>x.id==="jiesigou"))');
+  if (r.out !== 'cond') throw new Error('应为 cond，实际 ' + r.out);
+  return 'cond ✓';
+});
+check('⑮ 行前判定：武功山（L2 实历已过）→能走', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval('preTripEval(TRIP_ROUTES.find(x=>x.id==="wugongshan"))');
+  if (r.out !== 'go') throw new Error('应为 go，实际 ' + r.out);
+  return 'go ✓';
+});
+check('⑮ 行前 modal：六线路 chips+判定=参考不是许可声明', () => {
+  if (loadErr) throw loadErr;
+  w.eval('openPreTrip()');
+  const h = w.eval('document.getElementById("modalBox").innerHTML');
+  for (const k of ['冈仁波齐转山', '莲宝叶则', '结斯沟穿山洞', '武功山', '南太行', '鳌太', '参考不是许可']) if (h.indexOf(k) < 0) throw new Error('缺「' + k + '」');
+  w.eval('closeModal()');
+  return 'modal ✓';
+});
+check('⑮ preTripPick：写 state.preTrip 缓存并重开默认选中', () => {
+  if (loadErr) throw loadErr;
+  w.eval('openPreTrip(); preTripPick("gangrenboqi")');
+  const rid = w.eval('D.state.preTrip && D.state.preTrip.routeId');
+  if (rid !== 'gangrenboqi') throw new Error('preTrip.routeId=' + rid);
+  const h = w.eval('document.getElementById("modalBox").innerHTML');
+  if (h.indexOf('chip on') < 0 || h.indexOf('还不能走') < 0) throw new Error('重开后无选中态或无判定卡（踝门50 vs 57 应为 no）');
+  w.eval('closeModal()');
+  return '缓存+重渲 ✓';
+});
+check('⑮ 行中模式：checklist 含 K18 预防项+折返纪律+保命卡四键', () => {
+  if (loadErr) throw loadErr;
+  w.eval('openMidTrip()');
+  const h = w.eval('document.getElementById("modalBox").innerHTML');
+  for (const k of ['离线地图', '纸图+指北针', '折返时间', 'showK(\'K16\')', 'showK(\'K17\')', 'showK(\'K18\')', 'showK(\'K20\')']) if (h.indexOf(k) < 0) throw new Error('缺「' + k + '」');
+  w.eval('closeModal()');
+  return '行中 ✓';
+});
+check('⑮ 行后复盘：写入 daily.trip 且行前判定引用上次复盘', () => {
+  if (loadErr) throw loadErr;
+  w.eval('openPostTrip(); tripSel = { res: "部分完成", pit: "开局抽筋" }; tripSubmit()');
+  const t = w.eval('JSON.stringify((M.dailyOn(U.todayStr())||{}).trip||null)');
+  const o = JSON.parse(t);
+  if (!o || o.res !== '部分完成' || o.pit !== '开局抽筋') throw new Error('trip 未写入：' + t);
+  w.eval('openPreTrip(); preTripPick("gangrenboqi")');
+  const h = w.eval('document.getElementById("modalBox").innerHTML');
+  if (h.indexOf('上次行后复盘') < 0) throw new Error('行前判定未引用复盘');
+  w.eval('closeModal()');
+  return '复盘回灌 ✓';
+});
+check('⑮ 晋升标记：K21/K23 卡头有"你在这里"动态条', () => {
+  if (loadErr) throw loadErr;
+  w.eval('showK("K21")');
+  const h1 = w.eval('document.getElementById("modalBox").innerHTML');
+  if (h1.indexOf('你在这里：阶段 3') < 0 || h1.indexOf('五阶段') < 0) throw new Error('K21 标记缺失');
+  w.eval('closeModal(); showK("K23")');
+  const h2 = w.eval('document.getElementById("modalBox").innerHTML');
+  if (h2.indexOf('你在这里：R0') < 0 || h2.indexOf('两把闸门') < 0) throw new Error('K23 标记缺失');
+  w.eval('closeModal()');
+  return '你在这里 ✓';
+});
+check('⑮ 缺键防线：老数据 state 无 preTrip/tour7/weekRev → normalize/merge 补 null', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = normalizeData(window.__bkBackup)');
+  for (const k of ['preTrip', 'tour7', 'weekRev']) {
+    const v = w.eval('D.state.' + k);
+    if (v !== null) throw new Error(k + '=' + v + '，应补 null');
+  }
+  const m = w.eval('JSON.stringify((function(){ const local = normalizeData(window.__bkBackup); const remote = JSON.parse(JSON.stringify(local)); delete remote.state.preTrip; delete remote.state.tour7; delete remote.state.weekRev; return mergeData(local, remote).state; })())');
+  for (const k of ['"preTrip":null', '"tour7":null', '"weekRev":null']) if (m.indexOf(k) < 0) throw new Error('merge 后缺 ' + k);
+  return 'normalize/merge 双路径 ✓';
+});
+
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);
 console.log('================ P0 jsdom 断言报告（node ' + process.version + ' · jsdom ' + require('jsdom/package.json').version + '） ================');
