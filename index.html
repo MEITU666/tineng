@@ -1010,6 +1010,7 @@ function afterEnter() {
   if (readOnly) return;
   if (!D.state.profileDone) { openGuide(); return; }
   if (!D.state.backfillDone) openBackfill();
+  if (!D.state.tour7) { D.state.tour7 = { on: true, day: 1, done: [] }; D.state.updatedAt = Date.now(); persist(); } // 最终版批3⑪：首次进入开新手引导
 }
 
 /* ============ S1 引导（4步分步视觉向导，每步一问） ============ */
@@ -1429,6 +1430,15 @@ function streakCells(kind) {
 }
 
 /* B-1 睡眠锚点主动干预（K9）：昨日睡眠不足给警示，20:00 后给今晚锚点倒计时，超锚点催睡 */
+function sleepDebtLine() { // 睡眠债一行（最终版批3⑫）：近 7 天均值 vs 6.5h 目标（K9 口径）；样本 <3 天不硬算（数据不足明说）
+  const days = [];
+  for (let i = 1; i <= 7; i++) { const m = M.metricOn(U.addDays(U.todayStr(), -i)); if (m && m.sleepH != null) days.push(m.sleepH); }
+  if (days.length < 3) return '';
+  const avg = days.reduce((a, b) => a + b, 0) / days.length;
+  const gap = 6.5 - avg;
+  if (gap <= 0) return '<div class="sub" style="color:var(--green)">睡眠债：近 ' + days.length + ' 天均 ' + avg.toFixed(1) + 'h，达标 6.5h——这是本周最值钱的资产。</div>';
+  return '<div class="sub" style="color:var(--orange)">睡眠债：近 ' + days.length + ' 天均 ' + avg.toFixed(1) + 'h，离 6.5h 还差 ' + gap.toFixed(1) + 'h/天——先补睡眠，再谈加量（K9 第一优先）。</div>';
+}
 function sleepCardHtml() {
   const ym = M.metricOn(U.addDays(U.todayStr(), -1));
   const shortY = !!(ym && ym.sleepH != null && ym.sleepH < CONFIG.sleepShortH);
@@ -1450,7 +1460,7 @@ function sleepCardHtml() {
     : '';
   return '<div class="card"><div class="card-head"><div class="bubble bg-purple" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20.5 14.5A8.5 8.5 0 1 1 9.5 3.5a7 7 0 0 0 11 11z"/></svg></div>'
     + '<div style="flex:1"><div class="card-title" style="margin:0">睡眠锚点</div><div class="sub">K9 · 先守固定关灯时间，比几点起床更重要</div></div></div>'
-    + warnLine + line + '</div>';
+    + warnLine + sleepDebtLine() + line + '</div>';
 }
 
 /* ============ 状态建议卡（v3.3 核心：按身体状态给今天档位） ============ */
@@ -1845,6 +1855,76 @@ function youAreHere(kId) { // 晋升标记（批2⑧）：K21/K23 卡头动态"�
   }
   return '';
 }
+
+/* ============ 最终版·私教席（2026-09-27 深夜批3）：周复盘卡+新手7天引导 ============ */
+function weekReviewHtml() { // 周复盘卡（仅周日出现）：打卡率/档位变化/睡眠债+一句人话结论带理由；数据全来自现有 D 字段
+  if (new Date().getDay() !== 0) return '';
+  let trained = 0, sleepArr = [], typeCnt = {};
+  for (let i = 0; i < 7; i++) {
+    const d = M.dailyOn(U.addDays(U.todayStr(), -i)), m = M.metricOn(U.addDays(U.todayStr(), -i));
+    if (d && CONFIG.trainTypes.indexOf(d.type) >= 0) { trained++; typeCnt[d.type] = (typeCnt[d.type] || 0) + 1; }
+    if (m && m.sleepH != null) sleepArr.push(m.sleepH);
+  }
+  const rate = Math.round(trained / 7 * 100);
+  const avgSleep = sleepArr.length ? (sleepArr.reduce((a, b) => a + b, 0) / sleepArr.length) : null;
+  const plog = (D.state.progressionLog || []).filter((e) => Date.now() - e.ts < 7 * 86400000);
+  let upN = 0, downN = 0; // what 格式="动作名 12→13、..."（L2202），按箭头两侧数字比大小，不猜文案
+  plog.forEach((e) => { (String(e.what || '').match(/\d+→\d+/g) || []).forEach((s) => { const pr = s.split('→'); if (+pr[1] > +pr[0]) upN++; else if (+pr[1] < +pr[0]) downN++; }); });
+  let concl;
+  const why = [];
+  if (avgSleep != null && avgSleep < 6.5) { concl = '这周的胜负手是睡眠，不是训练量'; why.push('近 7 天均 ' + avgSleep.toFixed(1) + 'h，离 6.5h 差 ' + (6.5 - avgSleep).toFixed(1) + 'h——K9 第一优先'); }
+  else if (rate >= 80) { concl = '这周打得扎实，按这个节奏走'; why.push('训练打卡 ' + trained + '/7 次（' + rate + '%）' + (avgSleep != null ? '、睡眠均 ' + avgSleep.toFixed(1) + 'h' : '')); }
+  else if (rate >= 50) { concl = '打了大半，节奏还在，别断'; why.push('训练打卡 ' + trained + '/7 次（' + rate + '%）'); }
+  else { concl = '这周丢了不少，下周先找回习惯——每天 12 分钟每日包也算赢'; why.push('训练打卡只 ' + trained + '/7 次'); }
+  if (upN && !downN) why.push('力量档位在涨（本周 ' + upN + ' 项上调）');
+  else if (downN) why.push('本周有 ' + downN + ' 项降档（原因在渐进记录里，别对抗黄灯）');
+  return '<div class="card"><div class="card-head"><div class="bubble bg-blue" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 19V5M4 19h16M8 15v-4M12 15V8M16 15v-6"/></svg></div>'
+    + '<div style="flex:1"><div class="card-title" style="margin:0">周复盘 · 私教</div><div class="sub">只在周日出现，看完就收</div></div></div>'
+    + '<div class="body-tx" style="margin-top:6px;font-weight:600">' + concl + '</div>'
+    + why.map((w) => '<div class="sub">· ' + U.esc(w) + '</div>').join('')
+    + '<div class="sub" style="margin-top:4px">训练分布：' + (Object.keys(typeCnt).length ? Object.keys(typeCnt).map((k) => k + ' ' + typeCnt[k] + ' 次').join('、') : '本周无训练记录') + '</div></div>';
+}
+const TOUR7_TASKS = [ // 新手 7 天引导任务：全部指向现有功能，不发明新交互
+  '今天只做一件事：点上面的「康复师晨检」，选一下身体状态（60 秒）',
+  '把昨晚睡眠小时数抄进记录卡（从手机健康 App 看）',
+  '跟着「今日安排」练一次，练完勾动作、保存记录',
+  '点开任意动作的「要领」按钮，看一眼发力口诀再练',
+  '去指南页翻一张 K 卡（推荐 K20 节奏纪律，转山前必读）',
+  '做一次完整三连：晨检 + 训练打卡 + 睡眠记录，看看 10 秒能不能搞定',
+  '最后一天：去体测页录一次闭眼单腿站，三线进度就有起点了'
+];
+function tour7CardHtml() { // 新手引导日卡：7 天后自动关，随时可跳过
+  const t7 = D.state.tour7;
+  if (!t7 || !t7.on) return '';
+  const day = Math.min(7, t7.day || 1);
+  const done = (t7.done || []).indexOf(U.todayStr()) >= 0;
+  return '<div class="card" style="border:1px dashed var(--accent)"><div class="card-head"><div class="bubble bg-orange" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3zM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15z"/></svg></div>'
+    + '<div style="flex:1"><div class="card-title" style="margin:0">新手引导 · 第 ' + day + '/7 天</div><div class="sub">每天一个小动作，7 天上手整个系统</div></div>'
+    + '<button class="ci-btn" onclick="tour7Skip()">跳过</button></div>'
+    + '<div class="body-tx" style="margin-top:6px">' + U.esc(TOUR7_TASKS[day - 1]) + '</div>'
+    + '<div style="display:flex;gap:8px;margin-top:8px">'
+    + (done ? '<span class="sub" style="color:var(--green)">今天的做完了 ✓ 明天见</span>' : '<button class="ci-btn" onclick="tour7Done()">今天完成</button>')
+    + '</div></div>';
+}
+function tour7Done() { // 打标今天完成；第 7 天完成=毕业关闸
+  if (readOnly) { toast('离线只读模式，改动不保存'); return; }
+  const t7 = D.state.tour7 || { on: true, day: 1, done: [] };
+  t7.done = t7.done || [];
+  if (t7.done.indexOf(U.todayStr()) < 0) t7.done.push(U.todayStr());
+  if ((t7.day || 1) >= 7) { t7.on = false; toast('7 天引导毕业——剩下的交给日常'); }
+  else t7.day += 1;
+  D.state.tour7 = t7;
+  D.state.updatedAt = Date.now();
+  persist();
+  renderToday();
+}
+function tour7Skip() { // 跳过：永久关闭（尊重用户，不再弹）
+  if (readOnly) { toast('离线只读模式，改动不保存'); return; }
+  D.state.tour7 = { on: false, day: 0, done: [], skip: true };
+  D.state.updatedAt = Date.now();
+  persist();
+  renderToday();
+}
 function renderToday() {
   updateSyncBadge();
   const t = U.todayStr();
@@ -1896,6 +1976,8 @@ function renderToday() {
       + '</div>';
   }
   h += mountainGoalHtml(); // v3.5 M6 目标层：12 周转山倒排卡（今天页常显）
+  h += weekReviewHtml(); // 最终版批3⑨：私教周复盘卡（仅周日出现）
+  h += tour7CardHtml(); // 最终版批3⑪：新手7天引导（可跳过，7天自动关）
   // 周体重横幅（不变灯色）
   const wd = M.weekWeightDrop();
   if (wd && wd.drop > CONFIG.weightDropKg) {
@@ -4110,7 +4192,11 @@ function renderWorkout() {
       + (p.timed ? '' : '<div class="wk-goal" style="margin-top:6px">目标 ' + p.target + ' ' + U.esc(p.unit) + '</div>')
       + '<div class="wk-tip" style="margin:2px 0 16px">' + U.esc(wk.lastPerf) + '</div>'
       + '<div class="wk-btns"><button class="btn-primary" onclick="completeSet()">完成本组</button>' + pauseBtn + '<button class="btn-ghost" onclick="exitWorkout()">结束训练</button></div>'
-      + '<div class="wk-tip" style="margin-top:10px">' + U.esc(a.guide) + '</div>';
+      + '<div class="wk-tip" style="margin-top:10px">' + U.esc(a.guide) + '</div>'
+      + (function () { // 最终版批3⑩：组执行时的"之后"预告（不碰计时，纯渲染）
+          const nx = wk.course.slice(wk.ci + 1).find((q) => q.kind === 'set');
+          return '<div class="wk-tip" style="color:var(--text2)">之后：' + (nx ? U.esc(nx.name) + ' 第 ' + nx.set + ' 组' : '放松拉伸，就收工') + '</div>';
+        })();
   } else if (p.kind === 'rest') {
     const frac = Math.max(0, Math.min(1, wk.left / 60));
     const C = 2 * Math.PI * 96;

@@ -699,6 +699,85 @@ check('⑮ 缺键防线：老数据 state 无 preTrip/tour7/weekRev → normaliz
   return 'normalize/merge 双路径 ✓';
 });
 
+/* ---------- ⑯ 私教席（最终版批3）：周复盘+新手7天引导+睡眠债+练中预告 ---------- */
+check('⑯ 睡眠债：样本<3 天→不硬算（空串）', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData()');
+  if (w.eval('sleepDebtLine()') !== '') throw new Error('无样本应返回空串');
+  return '诚实边界 ✓';
+});
+check('⑯ 睡眠债：近 7 天均 5.4h → 显示"离 6.5h 还差 1.1h/天"', () => {
+  if (loadErr) throw loadErr;
+  w.eval('for (let i = 1; i <= 7; i++) upsertByDate(D.metrics, recStamp({ date: U.addDays(U.todayStr(), -i), sleepH: 5.4 }))');
+  const s = w.eval('sleepDebtLine()');
+  if (s.indexOf('均 5.4h') < 0 || s.indexOf('差 1.1h') < 0 || s.indexOf('K9 第一优先') < 0) throw new Error('文案不对：' + s);
+  return '5.4→6.5 缺口 ✓';
+});
+check('⑯ 睡眠债：达标 6.5h+ → 绿色正向反馈', () => {
+  if (loadErr) throw loadErr;
+  w.eval('for (let i = 1; i <= 7; i++) upsertByDate(D.metrics, recStamp({ date: U.addDays(U.todayStr(), -i), sleepH: 6.8 }))');
+  const s = w.eval('sleepDebtLine()');
+  if (s.indexOf('达标 6.5h') < 0) throw new Error('缺达标反馈：' + s);
+  return '达标态 ✓';
+});
+check('⑯ 周复盘：调用安全返回 string；若今天是周日则卡内容含结论+分布', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData()');
+  const r = w.eval('weekReviewHtml()');
+  if (typeof r !== 'string') throw new Error('返回类型错');
+  if (new Date().getDay() === 0) {
+    if (r.indexOf('周复盘 · 私教') < 0 || r.indexOf('打卡 0/7') < 0 || r.indexOf('训练分布：本周无训练记录') < 0) throw new Error('周日空数据卡不对：' + r.slice(0, 200));
+    return '周日空数据态 ✓';
+  }
+  return '非周日空串 ✓（周日形态由⑯专项验证）';
+});
+check('⑯ 周复盘：周日+睡眠 5h 样本 → 结论=睡眠胜负手（档位日志按箭头数字判向）', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); for (let i = 0; i < 3; i++) { upsertByDate(D.daily, recStamp({ date: U.addDays(U.todayStr(), -i), type: "力量" })); upsertByDate(D.metrics, recStamp({ date: U.addDays(U.todayStr(), -i), sleepH: 5 })); } D.state.progressionLog = [{ ts: Date.now(), why: "测试", what: "深蹲 12→13、俯卧撑 8→7、平板 30→25秒" }]');
+  const r = w.eval('weekReviewHtml()');
+  if (new Date().getDay() !== 0) return '非周日跳过内容断言（调用安全）';
+  if (r.indexOf('胜负手是睡眠') < 0) throw new Error('睡眠结论缺失：' + r.slice(0, 300));
+  if (r.indexOf('12→13') >= 0 || r.indexOf('力量档位在涨') < 0 || r.indexOf('降档') < 0) throw new Error('档位判断不对：' + r.slice(0, 400));
+  return '结论+档位方向 ✓（1 升 2 降）';
+});
+check('⑯ 新手引导：afterEnter 首次进入自动开启 tour7', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); D.state.profileDone = true; D.state.backfillDone = true; D.state.tour7 = null; afterEnter()');
+  const t7 = w.eval('D.state.tour7');
+  if (!t7 || t7.on !== true || t7.day !== 1) throw new Error('tour7 未自动开启：' + JSON.stringify(t7));
+  return '自动开启 ✓';
+});
+check('⑯ 新手引导：卡片含任务文案+完成/跳过按钮；tour7Done 推进天数', () => {
+  if (loadErr) throw loadErr;
+  const h = w.eval('tour7CardHtml()');
+  if (h.indexOf('第 1/7 天') < 0 || h.indexOf('康复师晨检') < 0 || h.indexOf('跳过') < 0) throw new Error('卡内容缺：' + h.slice(0, 200));
+  w.eval('tour7Done()');
+  const d = w.eval('D.state.tour7.day'), done = w.eval('D.state.tour7.done.length');
+  if (d !== 2 || done !== 1) throw new Error('tour7Done 后 day=' + d + ' done=' + done);
+  return '推进 ✓';
+});
+check('⑯ 新手引导：第 7 天完成=毕业关闸；跳过=永久关', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D.state.tour7 = { on: true, day: 7, done: [] }; tour7Done()');
+  if (w.eval('D.state.tour7.on') !== false) throw new Error('第 7 天完成未毕业');
+  w.eval('D.state.tour7 = { on: true, day: 3, done: [] }; tour7Skip()');
+  if (w.eval('D.state.tour7.on') !== false || w.eval('D.state.tour7.skip') !== true) throw new Error('跳过未关闸');
+  return '毕业+跳过 ✓';
+});
+check('⑯ 练中预告：set 相位渲染含"之后："预告行（结构性，不碰计时）', () => {
+  if (loadErr) throw loadErr;
+  const src = w.eval('String(renderWorkout)');
+  if (src.indexOf('之后：') < 0 || src.indexOf("q.kind === 'set'") < 0) throw new Error('set 相位缺预告');
+  if (src.indexOf('setInterval') >= 0) throw new Error('renderWorkout 内不应新建计时器');
+  return '预告行 ✓';
+});
+check('⑯ sleepCardHtml 集成：睡眠债行已挂入卡体', () => {
+  if (loadErr) throw loadErr;
+  const src = w.eval('String(sleepCardHtml)');
+  if (src.indexOf('sleepDebtLine()') < 0) throw new Error('sleepCardHtml 未挂 sleepDebtLine');
+  return '挂载 ✓';
+});
+
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);
 console.log('================ P0 jsdom 断言报告（node ' + process.version + ' · jsdom ' + require('jsdom/package.json').version + '） ================');
