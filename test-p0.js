@@ -362,6 +362,35 @@ check('⑧ normalizeData 半残数据不抛异常', () => {
   return '半残数据归一化通过：' + keys;
 });
 
+/* ---------- ⑩ 指南页完整版（开工单单元5）：户外九卡+离线约束+守门裁决 ---------- */
+check('⑩ 指南页新卡在位：K16-K24 按户外/路线分组渲染', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); renderGuideTab();');
+  const h = w.eval("document.getElementById('guideTabBody').innerHTML");
+  ['K16', 'K17', 'K18', 'K19', 'K20', 'K21', 'K22', 'K23', 'K24'].forEach((id) => {
+    if (h.indexOf('kc_' + id) < 0) throw new Error(id + ' 缺失');
+  });
+  if (h.indexOf('k-group">户外') < 0 || h.indexOf('k-group">路线') < 0) throw new Error('新分组头缺失');
+  return '九卡+两组在位';
+});
+check('⑩ 离线约束：指南页无外部资源引用（img/script/iframe）', () => {
+  const h = w.eval("document.getElementById('guideTabBody').innerHTML");
+  ['<img', '<script', '<iframe'].forEach((t) => { if (h.indexOf(t) >= 0) throw new Error('发现外部资源 ' + t); });
+  return '纯文本/表格，无运行时联网依赖';
+});
+check('⑩ 守门裁决落实：鳌太里程标"口径打架，待核"；越野速度不写 10-20% 数字', () => {
+  const h = w.eval("document.getElementById('guideTabBody').innerHTML");
+  if (h.indexOf('120-170km') < 0 || h.indexOf('待核') < 0) throw new Error('鳌太待核标注缺失');
+  if (h.indexOf('10-20%') >= 0) throw new Error('越野 10-20% 单源数字不该进产品');
+  if (h.indexOf('明显更慢') < 0) throw new Error('越野降级表述缺失');
+  return '打架数字全部标注，未拍板';
+});
+check('⑩ 红线：越野跑卡含两把闸门与毕业评审表述，明确"不是课表"', () => {
+  const h = w.eval("document.getElementById('guideTabBody').innerHTML");
+  if (h.indexOf('两把闸门') < 0 || h.indexOf('毕业评审') < 0 || h.indexOf('不是课表') < 0) throw new Error('闸门/红线表述缺失');
+  return '红线前置在位';
+});
+
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);
 console.log('================ P0 jsdom 断言报告（node ' + process.version + ' · jsdom ' + require('jsdom/package.json').version + '） ================');
