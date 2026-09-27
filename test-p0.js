@@ -391,6 +391,45 @@ check('⑩ 红线：越野跑卡含两把闸门与毕业评审表述，明确"�
   return '红线前置在位';
 });
 
+/* ---------- ⑪ 弹窗五件套（开工单单元4：notes/06 守门通过版落码） ---------- */
+check('⑪ TIPS_FIVE 与 ACTION_TIPS 键集合完全一致（13 动作零缺漏）', () => {
+  if (loadErr) throw loadErr;
+  const a = w.eval('Object.keys(ACTION_TIPS).join("|")').split('|');
+  const b = w.eval('Object.keys(TIPS_FIVE).join("|")').split('|');
+  const miss = a.filter((k) => b.indexOf(k) < 0);
+  if (miss.length) throw new Error('缺五件套：' + miss.join(','));
+  const extra = b.filter((k) => a.indexOf(k) < 0);
+  if (extra.length) throw new Error('多余键：' + extra.join(','));
+  return a.length + ' 个动作全覆盖';
+});
+check('⑪ 力量动作弹窗：五件套五段+自查行+当前档位在位', () => {
+  if (loadErr) throw loadErr;
+  w.eval('showActionTips("自重深蹲")');
+  const h = w.eval("document.getElementById('modalBox').innerHTML");
+  ['目标与发力感', '外部口诀', '新手期内部口诀', '最常见错误', '你的代偿自查'].forEach((s) => { if (h.indexOf(s) < 0) throw new Error('缺段：' + s); });
+  if (h.indexOf('你现在的档') < 0) throw new Error('档位线缺失');
+  if (h.indexOf('3×') < 0) throw new Error('档位数字缺失');
+  if (h.indexOf('undefined') >= 0) throw new Error('弹窗含 undefined');
+  return '五段+档位在位';
+});
+check('⑪ 康复动作弹窗：有自查段与落地语、无档位线', () => {
+  if (loadErr) throw loadErr;
+  w.eval('showActionTips("足底滚压")');
+  const h = w.eval("document.getElementById('modalBox').innerHTML");
+  if (h.indexOf('你的代偿自查') < 0) throw new Error('自查段缺失');
+  if (h.indexOf('提示，不是判决') < 0) throw new Error('落地语缺失');
+  if (h.indexOf('你现在的档') >= 0) throw new Error('康复动作不应有档位线');
+  return '康复弹窗正确';
+});
+check('⑪ 内部口诀撤回标注在位（臀桥：先夹臀再起→撤掉）', () => {
+  if (loadErr) throw loadErr;
+  w.eval('showActionTips("臀桥")');
+  const h = w.eval("document.getElementById('modalBox').innerHTML");
+  if (h.indexOf('先夹臀再起') < 0 || h.indexOf('后撤掉') < 0) throw new Error('撤回标注缺失');
+  if (h.indexOf('undefined') >= 0) throw new Error('弹窗含 undefined');
+  return '撤回口径在位';
+});
+
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);
 console.log('================ P0 jsdom 断言报告（node ' + process.version + ' · jsdom ' + require('jsdom/package.json').version + '） ================');
