@@ -503,6 +503,92 @@ check('⑬ 隐私：出厂档案无日期型生辰', () => {
   return '出厂档案无生辰（测试值已全合成）';
 });
 
+/* ---------- ⑭ 康复师席（最终版批1）：晨检闭环+复测可视化+禁区解锁+停训卡 ---------- */
+check('⑭ chkEval：红线词（夜间痛）→stop', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval('chkEval(["右踝"],["夜间痛"])');
+  if (r.out !== 'stop') throw new Error('应为 stop，实际 ' + r.out);
+  if (String(r.why).indexOf('夜间痛') < 0) throw new Error('why 缺红线词：' + r.why);
+  return 'stop ✓';
+});
+check('⑭ chkEval：膝/腰→stop（K7 停训口径）', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval('chkEval(["膝"],["酸胀"])');
+  if (r.out !== 'stop') throw new Error('应为 stop，实际 ' + r.out);
+  return 'stop ✓';
+});
+check('⑭ chkEval：足/踝疼痛→watch（readinessEval 降档同口径）', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval('chkEval(["右踝"],["酸胀"])');
+  if (r.out !== 'watch') throw new Error('应为 watch，实际 ' + r.out);
+  return 'watch ✓';
+});
+check('⑭ chkEval：无不适→ok', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval('chkEval(["无"],[])');
+  if (r.out !== 'ok') throw new Error('应为 ok，实际 ' + r.out);
+  return 'ok ✓';
+});
+check('⑭ chkSubmit：写入当日 daily.chk 并持久化', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); chkSel = { parts: ["右踝"], kinds: ["酸胀"] }; chkSubmit()');
+  const c = w.eval('JSON.stringify((M.dailyOn(U.todayStr())||{}).chk||null)');
+  const o = JSON.parse(c);
+  if (!o || o.out !== 'watch') throw new Error('daily.chk 未写入或判定错：' + c);
+  return 'daily.chk={out:watch,parts:[右踝]} ✓';
+});
+check('⑭ 晨检黄灯联动：ok 档被升为 down（标题=降档练，理由含"晨检"）', () => {
+  if (loadErr) throw loadErr;
+  w.eval('renderToday()');
+  const h = w.eval('document.getElementById("todayBody").innerHTML');
+  if (h.indexOf('降档练') < 0) throw new Error('未出现"降档练"标题');
+  if (h.indexOf('晨检：') < 0) throw new Error('理由区缺"晨检："');
+  return 'watch→down ✓';
+});
+check('⑭ 晨检红灯联动：档位压到恢复课（stop→floor，"只做每日包"）', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); var r0 = M.dailyOn(U.todayStr()) || (upsertByDate(D.daily, recStamp(makeDailyRecord(U.todayStr()))), M.dailyOn(U.todayStr())); r0.chk = { parts:["膝"], kinds:["夜间痛"], out:"stop", why:"红线信号：夜间痛", t: Date.now() }; renderToday()');
+  const h = w.eval('document.getElementById("todayBody").innerHTML');
+  if (h.indexOf('只做每日包') < 0) throw new Error('stop 未压到恢复课档');
+  return 'stop→floor ✓';
+});
+check('⑭ 复测可视化：standR=30 → 三线 47/50/57 与"还差"进度', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); upsertByDate(D.tests, recStamp({ date: "2026-09-27", standR: 30 })); renderToday()');
+  const h = w.eval('document.getElementById("todayBody").innerHTML');
+  for (const k of ['康复师工作台', '47', '50', '57', '还差 17s', '还差 20s', '还差 27s']) if (h.indexOf(k) < 0) throw new Error('缺「' + k + '」');
+  return '三线进度条 ✓（30s 对照 47/50/57）';
+});
+check('⑭ 复测可视化：无测试记录 → "还没录入"空态，不抛异常', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); renderToday()');
+  const h = w.eval('document.getElementById("todayBody").innerHTML');
+  if (h.indexOf('还没录入') < 0) throw new Error('缺空态提示');
+  return '空态 ✓';
+});
+check('⑭ 禁区解锁：K23 两把闸门标"待确认"，踝门条件自动判（30s→✗）', () => {
+  if (loadErr) throw loadErr;
+  w.eval('upsertByDate(D.tests, recStamp({ date: "2026-09-27", standR: 30 })); renderToday()');
+  const h = w.eval('document.getElementById("todayBody").innerHTML');
+  for (const k of ['踝毕业评审通过', '医生放行', '待确认', '✗ 未到', '越野跑 R1']) if (h.indexOf(k) < 0) throw new Error('缺「' + k + '」');
+  return '禁区条件可视 ✓';
+});
+check('⑭ 统一停训卡：openStopCard 弹"不是医学诊断"+红线就医线', () => {
+  if (loadErr) throw loadErr;
+  w.eval('openStopCard("测试停训理由")');
+  const h = w.eval('document.getElementById("modalBox").innerHTML');
+  for (const k of ['今天停训', '不是医学诊断', '红线信号', '运动医学科']) if (h.indexOf(k) < 0) throw new Error('缺「' + k + '」');
+  w.eval('closeModal()');
+  return '停训卡 ✓';
+});
+check('⑭ 老数据兼容：线上备份（daily 无 chk 字段）normalize 后 renderToday 不抛异常', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = normalizeData(window.__bkBackup); renderToday()');
+  const h = w.eval('document.getElementById("todayBody").innerHTML');
+  if (h.indexOf('康复师晨检') < 0) throw new Error('线上数据态缺晨检条');
+  return '线上备份渲染 ✓';
+});
+
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);
 console.log('================ P0 jsdom 断言报告（node ' + process.version + ' · jsdom ' + require('jsdom/package.json').version + '） ================');

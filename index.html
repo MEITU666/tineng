@@ -1575,6 +1575,136 @@ function stFeel(f) { // 主观点选：写当日标记并重判
   persist();
   renderToday();
 }
+/* ============ 最终版·康复师席（2026-09-27 深夜批1）：晨检闭环+复测可视化+禁区解锁 ============ */
+/* 判据全部来自既有口径，不新造医学判据：
+   - 红线词 = footRedCheck 同表（K14 分诊红线卡）→ 停训就医
+   - 膝/腰疼痛 → 停训（K7 灯色规则，readinessEval 同口径）
+   - 足/踝疼痛 → 降档（readinessEval 同口径）
+   - 复测三线 47/50/57 = 毕业线（土路/负重/转山粗筛），出处 notes/01+事实核对-单元2
+   - 禁区解锁条件 = K21 晋升技能包 + K23 两把闸门 + footStages 晋级门槛，逐字不改 */
+const CHK_KINDS = ['酸胀', '刺痛', '跳着疼', '晨僵', '夜间痛', '肿胀', '无法承重'];
+const CHK_RED = ['夜间痛', '肿胀', '无法承重']; // 晨检性质里可点到的红线词（压痛/畸形/绞锁仍由疼痛文本筛查兜底）
+const CHK_PARTS = ['无', '右足底', '右踝', '膝', '腰']; // 与 CONFIG.painOptions 同表（晨检只点选，自填走记录卡）
+function todayChk() { // 今日晨检记录（daily[n].chk 可选字段，架构冻结下合法增量；缺=未做）
+  const d = M.dailyOn(U.todayStr());
+  return (d && d.chk && d.chk.out) ? d.chk : null;
+}
+function chkEval(parts, kinds) { // 晨检判定：绿 ok / 黄 watch / 红 stop——只组合既有规则
+  const red = (kinds || []).filter((k) => CHK_RED.indexOf(k) >= 0);
+  if (red.length) return { out: 'stop', why: '红线信号：' + red.join('、') };
+  const real = (parts || []).filter((p) => p && p !== '无');
+  if (real.indexOf('膝') >= 0 || real.indexOf('腰') >= 0) return { out: 'stop', why: '膝/腰疼痛（K7：停训）' };
+  if (real.length) return { out: 'watch', why: real.join('、') + '疼痛' + ((kinds || []).length ? '（' + kinds.join('、') + '）' : '') };
+  return { out: 'ok', why: '' };
+}
+function chkBarHtml() { // 晨检条：日常一行，点开 60 秒点选完成；绿=10 秒收起
+  const c = todayChk();
+  let head;
+  if (!c) head = '<div class="sub" style="margin-top:8px"><b>今天哪疼、什么感觉？</b>点开选一下，我告诉你今天能不能练。</div>';
+  else if (c.out === 'ok') head = '<div class="sub" style="margin-top:8px;color:var(--green)">✓ 晨检已做：身体正常，按计划练。</div>';
+  else if (c.out === 'watch') head = '<div class="sub" style="margin-top:8px;color:var(--orange)">⚠ 晨检：' + U.esc(c.why) + '——今日已自动降档，改法见上。</div>';
+  else head = '<div class="sub" style="color:var(--red);font-weight:600;margin-top:8px">🚩 晨检：' + U.esc(c.why) + '——今日停训，恢复课已自动替换，就医线见停训卡。</div>';
+  return '<div class="field" style="margin-top:10px"><label>康复师晨检</label>' + head
+    + '<details class="fold" style="margin-top:6px"' + (c ? '' : ' open') + '><summary>' + (c ? '重新晨检' : '点开晨检（60 秒）') + '</summary><div class="fold-body">'
+    + '<div class="sub" style="margin-bottom:4px">第 1 步：哪里不舒服？（没有就选"无"）</div>'
+    + '<div class="chips">' + CHK_PARTS.map((p) => '<button class="chip" onclick="chkPickParts(\'' + p + '\',this)">' + p + '</button>').join('') + '</div>'
+    + '<div class="sub" style="margin:6px 0 4px">第 2 步：什么感觉？（可多选）</div>'
+    + '<div class="chips">' + CHK_KINDS.map((k) => '<button class="chip" onclick="chkPickKinds(\'' + k + '\',this)">' + k + '</button>').join('') + '</div>'
+    + '<button class="btn-primary" style="margin-top:10px" onclick="chkSubmit()">出判定</button>'
+    + '<div class="sub" style="margin-top:6px">判据：红线词（夜间痛/肿胀/无法承重）→停训就医；膝/腰→停训；足/踝→降档。只按既有规则给提示，不做诊断。</div>'
+    + '</div></details></div>';
+}
+let chkSel = { parts: [], kinds: [] };
+function chkChipToggle(arr, v, el) { // 部位单选（"无"清空其他），性质多选
+  const i = arr.indexOf(v);
+  if (i >= 0) arr.splice(i, 1);
+  else if (v === '无') { arr.length = 0; arr.push(v); }
+  else { const w = arr.indexOf('无'); if (w >= 0) arr.splice(w, 1); arr.push(v); }
+  el.classList.toggle('on', arr.indexOf(v) >= 0);
+}
+function chkPickParts(p, el) { chkChipToggle(chkSel.parts, p, el); }
+function chkPickKinds(k, el) { chkChipToggle(chkSel.kinds, k, el); }
+function chkSubmit() { // 晨检提交：写当日 daily.chk → persist → 重判（红灯自动改恢复课由 renderToday 联动）
+  if (readOnly) { toast('离线只读模式，改动不保存'); return; }
+  if (chkSel.parts.length && chkSel.parts[0] !== '无' && !chkSel.kinds.length) { toast('选了部位，再点一下什么感觉'); return; }
+  if (!chkSel.parts.length) chkSel.parts = ['无'];
+  const ev = chkEval(chkSel.parts, chkSel.kinds);
+  let rec = M.dailyOn(U.todayStr());
+  if (!rec) { rec = recStamp(makeDailyRecord(U.todayStr())); upsertByDate(D.daily, rec); }
+  rec.chk = { parts: chkSel.parts.slice(), kinds: chkSel.kinds.slice(), out: ev.out, why: ev.why, t: Date.now() };
+  recStamp(rec);
+  D.state.updatedAt = Date.now();
+  persist();
+  chkSel = { parts: [], kinds: [] };
+  renderToday();
+  if (ev.out === 'stop') openStopCard(ev.why);
+}
+function openStopCard(why) { // 统一停训卡：任何席位触线弹同一张（疼痛即停/不做诊断/不承诺效果）
+  showModal('<div class="card-title" style="margin-bottom:10px">🚩 今天停训</div>'
+    + '<div class="body-tx"><b>判定：</b>' + U.esc(why || '身体信号触发停训线') + '</div>'
+    + '<div class="body-tx" style="margin-top:8px"><b>今天怎么办：</b>只做每日包 12 分钟（或 10 分钟拉伸+散步），其他全免——疼痛即停，这是硬线。</div>'
+    + '<div class="body-tx" style="margin-top:8px"><b>要不要去医院：</b>'
+    + '<br>· 红线信号（夜间痛/肿胀/无法承重/压痛/畸形/关节绞锁）→ 尽快就医（运动医学科/骨科），别拖'
+    + '<br>· 足/踝疼痛连续 3 天 → 运动医学科：' + U.esc(CONFIG.copy.footDoctor)
+    + '<br>· 普通酸痛、24h 内不加重 → 先观察，不加重不急</div>'
+    + '<div class="sub" style="margin-top:8px">本卡是停训提示，不是医学诊断。</div>'
+    + '<div class="m-actions"><button class="btn-primary" onclick="closeModal()">知道了</button></div>');
+}
+const GATE_LINES = [ // 毕业三线（逐字不改）：47=土路（日常 75%）/50=负重（80%）/57=转山粗筛（90%）
+  { s: 47, name: '土路线（日常 75%）' },
+  { s: 50, name: '负重线（土路 80%）' },
+  { s: 57, name: '转山粗筛线（90%）' }
+];
+function retestRow(g, cur) { // 三线进度条：当前/目标+还差多少
+  const pct = cur != null ? Math.min(100, Math.round(cur / g.s * 100)) : 0;
+  const pass = cur != null && cur >= g.s;
+  return '<div style="margin:8px 0"><div class="row-between"><span class="sub"><b>' + g.s + 's</b> · ' + g.name + '</span>'
+    + '<span class="sub" style="color:' + (pass ? 'var(--green)' : 'var(--orange)') + '">' + (pass ? '✓ 过线' : (cur != null ? '还差 ' + (g.s - cur).toFixed(0) + 's' : '未测')) + '</span></div>'
+    + '<div style="height:6px;background:var(--line);border-radius:3px;margin-top:3px"><div style="height:6px;width:' + pct + '%;background:' + (pass ? 'var(--green)' : 'var(--accent)') + ';border-radius:3px"></div></div></div>';
+}
+function nextRetestLine() { // 下次周日复测点：MOUNTAIN12 的 W4/W6/W8/W12 周日（W1 周一=2026-09-28，周日=Wn 起始日+6 天）
+  const wk = mountainWeekOf(U.todayStr());
+  const marks = [4, 6, 8, 12].filter((n) => n >= wk);
+  if (!marks.length) return '12 周倒排已满：按检阅结果定高原节奏';
+  const n = marks[0];
+  const d = U.fmtShort(U.todayStr(new Date(new Date('2026-09-28').getTime() + (n - 1) * 7 * 86400000 + 6 * 86400000)));
+  return '下次周日复测：' + d + '（第 ' + n + ' 周末）';
+}
+function zoneLockHtml() { // 禁区解锁进度：条件全部来自 K1/K21/K23/footStages，体力可验证的自动判，评审/医生类标"待确认"
+  const t = M.latestTest();
+  const stand = (t && t.standR != null) ? t.standR : null;
+  const g47 = stand != null && stand >= 47, g57 = stand != null && stand >= 57;
+  const zones = [
+    { name: '下楼/下坡离心专项（K1：禁区解锁后才排）', conds: [
+      ['踝门 47s（土路门槛）', stand != null ? g47 : null],
+      ['踝毕业评审通过（K23 闸门①）', null],
+      ['医生放行（K23 闸门②）', null]] },
+    { name: '越野跑 R1（K23：两把闸门缺一不可）', conds: [
+      ['踝毕业评审通过', null],
+      ['医生放行', null]] },
+    { name: '转山粗筛（W12 检阅线 2026-12-20）', conds: [
+      ['闭眼站 57s', stand != null ? g57 : null],
+      ['8kg 负重走（W11 峰值到位后）', null]] }
+  ];
+  return zones.map((z) => '<div style="margin:10px 0"><div class="body-tx" style="font-weight:600">' + z.name + '</div>'
+    + z.conds.map((c) => '<div class="sub" style="padding:2px 0">· ' + U.esc(c[0]) + '：<span style="color:'
+      + (c[1] === true ? 'var(--green)' : (c[1] === false ? 'var(--orange)' : 'var(--line)'))
+      + '">' + (c[1] === true ? '✓ 已到' : (c[1] === false ? '✗ 未到' : '待确认')) + '</span></div>').join('')
+    + '</div>').join('');
+}
+function rehabWorkbenchHtml() { // 复测可视化+禁区解锁（康复师折叠区：日常收起，复测日展开看）
+  const t = M.latestTest();
+  const stand = (t && t.standR != null) ? t.standR : null;
+  let h = '<details class="fold" style="margin-top:10px"><summary>康复师工作台：复测进度与禁区解锁</summary><div class="fold-body">';
+  if (stand == null) h += '<div class="sub" style="color:var(--orange)">还没录入闭眼单腿站测试——先在体测页录一次，三线进度才有起点。</div>';
+  else h += '<div class="sub">最新右脚闭眼单腿站：<b>' + stand + 's</b>（' + U.esc(t.date || '') + '）</div>';
+  GATE_LINES.forEach((g) => { h += retestRow(g, stand); });
+  const daysTo = Math.ceil((new Date('2026-12-20').getTime() - new Date(U.todayStr()).getTime()) / 86400000);
+  h += '<div class="sub" style="margin-top:4px">' + nextRetestLine() + ' · 距 12/20 检阅周还有 ' + Math.max(0, daysTo) + ' 天</div>';
+  h += zoneLockHtml();
+  h += '</div></details>';
+  return h;
+}
 function renderToday() {
   updateSyncBadge();
   const t = U.todayStr();
@@ -1584,6 +1714,9 @@ function renderToday() {
   const rdPrev = readinessEval(U.addDays(U.todayStr(), -1));
   let level = rdNow.level;
   if (level === 'down' && rdPrev.level === 'down') level = 'rest'; // 连续 2 天降档 → 完全休息
+  const __chk = todayChk(); // 康复师席联动（最终版批1）：晨检红灯压过一切改恢复课，黄灯只把 ok 升到 down
+  if (__chk && __chk.out === 'stop' && level !== 'rest') { level = 'floor'; rdNow.reasons.push('晨检：' + __chk.why); }
+  else if (__chk && __chk.out === 'watch' && level === 'ok') { level = 'down'; rdNow.reasons.push('晨检：' + __chk.why); }
   const RD = {
     ok:   ['正常练', 'var(--green)', '身体状态够，按下方"今日安排"执行（休息日就做休息日内容）；建议放在傍晚 17-19 点。'],
     down: ['降档练', 'var(--orange)', '强度降一档：力量每组少做一点、留 2-3 次余力，有氧时长打七折。'],
@@ -1599,8 +1732,10 @@ function renderToday() {
     + '<div class="sub" style="margin-top:4px">理由：' + (rdNow.reasons.length ? rdNow.reasons.map(U.esc).join('；') : '各项信号正常') + (level === 'rest' ? '；昨日同样触发降档' : '') + '</div>'
     + (hasSleep ? '' : '<div class="sub" style="color:var(--orange);margin-top:4px">昨夜睡眠未记录——打卡时从健康App抄一个数，判定更准。</div>')
     + footRedCheck()
+    + chkBarHtml()
     + ankleGateLine()
-    + '<div class="field" style="margin-top:10px"><label>今天的你（点一下立即重判）</label><div class="chips" id="feelChips">' + feelChips() + '</div></div></div>';
+    + '<div class="field" style="margin-top:10px"><label>今天的你（点一下立即重判）</label><div class="chips" id="feelChips">' + feelChips() + '</div></div>'
+    + rehabWorkbenchHtml() + '</div>';
   // N7 年报入口卡（12/20-次年1/10 期间显示）
   const nw = new Date();
   const rptYear = (nw.getMonth() === 0 && nw.getDate() <= 10) ? nw.getFullYear() - 1 : nw.getFullYear();
