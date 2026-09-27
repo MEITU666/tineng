@@ -778,6 +778,16 @@ check('⑯ sleepCardHtml 集成：睡眠债行已挂入卡体', () => {
   return '挂载 ✓';
 });
 
+/* ---------- ⑰ 断网降级（批5实测发现的真实缺口修复） ---------- */
+check('⑰ tryUnlock 断网降级链：密文缓存→本机数据自动离线，双路径在位', () => {
+  if (loadErr) throw loadErr;
+  const src = w.eval('String(tryUnlock)');
+  if (src.indexOf('gistTextCache') < 0 || src.indexOf('text = gistTextCache') < 0) throw new Error('缺密文缓存降级路径');
+  if (src.indexOf('enterOffline()') < 0 || src.indexOf('localEmpty()') < 0) throw new Error('缺本机数据自动降级路径');
+  if (src.indexOf('GIST_HTTP_404') < 0) throw new Error('404 仍应报错不降级');
+  return '降级链 ✓（网络→会话缓存→离线模式；404 不降级）';
+});
+
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);
 console.log('================ P0 jsdom 断言报告（node ' + process.version + ' · jsdom ' + require('jsdom/package.json').version + '） ================');

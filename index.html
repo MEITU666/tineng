@@ -920,12 +920,22 @@ async function tryUnlock() {
     text = await r.text();
     gistTextCache = text;
   } catch (e) {
-    btn.disabled = false;
-    const m = String(e.message || '');
-    gateMsg(m === 'GIST_HTTP_404'
-      ? '无法获取加密配置：Gist 地址不存在（HTTP 404）。可先用下方离线只读模式。'
-      : '无法获取加密配置：网络不可达或超时。可先用下方离线只读模式。');
-    return;
+    if (gistTextCache) { // 批5实测修复①：网络不可达但本会话已有密文缓存 → 直接用缓存解密（只是读取源降级，不碰加密协议）
+      gateMsg('网络不可达，使用本次会话已缓存的加密配置…');
+      text = gistTextCache;
+    } else {
+      btn.disabled = false;
+      const m = String(e.message || '');
+      if (m !== 'GIST_HTTP_404' && !localEmpty()) { // 批5实测修复②：断网+本机有缓存数据 → 自动进离线模式（验收五条第5条：山上断网照样打开）
+        enterOffline();
+        toast('断网且解锁配置不可达：已进入离线模式（本机缓存，数据可能不是最新），联网后重新解锁即可恢复同步。');
+        return;
+      }
+      gateMsg(m === 'GIST_HTTP_404'
+        ? '无法获取加密配置：Gist 地址不存在（HTTP 404）。可先用下方离线只读模式。'
+        : '无法获取加密配置：网络不可达或超时。可先用下方离线只读模式。');
+      return;
+    }
   }
   gateMsg('正在解密…');
   let token = '';
