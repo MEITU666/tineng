@@ -169,16 +169,10 @@ details.fold .fold-body{padding:2px 0 12px;font-size:14px;line-height:1.9;color:
 .wr-num{background:var(--bg);border-radius:12px;padding:12px 6px;text-align:center}
 .wr-v{font-size:20px;font-weight:700}
 .wr-l{font-size:12px;color:var(--text2);margin-top:2px}
-/* N6 火柴人动作动画（两帧 steps 循环，示意级轮廓；深浅色走 currentColor） */
-.stick{display:block;margin:0 auto;color:var(--text)}
-.stick path{stroke:currentColor;stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round}
-.stick circle{stroke:currentColor;stroke-width:3;fill:none}
-.stick .hd{fill:currentColor;stroke:none}
-.stick .f1{animation:stickA 1.3s steps(1) infinite}
-.stick .f2{animation:stickB 1.3s steps(1) infinite}
-@keyframes stickA{0%,49.9%{opacity:1}50%,100%{opacity:0}}
-@keyframes stickB{0%,49.9%{opacity:0}50%,100%{opacity:1}}
-@media (prefers-reduced-motion: reduce){.stick .f1,.stick .f2{animation:none}.stick .f2{display:none}}
+/* 动作要领提示弹窗（替代原火柴人动画演示） */
+.tip-row{display:flex;gap:10px;margin-bottom:9px;font-size:14px;line-height:1.85}
+.tip-k{flex:none;width:52px;color:var(--text2);font-size:13px}
+.tip-v{flex:1}
 /* 阶段升级动画 */
 @keyframes phup{0%{transform:translateY(24px) scale(.85);opacity:0}18%{transform:translateY(0) scale(1.04);opacity:1}82%{transform:translateY(0) scale(1);opacity:1}100%{transform:translateY(-12px) scale(1);opacity:0}}
 #phaseUp{position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;pointer-events:none}
@@ -480,6 +474,11 @@ const CONFIG = {
       comp: '塌腰 / 耸肩 / 肘部完全横向90°',
       fix: '收紧腹部肚脐贴脊柱；主动沉肩肩胛骨往臀部压；肘收至45°靠近身体',
       link: 'https://search.bilibili.com/all?keyword=俯卧撑 退阶 教学' },
+    { name: '下斜俯卧撑', part: '上肢推', repsKey: '下斜俯卧撑', unit: '次', sets: 3,
+      guide: '脚搭稳固椅子、手撑地略宽于肩，从头到脚一条直线，下放至胸近椅面',
+      comp: '塌腰 / 脚从椅面滑落 / 肘部完全横向90°',
+      fix: '收紧腹部肚脐贴脊柱；主动沉肩肩胛骨往臀部压；肘收至45°靠近身体，推起时脚不晃',
+      link: 'https://search.bilibili.com/all?keyword=下斜俯卧撑 教学' },
     { name: '箭步蹲', part: '单侧下肢', repsKey: '箭步蹲', unit: '次/侧', sets: 3,
       guide: '躯干直立、后膝近地',
       comp: '前膝内扣 / 躯干前倾用腰发力 / 用后脚蹬地站起',
@@ -499,7 +498,17 @@ const CONFIG = {
       guide: '髋部前推、身体一线',
       comp: '髋下沉 / 躯干旋转向前',
       fix: '髋主动前推侧腹发力；保持侧面想象靠墙',
-      link: 'https://search.bilibili.com/all?keyword=侧平板支撑 教学' }
+      link: 'https://search.bilibili.com/all?keyword=侧平板支撑 教学' },
+    { name: '俯卧YW伸展', part: '上背/肩胛', repsKey: '俯卧YW', unit: '次', sets: 3,
+      guide: '俯卧，双臂依次摆成 Y 形和 W 形，拇指朝上，肩胛骨向后向下收',
+      comp: '耸肩 / 用腰发力把上身抬起来 / 手臂甩得过快',
+      fix: '想象把肩胛骨塞进后裤兜；每个姿势停留 2 秒；颈部和腰保持放松',
+      link: 'https://search.bilibili.com/all?keyword=俯卧YW伸展 肩胛' },
+    { name: '俯卧超人式', part: '后链/核心稳定', repsKey: '俯卧超人', unit: '次', sets: 3,
+      guide: '俯卧，对侧手与腿同时抬起，身体拉长成一条直线，停留 2 秒再放下',
+      comp: '抬得过高导致腰部反弓 / 憋气 / 左右晃动',
+      fix: '抬到不疼的高度就够，重点是「拉长」不是「抬高」；配合呼吸左右交替',
+      link: 'https://search.bilibili.com/all?keyword=俯卧超人式 标准动作' }
   ],
   progressionCopy: '渐进规则：全部动作标准完成且 RPE≤7 → 下次各动作 +1次（平板/侧桥 +5秒）；RPE=8 → 持平；RPE≥9 或 连续2次未完成全部动作 → 各动作 -10%。每次只加一个变量，最困难组保留1-2次余力。',
 
@@ -654,7 +663,7 @@ function defaultData() {
     state: {
       phase: 0, lastTestDate: null, footStage: 0, autoCalibrateRHR: true,
       lastSyncAt: 0, pendingSync: false, strengthFails: 0, theme: 'auto', lastForm: null,
-      strengthReps: { '深蹲': 12, '俯卧撑': 8, '平板': 30, '侧桥': 20, '箭步蹲': 8, '臀桥': 15 },
+      strengthReps: { '深蹲': 12, '俯卧撑': 8, '平板': 30, '侧桥': 20, '箭步蹲': 8, '臀桥': 15, '俯卧YW': 8, '俯卧超人': 10 },
       backfillDone: false, profileDone: false, downgradedAt: null, progressionLog: [], scheduleText: null,
       updatedAt: 0
     }
@@ -667,6 +676,11 @@ function normalizeData(o) {
   out.profile = Object.assign({}, d.profile, o.profile || {});
   out.state = Object.assign({}, d.state, o.state || {});
   if (!out.state.strengthReps || typeof out.state.strengthReps !== 'object') out.state.strengthReps = d.state.strengthReps;
+  // 数据迁移：动作库扩充后，老数据里没有新动作的键。
+  // 统一补默认值，否则 applyProgression / K5 扣减会拿 undefined 做运算，把 strengthReps 变成 NaN。
+  CONFIG.actions.forEach((a) => {
+    if (out.state.strengthReps[a.repsKey] == null) out.state.strengthReps[a.repsKey] = 10;
+  });
   if (!Array.isArray(out.state.progressionLog)) out.state.progressionLog = [];
   out.state.scheduleText = (typeof out.state.scheduleText === 'string') ? out.state.scheduleText : null; // N5
   if (['auto', 'light', 'dark'].indexOf(out.state.theme) < 0) out.state.theme = 'auto';
@@ -680,7 +694,7 @@ function makeDailyRecord(date) {
   return {
     date: date, type: '无',
     cardioChoice: null,        // 有氧时："快走"|"单车"|"爬楼梯"
-    strengthChecks: null,      // 力量时：[6布尔]
+    strengthChecks: null,      // 力量时：长度等于 CONFIG.actions 的布尔数组
     footRehab: false, baduanjin: false,
     durationMin: null, rpe: null, avgHr: null,
     pain: '无', mood: '', note: '',
@@ -1379,7 +1393,7 @@ const R = {
 CONFIG.anklePainFreeDaysSafe = function () { return 14; }; // 足部前置：连续14天无足/踝痛（估算值）
 
 /* ============ Tab1 今天 ============ */
-const tf = { type: '无', cardioChoice: null, checks: [false, false, false, false, false, false], painOpt: '无', painText: '', mood: '', footRehab: false, baduanjin: false };
+const tf = { type: '无', cardioChoice: null, checks: CONFIG.actions.map(() => false), painOpt: '无', painText: '', mood: '', footRehab: false, baduanjin: false };
 
 function streakCells(kind) {
   const onCls = kind === 'footRehab' ? 'o-on' : 'p-on';
@@ -1490,9 +1504,9 @@ function renderToday() {
           + '<div class="callout-warn">若 4 周无改善或疼痛加重' + U.esc(parts[1] || '') + '</div>';
       })()
     + stg.items.map((x) => {
-        const fm = FOOT_ANIMS.filter((f) => x.indexOf(f[0]) >= 0)[0];
+        const tk = tipKeyOf(x);
         return '<div class="body-tx" style="padding:4px 0">· ' + U.esc(x)
-          + (fm ? ' <button class="ci-btn" style="min-height:26px;padding:2px 8px;vertical-align:middle" onclick="showFootAnim(\'' + fm[1] + '\',\'' + fm[2] + '\')">' + ic('play', 11) + ' 演示</button>' : '')
+          + (tk ? ' <button class="ci-btn" style="min-height:26px;padding:2px 8px;vertical-align:middle" onclick="showActionTips(\'' + tk + '\')">' + ic('play', 11) + ' 要领</button>' : '')
           + '</div>';
       }).join('')
     + '<div class="sub" style="margin-top:6px">' + U.esc(stg.promo) + '</div>'
@@ -1575,7 +1589,7 @@ function planHtml() {
       + '　<button class="ci-btn" style="min-height:28px;padding:2px 8px" onclick="window.open(\'' + c.link + '\')">📺教学</button></div>' : '').join('');
     h += '<div class="sub" style="margin-bottom:8px;color:var(--orange)">' + U.esc(CONFIG.cardioFootTip) + '</div>';
     h += '<details class="fold"><summary>Zone2 有氧执行指南</summary><div class="fold-body sub">'
-      + '心率上限 139（保守修正），宁可慢不可快<br>谈话测试：能完整说出一句话不喘=在区间内<br>心率漂移：后半程心率上升&gt;10% 说明强度偏高，下次放慢<br>无聊是正常的：Zone2 的成效在 8-12 周后的复测里，不在今天的汗里<br>每次结束在 Watch 上看平均心率，抄进记录的 avgHr</div></details>';
+      + '心率上限 ' + CONFIG.zone2Cap + '（保守修正），宁可慢不可快' + (lastStepHrTip() ? '<br><b>' + lastStepHrTip() + '</b>' : '') + '<br>谈话测试：能完整说出一句不喘=在区间内<br>心率漂移：后半程心率上升&gt;10% 说明强度偏高，下次放慢<br>无聊是正常的：Zone2 的成效在 8-12 周后的复测里，不在今天的汗里<br>每次结束在 Watch 上看平均心率，抄进记录的 avgHr</div></details>';
   } else if (eff === '力量') {
     h += '<div class="sub" style="margin-bottom:6px">勾选今日完成的动作（全部完成才能保存）：</div>';
     h += CONFIG.actions.map((a, i) => {
@@ -1667,12 +1681,11 @@ function showRpeModal() {
 }
 function showComp(i) {
   const a = CONFIG.actions[i];
-  const an = animOfAction(a.name);
   showModal('<div class="card-title" style="margin-bottom:8px">' + U.esc(a.name) + ' · 代偿自查</div>'
-    + (an ? stickSvg(an, 130) : '')
     + '<div class="body-tx" style="line-height:2"><b>代偿（自查）：</b>' + U.esc(a.comp) + '<br><b>纠正：</b>' + U.esc(a.fix) + '</div>'
     + '<div class="m-actions"><button class="btn-primary" onclick="closeModal()">知道了</button>'
-    + '<button class="btn-ghost" onclick="window.open(\'' + a.link + '\')">📺教学</button></div>');
+    + '<button class="btn-ghost" onclick="window.open(\'' + a.link + '\')">📺教学</button>'
+    + '<button class="btn-ghost" onclick="closeModal();showActionTips(\'' + U.esc(a.name) + '\')">📋 动作要领</button></div>');
 }
 function showBaduanjin() {
   showModal('<div class="card-title" style="margin-bottom:10px">八段锦 · 八式与武当要点</div>'
@@ -1696,7 +1709,10 @@ function prefillToday() {
   const lf = D.state.lastForm || null; // P1-1：记住上次选择，减少重复操作
   tf.type = rec ? rec.type : ((lf && lf.type) || '无');
   tf.cardioChoice = rec ? (rec.cardioChoice || null) : ((lf && lf.cardioChoice) || null);
-  tf.checks = (rec && rec.strengthChecks) ? rec.strengthChecks.slice() : [false, false, false, false, false, false];
+  // 勾选数组长度必须与动作库对齐：老记录可能短于当前动作数则补齐，多余则截断
+  const ck = (rec && Array.isArray(rec.strengthChecks)) ? rec.strengthChecks.slice() : [];
+  while (ck.length < CONFIG.actions.length) ck.push(false);
+  tf.checks = ck.slice(0, CONFIG.actions.length);
   tf.footRehab = !!(rec && rec.footRehab);
   tf.baduanjin = !!(rec && rec.baduanjin);
   tf.painOpt = '无'; tf.painText = '';
@@ -1807,7 +1823,7 @@ function tfSave() {
       }
       D.state.updatedAt = Date.now();
       DB.save(D).catch(() => { toast('本地保存失败，请重试'); });
-      fail('力量日需勾选全部6个动作后再保存（连续2次未完成将自动-10%）');
+      fail('力量日需勾选全部 ' + CONFIG.actions.length + ' 个动作后再保存（连续2次未完成将自动-10%）');
       return;
     }
     if (!full && fromWk) { // N2：跟练部分完成 → 如实记录并计入 K5 渐进（不阻止保存，训练真实发生过）
@@ -2007,7 +2023,8 @@ function renderTrend() {
     + bigNumHtml('nLoad', ld7, 0, '') + '</div><div class="chart" id="chLoad">加载中</div></div>';
   // 打卡日历热力图
   h += '<div class="card"><div class="card-head"><div class="bubble bg-gray" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="3"/><path d="M8 3v4M16 3v4M4 10h16"/></svg></div>'
-    + '<div style="flex:1"><div class="card-title" style="margin:0">打卡日历 · 本月</div><div class="sub">蓝=有训练 浅蓝=康复/八段锦 灰=休息/病假 点格子看当天</div></div></div>'
+    + '<div style="flex:1"><div class="card-title" style="margin:0">打卡日历 · 本月</div><div class="sub">蓝=有训练 浅蓝=康复/八段锦 灰=休息/病假 点格子看当天</div>'
+    + '<div class="sub" style="margin-top:2px"><a href="javascript:void(0)" style="color:var(--accent);text-decoration:none" onclick="closeModal();bfOpen()">漏记了？补录历史记录 →</a></div></div></div>'
     + calHtml() + '</div>';
   // 训练年历（N4，GitHub 式年度热力）
   heatYear = heatYear || new Date().getFullYear();
@@ -2170,7 +2187,11 @@ function showDaySummary(ds) {
     b += '类型：' + U.esc(r.type);
     if (r.cardioChoice) b += '（' + U.esc(r.cardioChoice) + '）';
     if (r.durationMin != null) b += '<br>时长：' + r.durationMin + ' 分钟 · RPE ' + r.rpe + (r.avgHr != null ? ' · 均心率 ' + r.avgHr : '');
-    if (r.strengthChecks) b += '<br>力量6动作：全部完成';
+    if (r.strengthChecks) {
+      // 原实现写死「力量6动作：全部完成」，与用户实际勾选无关；改为按勾选数显示
+      const doneN = r.strengthChecks.filter(Boolean).length;
+      b += '<br>力量动作：' + doneN + '/' + r.strengthChecks.length + ' 完成';
+    }
     b += '<br>足康复：' + (r.footRehab ? '已打卡' : '未打卡') + ' · 八段锦：' + (r.baduanjin ? '已打卡' : '未打卡');
     b += '<br>疼痛：' + U.esc(r.pain || '无') + ' · 状态：' + U.esc(r.mood || '—');
     if (r.note) b += '<br>备注：' + U.esc(r.note);
@@ -2179,8 +2200,13 @@ function showDaySummary(ds) {
     b += '<br>睡眠：' + (m.sleepH != null ? m.sleepH + ' h' : '—') + ' · 静息心率：' + (m.rhr != null ? m.rhr : '—') + ' · HRV：' + (m.hrv != null ? m.hrv : '—');
   }
   b += '</div>';
+  // 过去日期（不含今天与未来）且非只读模式时，提供补录/修改入口
+  const canEdit = !readOnly && ds < U.todayStr();
+  const hasRec = !!(r || m);
   showModal('<div class="card-title" style="margin-bottom:8px">' + ds + ' · 当天记录</div>' + b
-    + '<div class="m-actions"><button class="btn-primary" onclick="closeModal()">知道了</button></div>');
+    + '<div class="m-actions">'
+    + (canEdit ? '<button class="btn-primary" onclick="closeModal();bfOpen(\'' + ds + '\')">' + (hasRec ? '修改这一天' : '补录这一天') + '</button>' : '')
+    + '<button class="btn-ghost" onclick="closeModal()">知道了</button></div>');
 }
 
 /* ============ Tab3 能力 ============ */
@@ -2497,7 +2523,12 @@ function kFilter(v) { window.__kq = v; const sc = window.scrollY; renderGuideTab
 
 /* ============ 体测页（6组11字段 + 外部检测 + 历史对比） ============ */
 const TEST_DIRS = { rhr7: -1, stepPeakHr: -1, stepHrDrop1min: 1, squatMax: 1, pushupMax: 1, standL: 1, standR: 1, plankSec: 1, sideL: 1, sideR: 1 };
-const EXT_DIRS = { '体重': -1, '体脂率': -1, '肺活量': 1, '台阶指数': 1, '握力': 1, '俯卧撑': 1, '坐位体前屈': 1, '闭眼单脚站立': 1, '选择反应时': -1, '血压': 0, '静息心率': -1 };
+const EXT_DIRS = { '体重': -1, '体脂率': -1, '肺活量': 1, '台阶指数': 1, '握力': 1, '俯卧撑': 1, '坐位体前屈': 1, '闭眼单脚站立': 1, '选择反应时': -1, '背力': 1, '血压': 0, '静息心率': -1 };
+/* W1：外部检测的字段清单。renderTest / saveExternal / testHistoryHtml 三处都引用它，
+   此前只有使用没有定义，一进体测页就抛 TypeError（Cannot read properties of undefined），
+   整个页面渲染中断。必须放在 EXT_DIRS 之后——它依赖 Object.keys(EXT_DIRS)。
+   在 11 项国民体质监测标准项之外，补「身高」（BMI 必需）与「BMI」（偏瘦体质关键追踪指标）。 */
+CONFIG.externalItems = ['身高'].concat(Object.keys(EXT_DIRS)).concat(['BMI']);
 function renderTest() {
   updateSyncBadge();
   const groups = [
@@ -2539,11 +2570,44 @@ function saveTest() {
   if (!hasData && !rec.mobilityNote) { toast('请至少填写一项数据'); return; }
   upsertByDate(D.tests, rec);
   D.state.lastTestDate = date;
+  const planChg = applyTestToPlan(rec); // W9：训练起点按力竭×50% 重置，体测不再白测
   D.state.updatedAt = Date.now();
   persist();
   renderTest();
-  toast('体测已保存，复测提醒按 ' + CONFIG.retestDays + ' 天更新');
+  toast('体测已保存，复测提醒按 ' + CONFIG.retestDays + ' 天更新'
+    + (planChg.length ? '；训练目标已重置：' + planChg.join('、') : ''));
 }
+/* W9（P0）体测→计划联动：把体测的力竭值折半写入训练起点，打通「测评→计划」这条断掉的闭环。
+   力竭×50% 留余量，符合渐进原则；箭步蹲/臀桥体测没有对应项，保持现有渐进值不动。
+   返回变化清单，供保存提示展示（让用户知道计划为什么变了）。 */
+function applyTestToPlan(rec) {
+  const sr = D.state.strengthReps;
+  const half = (v) => Math.max(1, Math.round(v * 0.5)); // 力竭×50%，至少 1
+  const changed = [];
+  const put = (key, v, label) => {
+    if (v == null || !(v > 0)) return;
+    const nv = half(v);
+    if (sr[key] !== nv) changed.push((label || key) + ' ' + (sr[key] == null ? '—' : sr[key]) + '→' + nv);
+    sr[key] = nv;
+  };
+  put('深蹲', rec.squatMax);
+  // 档位判断（9/26 对抗审查结论：标准俯卧撑对力竭 22 者为无效组）——力竭 >20 时计划目标
+  // 切到下斜俯卧撑，否则维持标准俯卧撑；只切目标键，不删除旧键（历史数据兼容）。
+  put(rec.pushupMax > 20 ? '下斜俯卧撑' : '俯卧撑', rec.pushupMax, rec.pushupMax > 20 ? '下斜俯卧撑(档位)' : null);
+  put('平板', rec.plankSec);
+  // 侧桥取较差侧：左右不平衡时以弱侧为准，避免高估
+  if (rec.sideL != null && rec.sideR != null && rec.sideL > 0 && rec.sideR > 0) put('侧桥', Math.min(rec.sideL, rec.sideR));
+  D.state.updatedAt = Date.now();
+  return changed;
+}
+
+/* W9：把最近一次台阶体测的结果反映到有氧计划上，并明确标注数据来源 */
+function lastStepHrTip() {
+  const t = (D.tests && D.tests.length) ? D.tests[D.tests.length - 1] : null;
+  if (!t || t.stepHrDrop1min == null) return '';
+  return '根据你 ' + U.fmtShort(t.date) + ' 的台阶测试（1 分钟心率下降 ' + t.stepHrDrop1min + ' 次/分），Zone2 心率上限建议 ' + CONFIG.zone2Cap;
+}
+
 function saveExternal() {
   if (readOnly) { toast('离线只读模式，不能保存'); return; }
   const date = document.getElementById('eDate').value || U.todayStr();
@@ -2555,6 +2619,9 @@ function saveExternal() {
     if (v !== '') { items[k] = v; any = true; }
   });
   if (!any) { toast('请至少填写一项'); return; }
+  // W1：身高与体重都有值时自动算 BMI，保留 1 位小数（偏瘦体质的核心追踪指标）
+  const hCm = parseFloat(items['身高']), wKg = parseFloat(items['体重']);
+  if (!isNaN(hCm) && !isNaN(wKg) && hCm > 0) items['BMI'] = (wKg / Math.pow(hCm / 100, 2)).toFixed(1);
   upsertByDate(D.external, recStamp({ date: date, source: src, items: items }));
   persist();
   renderTest();
@@ -2631,7 +2698,13 @@ function parseSchedule(text) {
     }
   }
   if (!sec.tpl || Object.keys(sec.tpl).length !== 7) throw { line: 0, msg: '周模板必须完整填写周一到周日' };
-  for (let ai = 0; ai < CONFIG.actions.length; ai++) if (!(CONFIG.actions[ai].repsKey in sec.sets)) throw { line: 0, msg: '目标组次缺少：' + CONFIG.actions[ai].repsKey };
+  // 动作库扩充后，用户已保存的老课表可能缺少新动作。
+  // 这里自动补齐默认组次，而不是抛错——抛错会让用户辛苦调好的整份课表被回滚清空。
+  sec.sets = sec.sets || {};
+  for (let ai = 0; ai < CONFIG.actions.length; ai++) {
+    const rk = CONFIG.actions[ai].repsKey;
+    if (!(rk in sec.sets)) sec.sets[rk] = 3;
+  }
   return sec;
 }
 function rebuildSched() { // 从 scheduleText 重建生效缓存；解析失败回滚内置课表
@@ -2686,14 +2759,19 @@ function resetSchedule() {
 
 /* 历史补录：独立表单状态 __bf；保存走与 tfSave 相同的规则引擎（踝痛降级/阶段机/就医提醒），
    但不动 applyProgression 与 strengthFails（用户拍板：渐进只由当天真实训练驱动） */
-function bfOpen() {
+function bfOpen(dateStr) {
   if (readOnly) { toast('离线只读模式，不能补录'); return; }
-  window.__bf = { date: '', type: '无', cardioChoice: null, checks: [false, false, false, false, false, false], dur: '', rpe: '', hr: '', painOpt: '无', painText: '', mood: '', footRehab: false, baduanjin: false, sleep: '', rhr: '', hrv: '', note: '' };
-  showModal('<div class="card-title" style="margin-bottom:8px">补录历史记录</div>'
-    + '<div class="field"><label>日期（只能补今天之前）</label><input id="bfDate" type="date" max="' + U.addDays(U.todayStr(), -1) + '" onchange="bfPickDate(this.value)"></div>'
+  // 可选参数 dateStr：从日历 / 每日汇总直接带日期进来，省掉重复选日期这一步。
+  // 只接受「今天之前」的合法日期，其余一律退回空白表单（不抛错、不误导）。
+  const preset = (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateStr) && dateStr < U.todayStr()) ? dateStr : '';
+  window.__bf = { date: '', type: '无', cardioChoice: null, checks: CONFIG.actions.map(function () { return false; }), dur: '', rpe: '', hr: '', painOpt: '无', painText: '', mood: '', footRehab: false, baduanjin: false, sleep: '', rhr: '', hrv: '', note: '' };
+  const isEdit = !!(preset && M.dailyOn(preset));
+  showModal('<div class="card-title" style="margin-bottom:8px">' + (isEdit ? '修改这一天的记录' : '补录历史记录') + '</div>'
+    + '<div class="field"><label>日期（只能补今天之前）</label><input id="bfDate" type="date" max="' + U.addDays(U.todayStr(), -1) + '" value="' + preset + '" onchange="bfPickDate(this.value)"></div>'
     + '<div id="bfFields"><div class="sub" style="padding:14px 0;text-align:center">先选日期</div></div>'
     + '<div class="m-actions"><button class="btn-primary" onclick="bfSave()">保存补录</button>'
     + '<button class="btn-ghost" onclick="closeModal()">取消</button></div>');
+  if (preset) bfPickDate(preset); // 带日期进入时直接渲染表单，让用户看到这一天已有什么
 }
 function bfPickDate(v) {
   const s = window.__bf;
@@ -2703,7 +2781,10 @@ function bfPickDate(v) {
   const old = M.dailyOn(v), om = M.metricOn(v);
   if (old) { // 已有记录：载入现值（修改场景）
     s.type = old.type || '无'; s.cardioChoice = old.cardioChoice || null;
-    s.checks = old.strengthChecks ? old.strengthChecks.slice() : [false, false, false, false, false, false];
+    // 同 prefillToday：补齐到当前动作数，兼容只有 6 位的老记录
+    const ck0 = Array.isArray(old.strengthChecks) ? old.strengthChecks.slice() : [];
+    while (ck0.length < CONFIG.actions.length) ck0.push(false);
+    s.checks = ck0.slice(0, CONFIG.actions.length);
     s.dur = old.durationMin != null ? old.durationMin : ''; s.rpe = old.rpe != null ? old.rpe : ''; s.hr = old.avgHr != null ? old.avgHr : '';
     s.painOpt = '无'; s.painText = '';
     if (old.pain && old.pain !== '无') { if (CONFIG.painOptions.indexOf(old.pain) >= 0) s.painOpt = old.pain; else { s.painOpt = '其他'; s.painText = old.pain; } }
@@ -2785,11 +2866,17 @@ function bfSave() {
   recStamp(rec);
   upsertByDate(D.daily, rec);
   const met = Object.assign({}, M.metricOn(s.date) || {}, { date: s.date });
-  met.sleepH = U.num(s.sleep);
-  met.rhr = U.num(s.rhr);
-  met.hrv = U.num(s.hrv);
-  recStamp(met);
-  upsertByDate(D.metrics, met);
+  const hadMetric = !!M.metricOn(s.date);
+  // 条件写入：输入框留空代表「这次没测」，不能覆盖历史数值。
+  // 原实现直接赋值 U.num('') = null，会把已有指标抹成空，等于每次保存都丢数据。
+  if (s.sleep !== '') { const v = U.num(s.sleep); if (v != null) met.sleepH = v; }
+  if (s.rhr !== '') { const v = U.num(s.rhr); if (v != null) met.rhr = v; }
+  if (s.hrv !== '') { const v = U.num(s.hrv); if (v != null) met.hrv = v; }
+  // 三项都为空且此前无指标记录时不写入空壳；否则照常保存
+  if (met.sleepH != null || met.rhr != null || met.hrv != null || hadMetric) {
+    recStamp(met);
+    upsertByDate(D.metrics, met);
+  }
   let warn = '';
   if (R.applyAnklePain(rec)) warn = '；防崴训练已降为 Stage ' + D.state.footStage; // 踝痛降级照常（规则一致性）
   R.evalPhase();
@@ -2817,7 +2904,7 @@ function renderProfile() {
   ];
   let h = '';
   // P0-1：检测到旧版伤病文案时提示（不覆盖云端数据，由用户一键更新）
-  if (p.injury === CONFIG.oldInjury) h += '<div class="bannercard">档案描述已更新，请核对。<button class="btn-mini" style="margin-top:6px;display:block" onclick="applyNewInjury()">一键更新为新描述</button></div>';
+  if (p.injury === CONFIG.copy.oldInjury) h += '<div class="bannercard">档案描述已更新，请核对。<button class="btn-mini" style="margin-top:6px;display:block" onclick="applyNewInjury()">一键更新为新描述</button></div>';
   // 档案信息
   h += '<div class="card"><div class="card-title" style="margin-bottom:12px">档案信息</div>'
     + '<div class="field"><label>生日（只读，年龄实时计算）</label><input value="' + U.esc(p.birthday) + '" readonly></div>'
@@ -3075,33 +3162,61 @@ const ICONS = {
   list: '<path d="M4 6h16M4 12h16M4 18h10"/>',
   camera: '<rect x="3" y="7" width="18" height="13" rx="3"/><path d="M9 7l2-3h2l2 3"/><circle cx="12" cy="13" r="3.5"/>'
 };
-/* N6 火柴人动作动画库：两帧示意（viewBox 0 0 120 120，地面 y≈104）；纯内联零依赖 */
-const ANIMS = {
-  squat: '<g class="f1"><circle class="hd" cx="70" cy="16" r="7"/><path d="M70 23v33M70 30l22 6M70 56l-8 22 2 24M64 104h12M70 56l4 22"/></g><g class="f2"><circle class="hd" cx="70" cy="36" r="7"/><path d="M70 43v22M70 49l22 3M70 65l18 12 -2 26M86 104h12"/></g>',
-  pushup: '<g class="f1"><circle class="hd" cx="26" cy="50" r="7"/><path d="M33 56l48 6M38 60v34M32 94h12M81 62l20 30M101 92l8-6"/></g><g class="f2"><circle class="hd" cx="26" cy="62" r="7"/><path d="M33 68l48 4M40 70l6 24M40 94h12M81 72l20 22M101 94l8-6"/></g>',
-  lunge: '<g class="f1"><circle class="hd" cx="60" cy="16" r="7"/><path d="M60 23v35M56 58l-4 46M64 58l4 46M50 104h8M60 104h8M60 30l-8 10M60 30l8 10"/></g><g class="f2"><circle class="hd" cx="60" cy="30" r="7"/><path d="M60 37v30M60 67l20 20v17M60 67l-18 28 -4 9M74 104h10M36 104h8"/></g>',
-  glute: '<g class="f1"><circle class="hd" cx="22" cy="76" r="7"/><path d="M29 80l38 6M67 86l18 12 10 4M95 102h12M33 82l10 14"/></g><g class="f2"><circle class="hd" cx="22" cy="70" r="7"/><path d="M29 74l32 -10M61 64l24 30 10 6M95 100h12M33 76l8 18"/></g>',
-  plank: '<g class="f1"><circle class="hd" cx="24" cy="56" r="7"/><path d="M31 62l52 6M36 66v28M30 94h14M83 68l18 26M101 94l8-6"/></g><g class="f2"><circle class="hd" cx="24" cy="60" r="7"/><path d="M31 66l52 5M36 70v24M30 94h14M83 72l18 22M101 94l8-6"/></g>',
-  side: '<g class="f1"><circle class="hd" cx="34" cy="40" r="7"/><path d="M38 47l34 30M40 52v42M34 94h14M72 77l22 18M86 62l-10 12"/></g><g class="f2"><circle class="hd" cx="34" cy="44" r="7"/><path d="M38 51l30 36M40 56v38M34 94h14M68 87l24 8M86 62l-12 14"/></g>',
-  calf: '<g class="f1"><circle class="hd" cx="58" cy="16" r="7"/><path d="M58 23v35M58 58l-2 40M50 100h18M58 30l16 8"/></g><g class="f2"><circle class="hd" cx="58" cy="12" r="7"/><path d="M58 19v33M58 52l6 36M50 100h18M58 100l8-10M58 26l16 8"/></g>',
-  towel: '<g class="f1"><circle cx="60" cy="52" r="10"/><path d="M28 44q32 22 64 0M28 44l-8-6M92 44l8-6"/></g><g class="f2"><circle cx="60" cy="48" r="10"/><path d="M28 40q32 12 64 0M28 40l-8-6M92 40l8-6"/></g>',
-  roll: '<g class="f1"><path d="M30 92h30q18 0 30-8"/><circle cx="72" cy="80" r="11"/></g><g class="f2"><path d="M30 92h30q14 0 24-8"/><circle cx="52" cy="80" r="11"/></g>',
-  pump: '<g class="f1"><path d="M40 40q20 20 24 38M64 78l18-10M40 40q-8 22 0 38"/></g><g class="f2"><path d="M40 40q20 20 24 38M64 78l20 12M40 40q-8 22 0 38"/></g>'
+/* ============ 动作要点库（ACTION_TIPS，W6） ============ */
+/* 说明：原「火柴人 SVG 动画」已移除，改为文字要点卡（蓝图 W6 拍板）。
+   文案来源：蓝图 W6 草案，并已按补丁 A 核对——箭步蹲不含「膝盖不超脚尖」这一过时说法，
+   改为「前膝对准脚尖方向」；深蹲保留「膝盖与脚尖同向，不内扣」；右足旧伤保护提示保留。 */
+const ACTION_TIPS = {
+  '自重深蹲': ['双脚与肩同宽，脚尖微外八', '膝盖与脚尖同向，不内扣', '大腿蹲至与地面平行，腰背挺直', '起身时脚跟发力'],
+  '俯卧撑': ['手掌在胸两侧，身体一条直线', '下放至胸近地面，肘部约45°', '核心收紧，不塌腰不翘臀'],
+  '下斜俯卧撑': ['双脚搭在椅子上，手撑地略宽于肩', '从头到脚一条直线，不塌腰', '下放至胸口轻触椅边，肘约45°', '推起脚跟不要晃，第5周起下放改3秒慢速'],
+  '箭步蹲': ['前膝对准脚尖方向，不内扣', '躯干直立，重心在两腿之间', '扶墙可保平衡（右足疼痛日必扶）'],
+  '臀桥': ['仰卧屈膝，脚跟近臀', '顶髋至肩-膝一条直线，顶端夹臀1秒', '慢下，不靠惯性'],
+  '平板支撑': ['前臂撑地，肘在肩正下方', '头-肩-髋-踝一条直线，核心收紧', '不憋气，自然呼吸'],
+  '侧桥': ['单侧前臂撑地，身体侧向一条直线', '髋部不下沉，顶端可停顿'],
+  '俯卧YW伸展': ['俯卧，双臂成Y形抬离地面', '再收成W形，肩胛骨向中间夹', '动作缓慢，感受上背发力'],
+  '俯卧超人式': ['俯卧，同时抬起对侧手脚', '顶端停1秒，缓慢下落', '交替进行，腰部不悬空'],
+  '踝泵': ['坐姿或躺姿，腿伸直', '脚尖缓慢勾起（朝向自己）到最大，停1秒', '再缓慢绷直到最大，停1秒', '全程无痛范围，每组20-30次'],
+  '抓毛巾': ['坐姿，脚下平铺毛巾', '用脚趾将毛巾抓起、蜷向自己', '重复至毛巾全卷入'],
+  '足底滚压': ['坐姿，网球或水瓶放足底', '从脚跟到前掌缓慢来回滚动', '痛点处停留轻压10秒，力度以微酸不痛为准'],
+  '提踵': ['站立扶墙，双脚与肩同宽', '缓慢抬脚跟至最高，停1秒', '缓慢下落，不靠惯性']
 };
-function stickSvg(id, size) {
-  const a = ANIMS[id];
-  if (!a) return '';
-  return '<svg class="stick" viewBox="0 0 120 120" style="width:' + size + 'px;height:' + size + 'px" aria-hidden="true">' + a + '</svg>';
+
+/* 文本 → 要点键 的模糊匹配：先按键名包含，再按别名兜底（康复清单里的口语化写法） */
+function tipKeyOf(text) {
+  const t = String(text == null ? '' : text);
+  const KEYS = Object.keys(ACTION_TIPS);
+  // 1) 文本直接包含键名（如「自重深蹲 3 组」命中「自重深蹲」）
+  const hit = KEYS.filter(function (k) { return t.indexOf(k) >= 0; })[0];
+  if (hit) return hit;
+  // 2) 别名兜底
+  const ALIAS = [
+    ['抓毛巾', ['抓毛巾']],
+    ['足底滚压', ['足底滚动', '滚动', '滚压', '筋膜球', '网球']],
+    ['平板支撑', ['平板']],
+    ['俯卧YW伸展', ['YW', 'Y-W']],
+    ['俯卧超人式', ['超人']]
+  ];
+  for (let i = 0; i < ALIAS.length; i++) {
+    const k = ALIAS[i][0], ws = ALIAS[i][1];
+    for (let j = 0; j < ws.length; j++) { if (t.indexOf(ws[j]) >= 0) return k; }
+  }
+  return null;
 }
-function animOfAction(name) {
-  return ({ '自重深蹲': 'squat', '俯卧撑': 'pushup', '箭步蹲': 'lunge', '臀桥': 'glute', '平板支撑': 'plank', '侧桥': 'side' })[name] || null;
-}
-const FOOT_ANIMS = [['踝泵', 'pump', '踝泵'], ['抓毛巾', 'towel', '脚趾抓毛巾'], ['滚动', 'roll', '足底滚压'], ['滚压', 'roll', '足底滚压'], ['提踵', 'calf', '提踵']];
-function showFootAnim(id, name) {
-  showModal('<div class="card-title" style="text-align:center;margin-bottom:6px">' + U.esc(name) + ' · 动作演示</div>'
-    + stickSvg(id, 150)
-    + '<div class="sub" style="text-align:center;margin:10px 0">示意动画，以文字要领为准；疼痛即停，加重就医。</div>'
-    + '<div class="m-actions"><button class="btn-primary" onclick="closeModal()">关闭</button></div>');
+
+/* 动作要领弹窗：替代原「火柴人演示」。有匹配到要领才弹，否则给提示 */
+function showActionTips(name) {
+  const key = ACTION_TIPS[name] ? name : tipKeyOf(name);
+  const tip = key ? ACTION_TIPS[key] : null;
+  if (!tip) { toast('该动作暂无要领卡片'); return; }
+  const kw = encodeURIComponent(key + ' 标准动作');
+  showModal('<div class="card-title" style="text-align:center;margin-bottom:12px">' + U.esc(key) + ' · 动作要领</div>'
+    + '<div class="tip-row"><span class="tip-k">要点</span><span class="tip-v">' + U.esc(tip.point) + '</span></div>'
+    + '<div class="tip-row"><span class="tip-k">常见错</span><span class="tip-v">' + U.esc(tip.wrong) + '</span></div>'
+    + '<div class="tip-row"><span class="tip-k">纠正</span><span class="tip-v">' + U.esc(tip.fix) + '</span></div>'
+    + '<div class="sub" style="margin-top:10px">以文字要领为准；动作中出现疼痛立即停止。</div>'
+    + '<div class="m-actions"><button class="btn-primary" onclick="closeModal()">知道了</button>'
+    + '<button class="btn-ghost" onclick="window.open(\'https://search.bilibili.com/all?keyword=' + kw + '\')">📺 看教学视频</button></div>');
 }
 
 function ic(name, sz) {
@@ -3136,6 +3251,26 @@ function showPhaseUp(n) {
 
 /* ============ 训练执行模式（P0-4 最小可行：全屏引导+倒计时圆环+语音播报） ============ */
 let wk = null;
+
+/* 屏幕常亮（Wake Lock API）：跟练期间防止手机自动息屏。
+   不支持该 API 的环境（旧版 iOS Safari、file:// 直开）静默跳过，绝不阻塞训练流程。 */
+let wakeLockSentinel = null;
+async function acquireWakeLock() {
+  try {
+    if (!navigator.wakeLock || typeof navigator.wakeLock.request !== 'function') return;
+    if (wakeLockSentinel) return;
+    wakeLockSentinel = await navigator.wakeLock.request('screen');
+    // 系统可能随时回收锁（例如切到后台），释放后清空引用以便下次重新申请
+    wakeLockSentinel.addEventListener('release', function () { wakeLockSentinel = null; });
+  } catch (e) { /* 系统不允许或页面当前不可见，忽略即可 */ }
+}
+function releaseWakeLock() {
+  try { if (wakeLockSentinel) { wakeLockSentinel.release(); wakeLockSentinel = null; } } catch (e) { /* 忽略 */ }
+}
+/* 从后台切回前台时重新申请（系统在切后台时会自动释放锁） */
+document.addEventListener('visibilitychange', function () {
+  if (document.visibilityState === 'visible' && typeof wk !== 'undefined' && wk && !wk.pausedAt) acquireWakeLock();
+});
 function SPEAK(t) {
   try {
     if (!('speechSynthesis' in window)) return;
@@ -3206,6 +3341,7 @@ function startWorkout() {
     wk = { kind: type, mode: 'solo', list: [{ name: type === '有氧' ? tf.cardioChoice : '长时活动', unit: '分钟', repsKey: null, sets: 1, secs: 0 }], idx: 0, set: 1, phase: 'work', left: 0, phaseDur: 0, phaseStartTs: startTs, startTs: startTs, pausedTotal: 0, pausedAt: null, elapsed: 0, done: null, spoken10: false };
     document.getElementById('workout').hidden = false;
     wk.timer = setInterval(wkTick, 1000);
+    acquireWakeLock(); // 跟练期间保持屏幕常亮
     SPEAK('开始');
     renderWorkout();
     return;
@@ -3228,10 +3364,11 @@ function confirmCourse() {
   if (!pendingCourse) return;
   closeModal();
   const startTs = Date.now();
-  wk = { kind: '力量', mode: 'course', course: pendingCourse, ci: 0, phase: 'warm', left: 0, phaseDur: 0, phaseStartTs: startTs, startTs: startTs, pausedTotal: 0, pausedAt: null, elapsed: 0, setsDone: [0, 0, 0, 0, 0, 0], setsPer: CONFIG.actions.map((a) => effSets(a.repsKey)), totalSets: pendingCourse.filter((p) => p.kind === 'set').length, yellow: pendingYellow, lastPerf: lastPerfTxt(), spoken10: false, spoken30: false, lastSpokenNum: -1, timer: null };
+  wk = { kind: '力量', mode: 'course', course: pendingCourse, ci: 0, phase: 'warm', left: 0, phaseDur: 0, phaseStartTs: startTs, startTs: startTs, pausedTotal: 0, pausedAt: null, elapsed: 0, setsDone: CONFIG.actions.map(() => 0), setsPer: CONFIG.actions.map((a) => effSets(a.repsKey)), totalSets: pendingCourse.filter((p) => p.kind === 'set').length, yellow: pendingYellow, lastPerf: lastPerfTxt(), spoken10: false, spoken30: false, lastSpokenNum: -1, timer: null };
   pendingCourse = null;
   document.getElementById('workout').hidden = false;
   wk.timer = setInterval(wkTick, 1000);
+  acquireWakeLock(); // 跟练期间保持屏幕常亮
   SPEAK('开始训练，先热身');
   renderWorkout();
 }
@@ -3306,6 +3443,7 @@ function exitWorkout() {
 function finishWorkout() {
   if (!wk) return;
   clearInterval(wk.timer);
+  releaseWakeLock(); // 训练结束，交还系统息屏策略
   const mins = Math.max(1, Math.round((Date.now() - wk.startTs - wk.pausedTotal) / 60000));
   const kind = wk.kind;
   const mode = wk.mode;
@@ -3403,7 +3541,6 @@ function renderWorkout() {
       + '<div class="wk-btns"><button class="btn-primary" onclick="warmDone()">热身完成，开始力量训练</button>' + pauseBtn + '<button class="btn-ghost" onclick="exitWorkout()">结束训练</button></div>';
   } else if (p.kind === 'pre') {
     h = bar + '<div class="wk-set">预备 · ' + U.esc(p.name) + ' · 第 ' + p.set + ' 组</div>'
-      + (animOfAction(p.name) ? stickSvg(animOfAction(p.name), 96) : '')
       + '<div style="font-size:96px;font-weight:700;line-height:1">' + wk.left + '</div>'
       + '<div class="wk-btns" style="margin-top:30px"><button class="btn-ghost" onclick="exitWorkout()">结束训练</button></div>';
   } else if (p.kind === 'set') {
@@ -3416,7 +3553,6 @@ function renderWorkout() {
       + '<div class="wk-ring"><svg viewBox="0 0 220 220"><circle cx="110" cy="110" r="96" fill="none" style="stroke:var(--line)" stroke-width="10"/>'
       + '<circle cx="110" cy="110" r="96" fill="none" style="stroke:var(--accent)" stroke-width="10" stroke-linecap="round" stroke-dasharray="' + (C * frac).toFixed(1) + ' ' + C.toFixed(1) + '" transform="rotate(-90 110 110)"/></svg>'
       + '<div class="wt">' + shown + (p.timed ? '<span style="font-size:14px;color:var(--text2)"> 秒</span>' : '') + '</div></div>'
-      + (animOfAction(p.name) ? stickSvg(animOfAction(p.name), 100) : '')
       + (p.timed ? '' : '<div class="wk-goal" style="margin-top:6px">目标 ' + p.target + ' ' + U.esc(p.unit) + '</div>')
       + '<div class="wk-tip" style="margin:2px 0 16px">' + U.esc(wk.lastPerf) + '</div>'
       + '<div class="wk-btns"><button class="btn-primary" onclick="completeSet()">完成本组</button>' + pauseBtn + '<button class="btn-ghost" onclick="exitWorkout()">结束训练</button></div>'

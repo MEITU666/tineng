@@ -4,7 +4,7 @@
    - GitHub API（api.github.com）与 Gist（gist.githubusercontent.com）响应：network-first，失败回退缓存
    - icon.svg / manifest.json：cache-first
    白名单之外的请求一律不拦截、不缓存 */
-const CACHE = 'tineng-cache-v2';
+const CACHE = 'tineng-cache-v3';
 const ASSETS = ['./', './index.html', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', (e) => {
