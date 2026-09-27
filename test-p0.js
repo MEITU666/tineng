@@ -430,6 +430,36 @@ check('⑪ 内部口诀撤回标注在位（臀桥：先夹臀再起→撤掉）
   return '撤回口径在位';
 });
 
+/* ---------- ⑫ 审查修复回归（内部审查员 P0-1/P1-1/P2-1 修复，2026-09-27） ---------- */
+check('⑫ 隐私：默认档案无生辰，源码全文无真实生日串', () => {
+  if (loadErr) throw loadErr;
+  const b = w.eval('defaultData().profile.birthday');
+  if (b !== '') throw new Error('默认 birthday 应为空串，实为 ' + JSON.stringify(b));
+  if (html.indexOf('1994-11-28') >= 0) throw new Error('源码仍含生辰串');
+  return '生辰仅由本机向导/档案页录入';
+});
+check('⑫ K9 睡前1h窄规则（Stutz）+宁丢肌肉人话层（Nedeltcheva）在位', () => {
+  if (loadErr) throw loadErr;
+  w.eval('renderGuideTab()');
+  const h = w.eval("document.getElementById('guideTabBody').innerHTML");
+  if (h.indexOf('睡前 1 小时内的剧烈课') < 0) throw new Error('Stutz 窄规则缺失');
+  if (h.indexOf('宁可丢肌肉、保着脂肪') < 0) throw new Error('人话层缺失');
+  if (h.indexOf('减脂期语境') < 0) throw new Error('语境限制缺失');
+  return 'T2 窄规则+第一规则人话层落产品';
+});
+check('⑫ K11 增重节奏带子（0.5%/周、不按月数倒推）在位', () => {
+  if (loadErr) throw loadErr;
+  const h = w.eval("document.getElementById('guideTabBody').innerHTML");
+  if (h.indexOf('0.5%') < 0 || h.indexOf('不按月数倒推') < 0) throw new Error('Iraki 带子缺失');
+  return '预期管理落产品';
+});
+check('⑫ K20 抽筋机理层（多因素/通用补盐证据不足）在位', () => {
+  if (loadErr) throw loadErr;
+  const h = w.eval("document.getElementById('guideTabBody').innerHTML");
+  if (h.indexOf('多因素') < 0 || h.indexOf('通用补盐建议证据不足') < 0) throw new Error('机理层缺失');
+  return 'Miller/Schwellnus 口径落产品';
+});
+
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);
 console.log('================ P0 jsdom 断言报告（node ' + process.version + ' · jsdom ' + require('jsdom/package.json').version + '） ================');
