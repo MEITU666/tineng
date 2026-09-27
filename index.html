@@ -1474,7 +1474,7 @@ function readinessEval(dateStr) { // 返回 {level:'ok'|'down'|'floor', reasons:
   else if (pain) { floor = true; reasons.push('昨日' + pain + '疼痛'); }
   const fm = D.state.feelMark; // 主观点选（只作用于"今天"的判定；历史日评估不引入今天的感受，否则会误判连续降档）
   if (fm && fm.date === dateStr && fm.date === U.todayStr()) {
-    if (fm.feel === '很累') { floor = true; reasons.push('主观状态：很累'); }
+    if (fm.feel === '很虚') { floor = true; reasons.push('主观状态：很虚'); } // v3.5 四选：很虚→恢复课档（开工单§四）
     else if (fm.feel === '累') { down = true; reasons.push('主观状态：累'); }
   }
   return { level: floor ? 'floor' : (down ? 'down' : 'ok'), reasons: reasons };
@@ -1489,7 +1489,74 @@ function footRedCheck() { // 红灯筛查：近 2 天疼痛文本命中红线词
   }
   return '';
 }
-const FEELS = ['正常', '累', '很累'];
+
+/* ============ v3.5 引擎 v2 增量（开工单§四落码）：首句动作输出 + 踝门 + M6 目标层 ============ */
+/* 口径出处：康复学习工程 review/事实核对-单元2-20260927.md（7 条原文核对终审）。
+   红线：只调档与替换、绝不建议禁区动作、绝不"补量"；越野跑不进课表（解锁阶梯只在指南页展示）；
+   下楼禁区未解锁→无下坡专项。诚实边界（Chen 2023 修正）：本表练力量/有氧/负重经济性，
+   低氧血液学适应平原练不到，靠行程节奏补（到达后缓冲 1-2 天+慢升）。 */
+const MOUNTAIN12 = [ // 12 周转山倒排（W1 起点 2026-09-28 周一；每周只动一个变量；W11 峰值 8kg；W12 检阅周）
+  { w: 1,  climb: 200, load: 0, walkH: 1.0, note: '停练回退期：先恢复习惯，无负重' },
+  { w: 2,  climb: 250, load: 0, walkH: 1.0, note: '有氧底盘重建，全程能说话' },
+  { w: 3,  climb: 300, load: 2, walkH: 1.5, note: '负重短走起步（每周 2 次），确认腰带传导' },
+  { w: 4,  climb: 350, load: 3, walkH: 1.5, note: '周日复测①：右脚闭眼站对照毕业线' },
+  { w: 5,  climb: 400, load: 4, walkH: 2.0, note: '' },
+  { w: 6,  climb: 450, load: 5, walkH: 2.0, note: '周日复测②：闭眼站+提踵耐力' },
+  { w: 7,  climb: 500, load: 6, walkH: 2.5, note: '' },
+  { w: 8,  climb: 550, load: 6, walkH: 2.5, note: '周日复测③：闭眼站 47s=土路门槛' },
+  { w: 9,  climb: 600, load: 7, walkH: 3.0, note: '' },
+  { w: 10, climb: 650, load: 7, walkH: 3.0, note: '' },
+  { w: 11, climb: 700, load: 8, walkH: 3.5, note: '峰值周：负重 8kg 到位' },
+  { w: 12, climb: 350, load: 8, walkH: 2.5, note: '检阅周：练量减半，周日复测=体测总分 100+右脚 57s+8kg 负重走' }
+];
+function mountainWeekOf(dateStr) { // 返回 0（未开营）/1-12/13（已满）；W1 周一=2026-09-28
+  if (!dateStr) return 0;
+  const s = Math.floor((new Date(dateStr).getTime() - new Date('2026-09-28').getTime()) / 86400000);
+  return Math.max(0, Math.min(13, Math.floor(s / 7) + 1));
+}
+function weekGoalLine() { // 长走日首句动作里带的 M6 本周目标（爬升换算楼梯：1 层≈3m）
+  const wk = mountainWeekOf(U.todayStr());
+  if (wk < 1 || wk > 12) return '';
+  const g = MOUNTAIN12[wk - 1];
+  return '本周爬升目标 ' + g.climb + 'm≈' + Math.round(g.climb / 3) + ' 层楼梯' + (g.load ? '、负重 ' + g.load + 'kg' : '');
+}
+function mountainGoalHtml(dateStr) { // 今日页"转山倒排"卡（M6 目标层；起点锚 2026-09-28，终点=12 周后冈仁波齐 52km/5630m/3 天；可传日期便于测试）
+  const wk = mountainWeekOf(dateStr || U.todayStr());
+  let head, body;
+  if (wk < 1) { head = '转山倒排：9/28 开营'; body = '12 周倒排从下周一（9/28）起跑，本周是准备周：睡够、把每日包做起来。'; }
+  else if (wk > 12) { head = '转山倒排：12 周已满'; body = '倒排周期已结束——按检阅周结果定高原行程节奏（到达后缓冲 1-2 天+慢升），别顶着未达标硬上。'; }
+  else {
+    const g = MOUNTAIN12[wk - 1];
+    head = '转山倒排 · 第 ' + wk + '/12 周';
+    body = '本周：爬升 ' + g.climb + 'm≈' + Math.round(g.climb / 3) + ' 层楼梯（分散到有氧日）｜' + (g.load ? '负重 ' + g.load + 'kg 短走每周 2 次' : '暂不引入负重') + '｜长走 ' + g.walkH + 'h'
+      + (g.note ? '<br><b>' + U.esc(g.note) + '</b>' : '')
+      + '<br><span class="sub">节奏纪律：前半程透支=后程崩，全程"能正常聊天"的配速；毕业线 47s（土路）/50s（负重）/57s（转山粗筛），每周日对照。</span>';
+  }
+  return '<div class="card"><div class="card-head"><div class="bubble bg-purple" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 20l6-11 4 7 3-5 5 9z"/></svg></div>'
+    + '<div style="flex:1"><div class="card-title" style="margin:0">' + head + '</div><div class="sub">目标：12 周后冈仁波齐 52km/5630m/3 天</div></div></div>'
+    + '<div class="sub" style="margin-top:6px">' + body + '</div></div>';
+}
+function ankleGateLine() { // 踝门：右踝<47s → 土路/越野/下坡建议劝退（毕业线 47/50/57；只加户外提示，不改力量档位）
+  const t = M.latestTest();
+  if (!t || t.standR == null || t.standR >= 47) return '';
+  return '<div class="sub" style="color:var(--orange);margin-top:4px">右脚闭眼单腿站 ' + t.standR + 's（土路门槛 47s 未到）：土路/越野/下坡类建议劝退——户外先走平整步道，负重与坡度都别上。</div>';
+}
+function todayActionLine(level) { // 引擎输出首句=今天干嘛（开工单§四输出格式），数据源=现行课表+当前档，不发明动作不越禁区
+  const dayType = effTemplate()[new Date().getDay()];
+  if (level === 'rest') return '今天按完全休息档：不练，复盘睡眠与负荷。';
+  if (level === 'floor') return '今天按恢复档：只做每日包 12 分钟（10 分钟拉伸+散步亦可）。';
+  if (CONFIG.trainTypes.indexOf(dayType) < 0) return '今天按正常档：休息日，可做八段锦与足底康复（不计负荷）。';
+  if (dayType === '力量') {
+    const items = CONFIG.actions.map((a) => a.name + ' ' + effSets(a.repsKey) + '×' + (D.state.strengthReps[a.repsKey] || 10) + (a.unit || ''));
+    return '今天按' + (level === 'down' ? '降档' : '正常') + '档练：' + items.join('、') + (level === 'down' ? '（每组少做 2 次或留 2-3 次余力）' : '');
+  }
+  if (dayType === '有氧') {
+    const c = CONFIG.cardio.find((x) => x.name === tf.cardioChoice) || CONFIG.cardio[0];
+    return '今天按' + (level === 'down' ? '降档' : '正常') + '档练：有氧 ' + U.esc(c.dur) + '（' + c.name + '，全程能说话）+ 每日包';
+  }
+  return '今天按' + (level === 'down' ? '降档' : '正常') + '档练：长走 ≥60 分钟低强度' + (weekGoalLine() ? '（' + weekGoalLine() + '）' : '') + ' + 每日包';
+}
+const FEELS = ['满血', '正常', '累', '很虚']; // v3.5 疲劳四选（开工单§四输入件）：满血/正常不降档，累→降1档，很虚→恢复课
 function feelChips() {
   const cur = (D.state.feelMark && D.state.feelMark.date === U.todayStr()) ? D.state.feelMark.feel : '';
   return FEELS.map((f) => '<button class="chip' + (cur === f ? ' on' : '') + '" onclick="stFeel(\'' + f + '\')">' + f + '</button>').join('');
@@ -1512,7 +1579,7 @@ function renderToday() {
   const RD = {
     ok:   ['正常练', 'var(--green)', '身体状态够，按下方"今日安排"执行（休息日就做休息日内容）；建议放在傍晚 17-19 点。'],
     down: ['降档练', 'var(--orange)', '强度降一档：力量每组少做一点、留 2-3 次余力，有氧时长打七折。'],
-    floor: ['只做每日包', 'var(--red)', '今天只做每日包 12 分钟，其他全免——做完就是赢。'],
+    floor: ['只做每日包', 'var(--red)', '今天只做每日包 12 分钟（或 10 分钟拉伸+散步），其他全免——做完就是赢。'],
     rest: ['完全休息', 'var(--red)', '连续两天身体报警：今天完全休息，复盘睡眠与负荷，明天再战。']
   }[level];
   const lastMet = M.metricOn(U.addDays(U.todayStr(), -1)) || {};
@@ -1520,9 +1587,11 @@ function renderToday() {
   const hasSleep = lastMet.sleepH != null || todayMet.sleepH != null;
   h += '<div class="card" id="readinessCard"><div class="card-head"><div class="bubble" style="background:' + RD[1] + '" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.6-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.4-9 9-9 9z"/></svg></div>'
     + '<div style="flex:1"><div class="card-title" style="margin:0">今日状态 · ' + RD[0] + '</div><div class="sub">' + RD[2] + '</div></div></div>'
-    + '<div class="sub" style="margin-top:6px">判定依据：' + (rdNow.reasons.length ? rdNow.reasons.map(U.esc).join('；') : '各项信号正常') + (level === 'rest' ? '；昨日同样触发降档' : '') + '</div>'
+    + '<div class="body-tx" style="margin-top:6px;font-weight:600">' + todayActionLine(level) + '</div>' // v3.5 引擎输出：首句动作（开工单§四）
+    + '<div class="sub" style="margin-top:4px">理由：' + (rdNow.reasons.length ? rdNow.reasons.map(U.esc).join('；') : '各项信号正常') + (level === 'rest' ? '；昨日同样触发降档' : '') + '</div>'
     + (hasSleep ? '' : '<div class="sub" style="color:var(--orange);margin-top:4px">昨夜睡眠未记录——打卡时从健康App抄一个数，判定更准。</div>')
     + footRedCheck()
+    + ankleGateLine()
     + '<div class="field" style="margin-top:10px"><label>今天的你（点一下立即重判）</label><div class="chips" id="feelChips">' + feelChips() + '</div></div></div>';
   // N7 年报入口卡（12/20-次年1/10 期间显示）
   const nw = new Date();
@@ -1543,6 +1612,7 @@ function renderToday() {
       + CONFIG.k12.map((x) => '<div class="sub">· ' + U.esc(x) + '</div>').join('')
       + '</div>';
   }
+  h += mountainGoalHtml(); // v3.5 M6 目标层：12 周转山倒排卡（今天页常显）
   // 周体重横幅（不变灯色）
   const wd = M.weekWeightDrop();
   if (wd && wd.drop > CONFIG.weightDropKg) {

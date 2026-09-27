@@ -213,11 +213,11 @@ check('⑥ 疼痛（K7 同口径）：右足底 → 降档；膝 → 每日包',
   if (w.eval('readinessEval(U.todayStr()).level') !== 'floor') throw new Error('膝应 floor');
   return '疼痛口径正确';
 });
-check('⑥ 主观点选：累 → 降档；很累 → 每日包（卡面同步）', () => {
+check('⑥ 主观点选：累 → 降档；很虚 → 每日包（卡面同步）', () => {
   setRD([], []);
   w.eval('D.state.feelMark = { date: U.todayStr(), feel: "累" }');
   if (w.eval('readinessEval(U.todayStr()).level') !== 'down') throw new Error('累应 down');
-  w.eval('D.state.feelMark = { date: U.todayStr(), feel: "很累" }');
+  w.eval('D.state.feelMark = { date: U.todayStr(), feel: "很虚" }');
   w.eval('renderToday()');
   const h = w.eval("document.getElementById('todayBody').innerHTML");
   if (h.indexOf('只做每日包') < 0) throw new Error('卡面未判每日包');
@@ -246,12 +246,61 @@ check('⑥ 红灯词命中 → 卡面出就医横幅（分诊红线）', () => {
   if (h.indexOf('就医评估') < 0) throw new Error('未出红线横幅');
   return '红线横幅在位';
 });
-check('⑥ 卡面要素齐全：判定依据/主观点选/缺睡眠提示', () => {
+check('⑥ 卡面要素齐全：理由/主观点选/缺睡眠提示', () => {
   setRD([{ n: 1, rhr: 65 }], []);
   w.eval('renderToday()');
   const h = w.eval("document.getElementById('todayBody').innerHTML");
-  if (h.indexOf('判定依据') < 0 || h.indexOf('feelChips') < 0 || h.indexOf('昨夜睡眠未记录') < 0) throw new Error('要素缺失');
+  if (h.indexOf('理由：') < 0 || h.indexOf('feelChips') < 0 || h.indexOf('昨夜睡眠未记录') < 0) throw new Error('要素缺失');
   return '要素齐全';
+});
+
+/* ---------- ⑨ 引擎 v2（开工单§四落码）：疲劳四选/首句动作/踝门/M6 目标层 ---------- */
+check('⑨ 疲劳四选在位：满血|正常|累|很虚', () => {
+  if (w.eval('FEELS.join("|")') !== '满血|正常|累|很虚') throw new Error('FEELS 应为四选');
+  return w.eval('FEELS.join("/")');
+});
+check('⑨ 很虚→floor；满血→ok', () => {
+  setRD([], []);
+  w.eval('D.state.feelMark = { date: U.todayStr(), feel: "很虚" }');
+  if (w.eval('readinessEval(U.todayStr()).level') !== 'floor') throw new Error('很虚应 floor');
+  w.eval('D.state.feelMark = { date: U.todayStr(), feel: "满血" }');
+  if (w.eval('readinessEval(U.todayStr()).level') !== 'ok') throw new Error('满血应 ok');
+  return '两分支正确';
+});
+check('⑨ 首句动作行：状态卡含"今天按"+理由（开工单§四输出格式）', () => {
+  setRD([], []);
+  w.eval('renderToday()');
+  const h = w.eval("document.getElementById('todayBody').innerHTML");
+  if (h.indexOf('今天按') < 0) throw new Error('缺首句动作行');
+  if (h.indexOf('理由：') < 0) throw new Error('缺理由行');
+  return '首句+理由在位';
+});
+check('⑨ 踝门：右脚<47s → 户外劝退行；≥47s → 无', () => {
+  setRD([], []);
+  w.eval('D.tests.push({ date: U.todayStr(), standR: 30 })');
+  w.eval('renderToday()');
+  let h = w.eval("document.getElementById('todayBody').innerHTML");
+  if (h.indexOf('47s 未到') < 0) throw new Error('未出劝退行');
+  w.eval('D.tests[D.tests.length-1].standR = 50');
+  w.eval('renderToday()');
+  h = w.eval("document.getElementById('todayBody').innerHTML");
+  if (h.indexOf('47s 未到') >= 0) throw new Error('50s 不应劝退');
+  return '踝门两分支正确';
+});
+check('⑨ M6 周次边界：9/28=W1、12/20=W12、12/27=满、9/27=未开营', () => {
+  const v = (d) => w.eval('mountainWeekOf("' + d + '")');
+  if (v('2026-09-28') !== 1 || v('2026-12-20') !== 12 || v('2026-12-27') !== 13 || v('2026-09-27') !== 0) throw new Error('周次边界错');
+  return '4 个边界全对';
+});
+check('⑨ M6 卡：W11 峰值 8kg / W12 检阅周减量 / 毕业线提示在位', () => {
+  const card = w.eval('mountainGoalHtml()');
+  if (card.indexOf('转山倒排') < 0) throw new Error('缺倒排卡头');
+  const cardW1 = w.eval('mountainGoalHtml("2026-09-28")'); // W1 周一：走 W1-12 分支
+  if (cardW1.indexOf('第 1/12 周') < 0 || cardW1.indexOf('毕业线') < 0) throw new Error('W1 分支缺周次或毕业线');
+  if (w.eval('MOUNTAIN12[10].load') !== 8) throw new Error('W11 峰值应 8kg');
+  const w12 = w.eval('MOUNTAIN12[11]');
+  if (w12.climb !== 350 || w12.note.indexOf('检阅周') < 0) throw new Error('W12 应减量检阅');
+  return '倒排卡要素齐全';
 });
 
 /* ---------- ⑦ 训练感受弹窗（跟练结束 → 三键定 RPE + 疼痛点选） ---------- */
