@@ -969,6 +969,176 @@ check('㉑ 全页面复核：七页渲染无 throw、今日页天气行在（空
   return '七页+天气行 ✓';
 });
 
+/* ---------- ㉒ 批12a 记录10秒化（设计工单1）：默认值模板+一键保存+拦截三选 ---------- */
+check('㉒ RPE 默认三级来源：近7天均值≥3条 / 上次 / 类型建议值（修默认5污染K5）', () => {
+  if (loadErr) throw loadErr;
+  w.eval(`D = defaultData();
+    var t = U.todayStr();
+    D.daily = [
+      { date: U.addDays(t, -5), type: '力量', rpe: 9, durationMin: 50 },
+      { date: U.addDays(t, -3), type: '力量', rpe: 7, durationMin: 40 },
+      { date: U.addDays(t, -1), type: '力量', rpe: 8, durationMin: 45 }
+    ];
+    window.__r1 = rpeDefaultFor('力量');
+    D.daily = [{ date: U.addDays(t, -5), type: '力量', rpe: 9, durationMin: 50 }];
+    window.__r2 = rpeDefaultFor('力量');
+    D.daily = []; window.__r3 = rpeDefaultFor('力量'); window.__r4 = rpeDefaultFor('有氧');`);
+  const r1 = w.eval('window.__r1'), r2 = w.eval('window.__r2'), r3 = w.eval('window.__r3'), r4 = w.eval('window.__r4');
+  if (r1.v !== 8 || r1.tag !== '近7天均值') throw new Error('均值来源错：' + JSON.stringify(r1));
+  if (r2.v !== 9 || r2.tag !== '上次') throw new Error('上次来源错：' + JSON.stringify(r2));
+  if (r3.v !== 8 || r3.tag !== '建议值') throw new Error('力量建议值错：' + JSON.stringify(r3));
+  if (r4.v !== 4 || r4.tag !== '建议值') throw new Error('有氧建议值错：' + JSON.stringify(r4));
+  return '均值8/上次9/建议 力8有4 ✓';
+});
+check('㉒ 时长默认：同类型最近一条；有氧优先同方式', () => {
+  if (loadErr) throw loadErr;
+  w.eval(`D = defaultData();
+    var t = U.todayStr();
+    D.daily = [
+      { date: U.addDays(t, -3), type: '有氧', cardioChoice: '快走', durationMin: 30 },
+      { date: U.addDays(t, -2), type: '有氧', cardioChoice: '慢跑', durationMin: 20 },
+      { date: U.addDays(t, -1), type: '力量', rpe: 8, durationMin: 45 }
+    ];
+    window.__d1 = durDefaultFor('力量');
+    tf.cardioChoice = '快走'; window.__d2 = durDefaultFor('有氧');
+    tf.cardioChoice = '椭圆机'; window.__d3 = durDefaultFor('有氧');`);
+  const d1 = w.eval('window.__d1'), d2 = w.eval('window.__d2'), d3 = w.eval('window.__d3');
+  if (d1 !== 45) throw new Error('力量时长默认应取最近 45，实际 ' + d1);
+  if (d2 !== 30) throw new Error('有氧同方式（快走）应取 30，实际 ' + d2);
+  if (d3 !== 20) throw new Error('有氧无同方式应取最近任一 20，实际 ' + d3);
+  return '45 / 30（同方式优先）/ 20 ✓';
+});
+check('㉒ 类型预填课表优先（修休息日预填成上次"力量"的缺陷）', () => {
+  if (loadErr) throw loadErr;
+  w.eval(`D = defaultData(); D.state.lastForm = { type: '力量', mood: '好', painOpt: '无' };
+    renderToday();
+    window.__tpl = effTemplate()[new Date().getDay()];`);
+  const tt = w.eval('tf.type'), tpl = w.eval('window.__tpl');
+  if (w.eval('CONFIG.typeList.indexOf(window.__tpl)') >= 0 && tt !== tpl) throw new Error('类型预填应为课表类型 ' + tpl + '，实际 ' + tt);
+  return '预填=' + tt + '（课表同源）✓';
+});
+check('㉒ 一键保存=全勾断言：strengthChecks 全 true+时长/RPE 取模板，走 full 渐进分支', () => {
+  if (loadErr) throw loadErr;
+  w.eval(`D = defaultData();
+    D.state.lastForm = { type: '力量', mood: '好', painOpt: '无' };
+    D.daily = [{ date: U.addDays(U.todayStr(), -1), type: '力量', rpe: 8, durationMin: 45 }];
+    renderToday(); tfType('力量'); tfQuickSave();`); // 课表优先预填可能给非力量类型，显式切到力量日场景
+  const rec = w.eval('D.daily[D.daily.length - 1]');
+  const today = w.eval('U.todayStr()');
+  if (rec.date !== today) throw new Error('未入库今天：' + rec.date);
+  if (rec.type !== '力量') throw new Error('type=' + rec.type);
+  if (rec.durationMin !== 45) throw new Error('时长应取上次 45，实际 ' + rec.durationMin);
+  if (!rec.strengthChecks || !rec.strengthChecks.every(Boolean)) throw new Error('一键后 strengthChecks 应全 true');
+  if (w.eval('D.state.strengthFails') !== 0) throw new Error('full 分支应复位 strengthFails');
+  return '力量日 1 tap 入库（45min/RPE' + rec.rpe + '/9全勾）✓';
+});
+check('㉒ 拦截三选：未勾全弹「部分完成，照实记录」诚实出口；点后照实入库+计数+不上调', () => {
+  if (loadErr) throw loadErr;
+  w.eval(`D = defaultData(); D.state.lastForm = { type: '力量', mood: '好', painOpt: '无' };
+    renderToday(); tfType('力量'); // 课表优先预填可能给非力量类型，显式切到力量日场景
+    for (var i = 0; i < 5; i++) tf.checks[i] = true; // 只勾 5/9
+    document.getElementById('fDur').value = 45; // 手动表单：时长必填，是校验链第一步
+    tf.mood = '好'; tfSave();`);
+  const modal = w.eval('document.getElementById("modalWrap").innerHTML');
+  if (modal.indexOf('部分完成，照实记录') < 0) throw new Error('拦截 modal 缺诚实出口按钮');
+  if (modal.indexOf('回去补勾') < 0) throw new Error('拦截 modal 缺回去补勾');
+  if (modal.indexOf('5/' + w.eval('CONFIG.actions.length')) < 0) throw new Error('modal 未显示勾选进度');
+  const before = w.eval('D.state.strengthReps["深蹲"]');
+  w.eval('partialHonestSave()');
+  const rec = w.eval('D.daily[D.daily.length - 1]');
+  if (rec.strengthChecks.filter(Boolean).length !== 5) throw new Error('部分完成应照实入库 5 项');
+  if (w.eval('D.state.strengthFails') !== 1) throw new Error('部分完成应计 strengthFails=1，实际 ' + w.eval('D.state.strengthFails'));
+  if (w.eval('D.state.strengthReps["深蹲"]') !== before) throw new Error('部分完成不上调（RPE6 partial）');
+  return '诚实出口 ✓ 照实 5/9+计数+不上调';
+});
+check('㉒ 只填空不改已填：手改时长/滑块后模板不覆盖；全勾/清空按钮', () => {
+  if (loadErr) throw loadErr;
+  w.eval(`D = defaultData(); D.state.lastForm = { type: '力量', mood: '好', painOpt: '无' };
+    D.daily = [{ date: U.addDays(U.todayStr(), -1), type: '力量', rpe: 8, durationMin: 45 }];
+    renderToday();
+    document.getElementById('fDur').value = 60; rpeSlide(6);
+    applyTemplateToForm();
+    window.__dur = document.getElementById('fDur').value;
+    window.__rpe = document.getElementById('fRpe').value;
+    tfCheckAll(true); window.__ckOn = tf.checks.every(Boolean);
+    tfCheckAll(false); window.__ckOff = tf.checks.some(Boolean);`);
+  if (w.eval('window.__dur') !== '60') throw new Error('手改时长被模板覆盖');
+  if (w.eval('window.__rpe') !== '6') throw new Error('手改 RPE 被模板覆盖');
+  if (w.eval('window.__ckOn') !== true || w.eval('window.__ckOff') !== false) throw new Error('全勾/清空异常');
+  return '只填空 ✓ 全勾/清空 ✓';
+});
+check('㉒ 一键副行逐字明示将存什么（按下去之前看得到）', () => {
+  if (loadErr) throw loadErr;
+  w.eval(`D = defaultData(); D.state.lastForm = { type: '力量', mood: '好', painOpt: '无' };
+    D.daily = [{ date: U.addDays(U.todayStr(), -1), type: '力量', rpe: 8, durationMin: 45 }];
+    renderToday(); tfType('力量');`); // 课表优先预填可能给非力量类型，显式切到力量日场景
+  const sub = w.eval('quickSubText()');
+  for (const k of ['力量', '45 分钟', 'RPE', '9 动作全勾']) if (sub.indexOf(k) < 0) throw new Error('副行缺「' + k + '」：' + sub);
+  const btn = w.eval('quickBtnText()');
+  if (btn.indexOf('一键保存') < 0) throw new Error('按钮文案异常：' + btn);
+  w.eval('tfQuickSave()');
+  const btn2 = w.eval('quickBtnText()');
+  if (btn2 !== '更新今日记录') throw new Error('已保存后按钮应变「更新今日记录」：' + btn2);
+  return '副行四要素 ✓ 已存后转「更新今日记录」✓';
+});
+
+/* ---------- ㉓ 批12a 问答实时化：三态/隐私红线/预埋底座 ---------- */
+check('㉓ aiStatus 三态：未配置/断网/实时', () => {
+  if (loadErr) throw loadErr;
+  w.eval('try { localStorage.removeItem("tineng_aikey"); } catch (e) {}');
+  if (w.eval('aiStatus()') !== 'unset') throw new Error('无 key 应为 unset');
+  w.eval(`Object.defineProperty(navigator, 'onLine', { value: false, configurable: true });
+    try { localStorage.setItem('tineng_aikey', 'k-test'); } catch (e) {}`);
+  if (w.eval('aiStatus()') !== 'off') throw new Error('断网+有 key 应为 off');
+  w.eval("Object.defineProperty(navigator, 'onLine', { value: true, configurable: true });");
+  if (w.eval('aiStatus()') !== 'live') throw new Error('在线+有 key 应为 live');
+  return 'unset/off/live ✓';
+});
+check('㉓ 数据纪律：aiCfg 缺键补 null；key 明文永不进同步数据 D', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = normalizeData({});');
+  if (w.eval('D.state.aiCfg') !== null) throw new Error('normalizeData 未补 aiCfg=null');
+  w.eval(`D = defaultData(); try { localStorage.setItem('tineng_aikey', 'sk-secret-never-sync-123'); } catch (e) {}`);
+  if (w.eval('JSON.stringify(D)').indexOf('sk-secret-never-sync-123') >= 0) throw new Error('key 泄漏进同步数据！');
+  return 'aiCfg 补默认 ✓ key 不进 D ✓';
+});
+check('㉓ buildContext 隐私红线：生日/备注原文/城市永不进 prompt；课表与训练摘要在', () => {
+  if (loadErr) throw loadErr;
+  w.eval(`D = defaultData();
+    D.profile.birthday = '1990-01-01'; D.profile.city = '武汉';
+    D.daily = [{ date: U.addDays(U.todayStr(), -1), type: '力量', rpe: 8, durationMin: 45, note: '绝密家庭备注词' }];
+    window.__ctx = buildContext();`);
+  const ctx = w.eval('window.__ctx');
+  if (ctx.indexOf('1990-01-01') >= 0) throw new Error('生日进了 prompt！');
+  if (ctx.indexOf('绝密家庭备注词') >= 0) throw new Error('备注原文进了 prompt！');
+  if (ctx.indexOf('武汉') >= 0) throw new Error('城市进了 prompt！');
+  for (const k of ['【今日课表】', '【近7天训练】', '力量', '【足康复】']) if (ctx.indexOf(k) < 0) throw new Error('上下文缺「' + k + '」');
+  return '三不进 ✓ 课表/摘要/康复在 ✓';
+});
+check('㉓ system prompt 九条红线在（鳌太/可能提示/下撤/急症）+ 供应商预设正确', () => {
+  if (loadErr) throw loadErr;
+  const sys = w.eval('AI_SYSTEM');
+  for (const k of ['鳌太', '可能提示', '下撤', '疼痛即停', '立即停止训练', '不承诺效果']) if (sys.indexOf(k) < 0) throw new Error('红线缺「' + k + '」');
+  const url = w.eval('AI_PROVIDERS[0].url');
+  if (url !== 'https://open.bigmodel.cn/api/paas/v4/chat/completions') throw new Error('智谱 endpoint 错：' + url);
+  const url2 = w.eval('AI_PROVIDERS[1].url');
+  if (url2 !== 'https://api.siliconflow.cn/v1/chat/completions') throw new Error('硅基流动 endpoint 错：' + url2);
+  return '6 红线词+2 endpoint ✓（CORS 2026-09-28 一手实测放行）';
+});
+check('㉓ 问教练三态 UI：未配置给引导+预埋 8 问可用；配置后出输入区', () => {
+  if (loadErr) throw loadErr;
+  w.eval('try { localStorage.removeItem("tineng_aikey"); } catch (e) {} showCoachQA();');
+  let m = w.eval('document.getElementById("modalWrap").innerHTML');
+  if (m.indexOf('未配置 AI') < 0) throw new Error('未配置态缺引导');
+  if (m.indexOf(w.eval('COACH_QA[0].q')) < 0) throw new Error('预埋 8 问不可用');
+  w.eval(`try { localStorage.setItem('tineng_aikey', 'k-live'); } catch (e) {} showCoachQA();`);
+  m = w.eval('document.getElementById("modalWrap").innerHTML');
+  if (m.indexOf('AI 实时问答') < 0) throw new Error('live 态缺状态行');
+  if (m.indexOf('qaInput') < 0) throw new Error('live 态缺输入区');
+  if (m.indexOf('AI 生成，可能有误') < 0) throw new Error('缺免责 footer');
+  return '引导+预埋 ✓ 实时+免责 ✓';
+});
+
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);
 console.log('================ P0 jsdom 断言报告（node ' + process.version + ' · jsdom ' + require('jsdom/package.json').version + '） ================');

@@ -673,7 +673,7 @@ function defaultData() {
       lastSyncAt: 0, pendingSync: false, strengthFails: 0, theme: 'auto', lastForm: null,
       strengthReps: { '深蹲': 12, '俯卧撑': 8, '下斜俯卧撑': 10, '平板': 30, '侧桥': 20, '箭步蹲': 8, '臀桥': 15, '俯卧YW': 8, '俯卧超人': 10 },
       backfillDone: false, profileDone: false, downgradedAt: null, progressionLog: [], scheduleText: null,
-      preTrip: null, tour7: null, weekRev: null, weather: null, // 最终版增量（可选键）：行前判定缓存/新手7天引导/周复盘去重/今晨实况天气——normalize/merge 补默认
+      preTrip: null, tour7: null, weekRev: null, weather: null, aiCfg: null, // 最终版增量（可选键）：行前判定缓存/新手7天引导/周复盘去重/今晨实况天气/AI问答供应商配置——normalize/merge 补默认
       updatedAt: 0
     }
   };
@@ -799,7 +799,7 @@ function mergeData(local, remote) {
   out.state.strengthReps = out.state.strengthReps || {};
   CONFIG.actions.forEach((a) => { if (out.state.strengthReps[a.repsKey] == null) out.state.strengthReps[a.repsKey] = 10; }); // Codex 复核 P1-1 修复：合并后补缺键，防 undefined/NaN 污染
   // 最终版增量键缺键防线（与 4f52b7f 同套路）：老远端备份无这些键时补默认
-  ['preTrip', 'tour7', 'weekRev', 'weather'].forEach((k) => { if (out.state[k] === undefined) out.state[k] = null; });
+  ['preTrip', 'tour7', 'weekRev', 'weather', 'aiCfg'].forEach((k) => { if (out.state[k] === undefined) out.state[k] = null; }); // aiCfg=问答外挂供应商配置（不含 key，key 只在本机 localStorage）
   out.daily = mergeByKey(local.daily, remote.daily, 'date');
   out.metrics = mergeByKey(local.metrics, remote.metrics, 'date');
   out.tests = mergeByKey(local.tests, remote.tests, 'date');
@@ -2039,11 +2039,122 @@ const COACH_QA = [ // 问教练：高频追问的离线直答，全部产品既�
   { q: '鳌太到底能不能走？', a: '这个问题产品永远答"不做可行性判定"——技术探险线（L5），2018 年起明令禁止穿越，只做风险认知。', src: 'K22' },
   { q: '体重就是不涨怎么办？', a: '看周复盘的体重账：持平=每天加一碗饭+一个蛋；掉了=热量缺口在偷肌肉，先加餐；涨太快超 0.5%/周带=收到带内。', src: 'K11/体重账' }
 ];
-function showCoachQA() { // 问教练 modal：预埋问答，全程离线
-  showModal('<div class="card-title" style="margin-bottom:8px">问教练</div>'
-    + '<div class="sub" style="margin-bottom:8px">高频追问先答在这里——全部按产品既有规则回答，不带新判据。</div>'
+/* ============ 批12a 问答实时化（设计工单1④⑤）：三态（实时/离线/未配置）+ 预埋 8 问永久底座 ============
+   CORS 一手实测 2026-09-28：智谱回显 Origin、硅基流动 ACAO:*，浏览器可直连。
+   key 只存本机 localStorage('tineng_aikey')，不进同步数据 D；供应商配置进 state.aiCfg（可选键）。
+   问答历史仅内存（不落盘：AI 输出非客观数据+避免第二份隐私暴露面）。 */
+const AI_PROVIDERS = [
+  { id: 'zhipu', name: '智谱 BigModel（推荐·有免费模型）', url: 'https://open.bigmodel.cn/api/paas/v4/chat/completions', model: 'glm-4-flash' },
+  { id: 'siliconflow', name: '硅基流动', url: 'https://api.siliconflow.cn/v1/chat/completions', model: '' }
+];
+const AI_SYSTEM = [
+  '你是"体能伙伴"App 的三教练席，共用一个回复口吻。用户：30+ 男性，非技术背景，右足康复期，正按 12 周计划备战冈仁波齐转山（52km/5630m）。三席分工：康复师（疼痛/踝足/降档）、私教（课表/渐进/负荷/睡眠）、户外指导员（线路/高原/节奏/装备）。按问题选主导席位，可补其他席位视角，但用户感知到的是同一个教练团队，不要分饰三人。',
+  '【表达】说人话。第一句永远是"现在该干嘛"的动作指令；然后 1-3 句理由。总长 ≤250 字。必须用术语时，当场用一句话解释。用户数据里没有的，回答"这个我看不到，你补充一下"，禁止编造用户的训练或身体情况。',
+  '【红线（逐条硬约束，任何提问都不能绕过）】',
+  '1. 不做医学诊断。疼痛类问题只说"可能提示"，并给就医指征：夜间痛、肿胀、无法承重、畸形、绞锁、持续加重 → 建议就医。永不说"你就是/确诊/没事"。',
+  '2. 疼痛即停：训练中出现疼痛 → 第一优先建议停下，不提供"忍痛降档继续"。',
+  '3. 高原：凡高原反应疑虑，不确定即建议下撤或就医，不赌、不观察等待。',
+  '4. 不承诺效果：不说"保证/一定能/X 天必然"。',
+  '5. 鳌太线：任何问法只回答"技术探险线，产品不做可行性判定，2018 年起明令禁止穿越"，永不给"能走/可以做"类建议。',
+  '6. 下坡/下楼离心专项：用户踝毕业评审未通过前（右脚闭眼单脚站未达毕业线），任何问法都不排下楼、下坡、跳落类专项。',
+  '7. 不推荐器械与健身房动作，建议限于徒手与现有课表框架。',
+  '8. 量调整只落既有渐进规则内（RPE≤7 上调 / 8 持平 / ≥9 或连续 2 次未全完成 -10%），不发明新数值、不推翻课表。',
+  '9. 涉及急症（胸痛、晕厥前兆、静息心率异常飙升等），第一句就是"立即停止训练，尽快就医"。'
+].join('\n');
+function aiCfg() { return D.state.aiCfg || { provider: 'zhipu', url: AI_PROVIDERS[0].url, model: AI_PROVIDERS[0].model, moreBody: false }; }
+function aiKey() { try { return localStorage.getItem('tineng_aikey') || ''; } catch (e) { return ''; } }
+function aiStatus() { // 三态：live=可实时 / off=断网降级 / unset=未配置引导
+  if (!aiKey()) return 'unset';
+  if (!navigator.onLine) return 'off';
+  return 'live';
+}
+function latestWeight() { // 最近一次周记体重（weekly 不保证有序，取 weekStart 最大）
+  let w = null, wk = '';
+  (D.weekly || []).forEach((x) => { if (x.weightKg != null && x.weekStart > wk) { w = x.weightKg; wk = x.weekStart; } });
+  return w;
+}
+function buildContext() { // 上下文最小集（工单5.2）：生日/城市/备注原文/任何密码永不进 prompt
+  const t = U.todayStr();
+  const dayType = effTemplate()[new Date().getDay()];
+  let c = '【今日课表】' + dayType;
+  if (dayType === '力量') c += '：' + CONFIG.actions.map((a) => a.name + ' 3×' + D.state.strengthReps[a.repsKey] + a.unit).join('、');
+  const rd = readinessEval(t);
+  c += '\n【今日判定】' + rd.level + '（' + (rd.reasons.join('；') || '各项信号正常') + '）';
+  c += '\n【足康复】Stage ' + D.state.footStage + ' ' + CONFIG.footStages[D.state.footStage].name;
+  const wk = D.daily.filter((r) => r.date < t && r.date >= U.addDays(t, -7)).map((r) =>
+    '{' + r.date.slice(5) + ' ' + (r.type || '?') + (r.durationMin ? ' ' + r.durationMin + 'min' : '')
+    + (r.rpe != null ? ' RPE' + r.rpe : '')
+    + (r.strengthChecks ? ' 力量' + r.strengthChecks.filter(Boolean).length + '/' + CONFIG.actions.length : '')
+    + (r.pain && r.pain !== '无' ? ' 痛:' + r.pain : '') + (r.mood ? ' ' + r.mood : '') + '}');
+  c += '\n【近7天训练】' + (wk.join(' ') || '无记录');
+  if (aiCfg().moreBody) { // 默认关：睡眠/静息心率/HRV 由用户在设置页显式打开才发送
+    const ms = M.metricOn(U.addDays(t, -1)) || {};
+    if (ms.sleepH != null) c += '\n【昨夜身体】睡眠 ' + ms.sleepH + 'h' + (ms.rhr != null ? ' 静息心率 ' + ms.rhr : '') + (ms.hrv != null ? ' HRV ' + ms.hrv : '');
+  }
+  const wt = latestWeight();
+  c += '\n【档案】身高 ' + (D.profile.height || '未填') + 'cm' + (wt != null ? ' · 最近体重 ' + wt + 'kg' : '') + ' · 年龄 ' + M.age() + ' 岁 · 右足康复期';
+  return c;
+}
+let qaHistory = []; // 仅内存，最近 5 轮（刷新即失，不落盘）
+function qaHistoryHtml() {
+  if (!qaHistory.length) return '<div class="sub">直接输入问题，或看下面的预埋问答。</div>';
+  return qaHistory.map((x) => '<div class="body-tx" style="margin:6px 0"><b>问：</b>' + U.esc(x.q) + '<br><b>答：</b>' + U.esc(x.a) + '</div>').join('');
+}
+function qaSend() {
+  const el = document.getElementById('qaInput');
+  const q = el ? el.value.trim() : '';
+  if (!q) return;
+  if (el) el.value = '';
+  askQA(q);
+}
+function askQA(q) { // 实时问答：非流式 30s 超时；401/403/超时/5xx/断网 → 显式提示+无缝切预埋 8 问（不弹打断）
+  const box = document.getElementById('qaAnswer');
+  if (box) box.innerHTML = '<div class="sub">教练在想…（30 秒内没回应会自动切离线问答）</div>';
+  let ac = null;
+  try { ac = new AbortController(); } catch (e) {}
+  const to = ac ? setTimeout(() => ac.abort(), 30000) : null;
+  fetch(aiCfg().url, {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + aiKey(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: aiCfg().model, messages: [{ role: 'system', content: AI_SYSTEM }, { role: 'user', content: buildContext() + '\n【用户提问】' + q }], temperature: 0.5, max_tokens: 600 }),
+    signal: ac ? ac.signal : undefined
+  }).then((r) => {
+    if (to) clearTimeout(to);
+    if (r.status === 401 || r.status === 403) { toast('Key 无效或过期，去设置页检查'); showCoachQA(); return null; }
+    if (!r.ok) { toast('AI 暂时连不上，先用离线问答'); showCoachQA(); return null; }
+    return r.json();
+  }).then((j) => {
+    if (!j) return;
+    const a = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || '';
+    qaHistory = qaHistory.concat([{ q: q, a: a || '(空回复)' }]).slice(-5);
+    const bx = document.getElementById('qaAnswer');
+    if (bx) bx.innerHTML = qaHistoryHtml(); // U.esc 在 qaHistoryHtml 内逐条转义，防注入
+  }).catch(() => {
+    if (to) clearTimeout(to);
+    toast('AI 暂时连不上，先用离线问答');
+    showCoachQA();
+  });
+}
+function showCoachQA() { // 问教练 modal：三态状态行 + 实时输入区（已配置且在线）+ 预埋 8 问永久底座
+  const st = aiStatus();
+  const cur = AI_PROVIDERS.find((x) => x.id === aiCfg().provider);
+  const statLine = st === 'live' ? 'AI 实时问答 · ' + (cur ? cur.name : aiCfg().provider)
+    : st === 'off' ? '当前离线 · 已切换离线问答（8 个预埋）'
+    : '未配置 AI——可在设置页 3 分钟配好（可选），先看下面的离线问答';
+  let h = '<div class="card-title" style="margin-bottom:8px">问教练</div>'
+    + '<div class="sub" style="margin-bottom:8px">' + U.esc(statLine) + '</div>';
+  if (st === 'live') {
+    h += '<div id="qaAnswer">' + qaHistoryHtml() + '</div>'
+      + '<div class="field" style="display:flex;gap:8px;align-items:center"><input id="qaInput" placeholder="问点什么…" onkeydown="if(event.key===\'Enter\')qaSend()">'
+      + '<button class="btn-primary" style="flex-shrink:0;min-height:40px;padding:0 16px" onclick="qaSend()">问</button></div>'
+      + '<div class="sub" style="margin:4px 0 10px">AI 生成，可能有误 · 疼痛/高原红线以产品停训口径为准</div>';
+  } else if (st === 'unset') {
+    h += '<div class="sub" style="margin-bottom:10px"><button class="ci-btn" onclick="closeModal();nav(\'pgProfile\')">去设置页配置 AI（可选）</button></div>';
+  }
+  h += '<div class="sub" style="margin-bottom:6px">高频追问离线直答：</div>'
     + COACH_QA.map((x) => '<details class="fold" style="margin:4px 0"><summary>' + U.esc(x.q) + '</summary><div class="fold-body sub">' + U.esc(x.a) + '<br><span style="color:var(--text2)">口径：' + U.esc(x.src) + '</span></div></details>').join('')
-    + '<div class="m-actions"><button class="btn-primary" onclick="closeModal()">问完了</button></div>');
+    + '<div class="m-actions"><button class="btn-primary" onclick="closeModal()">问完了</button></div>';
+  showModal(h);
 }
 function renderToday() {
   updateSyncBadge();
@@ -2176,6 +2287,8 @@ function renderToday() {
   h += '<div class="card">'
     + '<div class="card-head"><div class="bubble bg-blue" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="13" cy="5" r="2.2"/><path d="M8 21l2.5-5.5L8 13l1.5-4.5L14 10l3 2M9.5 8.5L6 10l-1 3M10.5 15.5L14 21"/></svg></div>'
     + '<div class="card-title" style="margin:0">记录</div></div>'
+    + '<div class="field" style="margin-bottom:12px"><button class="btn-primary" id="btnQuick" onclick="tfQuickSave()">' + quickBtnText() + '</button>'
+    + '<div class="sub" id="quickSub" style="margin-top:6px">' + quickSubText() + '</div></div>' // 批12a：一键主入口+副行明示将存什么
     + '<div class="field"><label>训练类型</label><div class="chips" id="typeChips">' + typeChips() + '</div></div>'
     + '<div id="trainFields"' + (CONFIG.trainTypes.indexOf(tf.type) < 0 ? ' hidden' : '') + '>'
     + '  <div class="field"><label>时长（分钟）<b style="color:var(--red)">*</b></label><input id="fDur" type="number" min="1" max="600" inputmode="numeric" placeholder="如 45"></div>'
@@ -2183,12 +2296,15 @@ function renderToday() {
     + '    <button class="ci-btn" style="min-height:28px;padding:2px 10px;margin-left:6px" onclick="showRpeModal()" aria-label="RPE锚定表">?</button>'
     + '    <span id="rpeVal" style="float:right;color:var(--accent);font-weight:600"></span></label>'
     + '    <input id="fRpe" type="range" min="1" max="10" step="1" value="5" oninput="rpeSlide(this.value)">'
-    + '    <div class="row-between" style="margin-top:2px"><span class="sub">1=极轻松</span><span class="sub">10=极限</span></div></div>'
+    + '    <div class="row-between" style="margin-top:2px"><span class="sub">1=极轻松</span><span class="sub">10=极限</span></div>'
+    + '    <div id="feelQuick"' + (tf.type === '力量' || tf.type === '长时活动' ? '' : ' hidden') + '><div class="sub" style="margin-top:6px">快速定强度：</div><div class="chips">'
+    + [['轻松', 6], ['刚好', 8], ['很累', 9]].map((f) => '<button class="chip" onclick="setRpeQuick(' + f[1] + ')">' + f[0] + '=' + f[1] + '</button>').join('')
+    + '</div></div></div>'
     + '  <div class="field"><label>平均心率（可选，Watch训练结束后抄写，可留空）</label><input id="fHr" type="number" min="60" max="220" inputmode="numeric" placeholder="如 128"></div>'
     + '</div>'
     + '<div class="field"><label>疼痛</label><div class="chips" id="painChips">' + painChips() + '</div>'
     + '<input id="fPainText" placeholder="部位描述" style="margin-top:8px"' + (tf.painOpt === '其他' ? '' : ' hidden') + '></div>'
-    + '<div class="field"><label>主观状态</label><div class="chips" id="moodChips">' + moodChips() + '</div></div>'
+    + '<div class="field"><label>主观状态（默认延续上次，可改）</label><div class="chips" id="moodChips">' + moodChips() + '</div></div>'
     + '<div class="field"><label>备注（可选）</label><textarea id="fNote" rows="2" maxlength="200" placeholder="可留空"></textarea></div>'
     + '<button class="btn-primary" id="btnSave" onclick="tfSave()">保存今日记录</button>'
     + '</div>';
@@ -2238,7 +2354,8 @@ function planHtml() {
     h += '<details class="fold"><summary>Zone2 有氧执行指南</summary><div class="fold-body sub">'
       + '心率上限 ' + CONFIG.zone2Cap + '（保守修正），宁可慢不可快' + (lastStepHrTip() ? '<br><b>' + lastStepHrTip() + '</b>' : '') + '<br>谈话测试：能完整说出一句不喘=在区间内<br>心率漂移：后半程心率上升&gt;10% 说明强度偏高，下次放慢<br>无聊是正常的：Zone2 的成效在 8-12 周后的复测里，不在今天的汗里<br>每次结束在 Watch 上看平均心率，抄进记录的 avgHr</div></details>';
   } else if (eff === '力量') {
-    h += '<div class="sub" style="margin-bottom:6px">勾选今日完成的动作（全部完成才能保存）：</div>';
+    h += '<div class="row-between" style="margin-bottom:6px"><span class="sub">勾选今日完成的动作（全部完成才能保存）：</span>'
+      + '<span style="flex-shrink:0"><button class="ci-btn" onclick="tfCheckAll(true)">全部完成，一键勾选</button> <button class="ci-btn" onclick="tfCheckAll(false)">清空</button></span></div>';
     h += CONFIG.actions.map((a, i) => {
       const reps = D.state.strengthReps[a.repsKey];
       return '<div class="check-item"><div class="ck' + (tf.checks[i] ? ' on' : '') + '" id="ck' + i + '" onclick="tfCheck(' + i + ')" role="checkbox" aria-checked="' + tf.checks[i] + '" aria-label="' + U.esc(a.name) + '">'
@@ -2272,6 +2389,8 @@ function planHtml() {
       h += '<div class="callout-warn" style="margin-top:12px">今日红灯：停训，仅可八段锦与足底放松，等灯转绿再练。</div>';
     } else {
       h += '<button class="btn-primary" style="margin-top:12px" onclick="startWorkout()">开始训练</button>';
+      h += '<div style="margin-top:10px"><button class="btn-primary" id="btnQuick2" onclick="tfQuickSave()">' + quickBtnText() + '</button>'
+        + '<div class="sub" id="quickSub2" style="margin-top:6px">' + quickSubText() + '</div></div>'; // 批12a：练完顺手存（第二入口，副行同源实时）
     }
   }
   return h;
@@ -2284,8 +2403,15 @@ function tfType(t) {
   if (chips) chips.innerHTML = typeChips();
   const f = document.getElementById('trainFields');
   if (f) f.hidden = CONFIG.trainTypes.indexOf(t) < 0;
+  const fq = document.getElementById('feelQuick');
+  if (fq) fq.hidden = (t !== '力量' && t !== '长时活动'); // 批12a：感受三键只对力量/长时有意义（有氧目标 RPE 3-5，值域不符）
   const pc = document.getElementById('planCard');
   if (pc) pc.innerHTML = planHtml();
+  // 批12a修复：切类型后默认值跟随重算（只填空/未被用户动过才填）——否则课表有氧日手切"力量"会挂着有氧默认 RPE 4，一键落进 K5 上调区
+  const dur = document.getElementById('fDur');
+  if (dur && (dur.value === '' || dur.value == null)) { const dv = durDefaultFor(t); if (dv != null) dur.value = dv; }
+  if (!tf.rpeTouched) { const rd = rpeDefaultFor(t); setRpeUI(rd.v); tf.rpeTag = rd.tag; }
+  updateQuickSub(); // 批12a：类型换了一键副行跟着换
 }
 function setCardio(c) {
   tf.cardioChoice = c;
@@ -2293,6 +2419,7 @@ function setCardio(c) {
   if (el) el.innerHTML = CONFIG.cardio.map((x) => '<button class="chip' + (tf.cardioChoice === x.name ? ' on' : '') + '" onclick="setCardio(\'' + x.name + '\')">' + x.name + '</button>').join('');
   const pc = document.getElementById('planCard');
   if (pc) pc.innerHTML = planHtml();
+  updateQuickSub(); // 批12a：有氧方式进副行
 }
 function setWeather(wx) { // 手动改天气：覆盖自动实况（manual 标记），当天有效
   tf.weather = wx;
@@ -2381,13 +2508,116 @@ function setRpeUI(v) {
   const rv = document.getElementById('rpeVal');
   if (rv) rv.textContent = 'RPE ' + v;
 }
-function rpeSlide(v) { setRpeUI(v); }
+function rpeSlide(v) { setRpeUI(v); tf.rpeTouched = true; tf.rpeTag = null; updateQuickSub(); } // 批12a：用户动过滑块=显式改值，模板不再覆盖
+
+/* ============ 批12a 记录10秒化（设计工单1）：默认值模板 + 一键保存 ============
+   一键=用户对「全部完成」的主动断言，与手动勾满数据等价（K5 红线裁决：按钮必须 tap、
+   副行逐字明示将存什么、部分完成永远有诚实出口）。默认值原则=只填空、不改用户已填。 */
+function rpeDefaultFor(type) { // RPE 默认三级来源：近7天均值≥3条 → 上次 → 类型建议值（引用 rpeGoal 既有口径：力量7-8/有氧3-5）
+  const t = U.todayStr();
+  const rs = D.daily.filter((r) => r.type === type && r.rpe != null && r.date < t && r.date >= U.addDays(t, -7)).map((r) => r.rpe);
+  if (rs.length >= 3) return { v: Math.round(rs.reduce((s, x) => s + x, 0) / rs.length), tag: '近7天均值' };
+  if (rs.length) return { v: rs[rs.length - 1], tag: '上次' };
+  return { v: (type === '力量' ? 8 : 4), tag: '建议值' };
+}
+function durDefaultFor(type) { // 时长默认：最近一条同类型记录（有氧优先同方式）；daily 按日期升序，取末条=最近
+  const cands = D.daily.filter((r) => r.type === type && r.durationMin != null && r.date < U.todayStr());
+  if (type === '有氧' && tf.cardioChoice) {
+    const same = cands.filter((r) => r.cardioChoice === tf.cardioChoice);
+    if (same.length) return same[same.length - 1].durationMin;
+  }
+  return cands.length ? cands[cands.length - 1].durationMin : null;
+}
+function applyTemplateToForm() { // 只填空：fDur 为空、RPE 未被用户动过才填
+  const dur = document.getElementById('fDur');
+  if (dur && (dur.value === '' || dur.value == null)) {
+    const dv = durDefaultFor(tf.type);
+    if (dv != null) dur.value = dv;
+  }
+  if (!tf.rpeTouched) {
+    const rd = rpeDefaultFor(tf.type);
+    setRpeUI(rd.v);
+    tf.rpeTag = rd.tag;
+  }
+  updateQuickSub();
+}
+function quickSubText() { // 一键副行：将写入的默认值逐字展示（按下去之前看得到要存什么）
+  if (CONFIG.trainTypes.indexOf(tf.type) < 0) return '不记负荷 · 足康复与八段锦按上方开关如实保存';
+  const dur = document.getElementById('fDur');
+  const hasDur = dur && dur.value !== '' && dur.value != null;
+  const parts = [tf.type];
+  if (tf.type === '有氧' && tf.cardioChoice) parts.push(tf.cardioChoice);
+  parts.push(hasDur ? dur.value + ' 分钟' : '时长需手填');
+  const rv = document.getElementById('fRpe');
+  parts.push('RPE ' + (rv && rv.value !== '' ? rv.value : '?') + (!tf.rpeTouched && tf.rpeTag ? '（' + tf.rpeTag + '）' : ''));
+  if (tf.type === '力量') parts.push(CONFIG.actions.length + ' 动作全勾');
+  return parts.join(' · ');
+}
+function quickBtnText() { // 已存过今天=更新，否则一键保存；休息/病假单独文案
+  if (CONFIG.trainTypes.indexOf(tf.type) < 0) return '记录休息日';
+  return M.dailyOn(U.todayStr()) ? '更新今日记录' : '练完了 · 按上次一键保存';
+}
+function updateQuickSub() { // 副行随预填实时刷新（记录卡顶 + 今日安排卡尾两处入口）
+  ['quickSub', 'quickSub2'].forEach((id) => { const el = document.getElementById(id); if (el) el.textContent = quickSubText(); });
+  ['btnQuick', 'btnQuick2'].forEach((id) => { const el = document.getElementById(id); if (el) el.textContent = quickBtnText(); });
+}
+function tfQuickSave() { // 一键入口：填默认值 + 走统一保存链 tfSave（渐进/灯色/同步/信号引擎全在）；永不自动保存
+  applyTemplateToForm();
+  if (tf.type === '力量') tf.checks = tf.checks.map(() => true); // 批12a修复：一键=用户对"全部完成"的主动断言（副行已明示），漏了这步力量日一键会撞拦截框
+  const dur = document.getElementById('fDur');
+  if (CONFIG.trainTypes.indexOf(tf.type) >= 0 && (!dur || dur.value === '' || dur.value == null)) {
+    if (dur) dur.focus();
+    toast('填个时长就能保存');
+    return;
+  }
+  tfSave();
+}
+function setRpeQuick(v) { // 感受三键：1 tap 定 RPE（轻松6/刚好8/很累9，与跟练流 WR_FEELS 同口径）
+  setRpeUI(v);
+  tf.rpeTouched = true;
+  tf.rpeTag = null;
+  updateQuickSub();
+}
+function tfCheckAll(on) { // 力量清单头「全部完成，一键勾选/清空」——勾完仍可逐个取消
+  tf.checks = tf.checks.map(() => on);
+  const pc = document.getElementById('planCard');
+  if (pc) pc.innerHTML = planHtml();
+  updateQuickSub();
+}
+function partialFailCount() { // 拦截框「回去补勾」路径的 K5 计数（与原"拦截即计数"语义等价：未完成尝试记一次；连续2次触发-10%）
+  D.state.strengthFails = (D.state.strengthFails || 0) + 1;
+  if (D.state.strengthFails >= 2) {
+    const ch2 = [];
+    CONFIG.actions.forEach((a) => {
+      const k = a.repsKey;
+      const from = D.state.strengthReps[k];
+      D.state.strengthReps[k] = Math.max(1, Math.round(from * 0.9));
+      ch2.push(a.name + ' ' + from + '→' + D.state.strengthReps[k] + a.unit);
+    });
+    D.state.progressionLog = (D.state.progressionLog || []).concat([{ ts: Date.now(), why: '连续2次力量日未完成全部动作（各动作-10%）', what: ch2.join('、') }]).slice(-12);
+    D.state.strengthFails = 0;
+    toast('连续2次未完成全部动作：各动作次数已-10%（K5渐进规则）');
+  }
+  D.state.updatedAt = Date.now();
+  persist();
+  renderToday();
+}
+function partialHonestSave() { // 拦截框「部分完成，照实记录」：恢复按钮+置跟练标志+走统一保存链（复用 fromWk 部分完成口径：照实入库+计数+不上调）
+  tf.fromWorkout = true;
+  const bb = document.getElementById('btnSave');
+  if (bb) { bb.disabled = false; bb.textContent = '保存今日记录'; }
+  closeModal();
+  tfSave();
+}
 
 function prefillToday() {
   const rec = M.dailyOn(U.todayStr());
   const met = M.metricOn(U.todayStr());
   const lf = D.state.lastForm || null; // P1-1：记住上次选择，减少重复操作
-  tf.type = rec ? rec.type : ((lf && lf.type) || '无');
+  // 批12a：类型预填改「课表优先」（修休息日预填成上次"力量"的缺陷）——当日已有记录 > 今日课表类型 > lastForm
+  const __dayTpl = effTemplate()[new Date().getDay()];
+  tf.type = rec ? rec.type : (CONFIG.typeList.indexOf(__dayTpl) >= 0 ? __dayTpl : ((lf && lf.type) || '无'));
+  tf.rpeTouched = false; tf.rpeTag = null; // 批12a：模板 RPE 来源标签，用户动过即失效
   tf.cardioChoice = rec ? (rec.cardioChoice || null) : ((lf && lf.cardioChoice) || null);
   // 勾选数组长度必须与动作库对齐：老记录可能短于当前动作数则补齐，多余则截断
   const ck = (rec && Array.isArray(rec.strengthChecks)) ? rec.strengthChecks.slice() : [];
@@ -2414,8 +2644,9 @@ function prefillToday() {
   const pc = document.getElementById('planCard');
   if (pc) pc.innerHTML = planHtml();
   const setv = (id, v) => { const el = document.getElementById(id); if (el) el.value = (v != null ? v : ''); };
-  setv('fDur', rec && rec.durationMin != null ? rec.durationMin : '');
-  setRpeUI((rec && rec.rpe != null) ? rec.rpe : 5);
+  setv('fDur', rec && rec.durationMin != null ? rec.durationMin : (durDefaultFor(tf.type) != null ? durDefaultFor(tf.type) : '')); // 批12a：时长默认=最近同类型（当日已有记录优先）
+  if (rec && rec.rpe != null) { setRpeUI(rec.rpe); tf.rpeTouched = true; tf.rpeTag = null; } // 当日已有记录=已确认值
+  else { const __rd = rpeDefaultFor(tf.type); setRpeUI(__rd.v); tf.rpeTag = __rd.tag; } // 批12a：RPE 默认三级来源（修默认 5 落进"≤7上调"污染 K5 的缺陷）
   setv('fHr', rec && rec.avgHr != null ? rec.avgHr : '');
   setv('fPainText', tf.painText);
   const pt = document.getElementById('fPainText');
@@ -2428,6 +2659,7 @@ function prefillToday() {
   setv('fSleep', met && met.sleepH != null ? met.sleepH : '');
   setv('fRhr', met && met.rhr != null ? met.rhr : '');
   setv('fHrv', met && met.hrv != null ? met.hrv : '');
+  updateQuickSub(); // 批12a：初渲染收尾——tf 状态此时才与表单一致，修正一键按钮/副行文案
 }
 
 /* 力量渐进计数器（K5）：≤7加 / 8持平 / ≥9减10%；B-3：每次调整写入渐进日志供用户查看 */
@@ -2484,27 +2716,13 @@ function tfSave() {
     const full = tf.checks.every(Boolean);
     strengthFull = full;
     if (!full && !fromWk) {
-      // K5：手动表单未勾全 → 阻止保存并计数（连续2次力量日未完成 → 各动作 -10%）
-      D.state.strengthFails = (D.state.strengthFails || 0) + 1;
-      if (D.state.strengthFails >= 2) {
-        const ch2 = [];
-        CONFIG.actions.forEach((a) => {
-          const k = a.repsKey;
-          const from = D.state.strengthReps[k];
-          D.state.strengthReps[k] = Math.max(1, Math.round(from * 0.9));
-          ch2.push(a.name + ' ' + from + '→' + D.state.strengthReps[k] + a.unit);
-        });
-        D.state.progressionLog = (D.state.progressionLog || []).concat([{ ts: Date.now(), why: '连续2次力量日未完成全部动作（各动作-10%）', what: ch2.join('、') }]).slice(-12);
-        D.state.strengthFails = 0;
-        D.state.updatedAt = Date.now();
-        persist();
-        renderToday();
-        fail('连续2次未完成全部动作：各动作次数已-10%（K5渐进规则）');
-        return;
-      }
-      D.state.updatedAt = Date.now();
-      persist(); // Codex 复核 P2-2 修复：与完整保存分支同口径走 persist（计 pendingSync），防渐进计数只存本地不进同步
-      fail('力量日需勾选全部 ' + CONFIG.actions.length + ' 个动作后再保存（连续2次未完成将自动-10%）');
+      // 批12a（工单1③裁决二）：拦截改三选——「回去补勾」按未完成计数（K5 同现状）；「部分完成，照实记录」=诚实出口
+      const nDone = tf.checks.filter(Boolean).length;
+      if (b) { b.disabled = false; b.textContent = '保存今日记录'; }
+      showModal('<div class="card-title" style="margin-bottom:10px">今日未全部完成</div>'
+        + '<div class="body-tx">勾选 ' + nDone + '/' + CONFIG.actions.length + ' 个动作。全部完成才计入上调；连续 2 次未完成全部动作，各动作次数 -10%（K5）。</div>'
+        + '<div class="m-actions"><button class="btn-ghost" onclick="closeModal();partialFailCount()">回去补勾</button>'
+        + '<button class="btn-primary" onclick="partialHonestSave()">部分完成，照实记录</button></div>');
       return;
     }
     if (!full && fromWk) { // N2：跟练部分完成 → 如实记录并计入 K5 渐进（不阻止保存，训练真实发生过）
@@ -3615,6 +3833,83 @@ function stageWeaknessHtml() {
     + row('坐位体前屈', it['坐位体前屈'] == null ? null : U.esc(it['坐位体前屈']), '以报告评级为准')
     + '</table><div class="sub" style="margin-top:6px">数据源：体测页外部检测最新一次' + (ext ? '（' + U.esc(ext.date) + '）' : '——还没录，去体测页补') + '；右脚取家庭体测最新一次。</div></div>';
 }
+function aiSettingsHtml() { // 设置页 AI 卡（供应商预设 30 秒可换不锁死；key 三对策=明示风险/可清除/建议独立注册）
+  const cfg = aiCfg();
+  const hasKey = !!aiKey();
+  const cur = AI_PROVIDERS.find((x) => x.id === cfg.provider);
+  return '<div class="card"><div class="card-title" style="margin-bottom:8px">AI 问答（可选）</div>'
+    + '<div class="sub" style="margin-bottom:8px">不配置也能用：问教练自带 8 个预埋问答，断网自动切换。配置后可自由提问。</div>'
+    + '<div class="field"><label>供应商预设</label><div class="chips">'
+    + AI_PROVIDERS.map((p) => '<button class="chip' + (cfg.provider === p.id ? ' on' : '') + '" onclick="aiSetProvider(\'' + p.id + '\')">' + U.esc(p.name) + '</button>').join('')
+    + '<button class="chip' + (cfg.provider === 'custom' ? ' on' : '') + '" onclick="aiSetCustom()">自定义（OpenAI 兼容）</button></div></div>'
+    + '<div class="field"><label>接口地址（chat/completions 完整 URL）</label><input id="aiUrl" value="' + U.esc(cfg.url || '') + '"' + (cur ? ' readonly' : '') + '></div>'
+    + '<div class="field"><label>模型名（以你控制台的模型列表为准）</label><input id="aiModel" value="' + U.esc(cfg.model || '') + '" placeholder="如 glm-4-flash"></div>'
+    + '<div class="field"><label>API Key</label><input id="aiKeyInput" type="password" placeholder="' + (hasKey ? '已配置（输入新值可更换）' : '粘贴供应商控制台生成的 Key') + '"></div>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">'
+    + '<button class="ci-btn" onclick="aiSaveKey()">保存 Key</button>'
+    + '<button class="ci-btn" onclick="aiTestKey()">测试连接</button>'
+    + (hasKey ? '<button class="ci-btn" onclick="aiClearKey()">清除 Key</button>' : '')
+    + '</div>'
+    + '<details class="fold"><summary>这把 Key 存在哪？每次会发送哪些数据？</summary><div class="fold-body sub">'
+    + 'Key 只存在这台手机的浏览器里（localStorage），不会同步到 GitHub 数据仓；建议到供应商官网单独注册一把新 Key，不要复用其他密码，不用时可随时在供应商控制台吊销。<br>'
+    + '每次提问发送：今日课表、今日状态判定、足康复阶段、近 7 天训练摘要（类型/时长/强度/疼痛选项/主观状态）、身高体重年龄。<b>默认不发送</b>睡眠/静息心率/HRV（下方开关可开）；<b>永不发送</b>生日、城市、备注原文、任何密码。</div></details>'
+    + '<div class="row-between" style="margin-top:8px"><label class="body-tx" style="font-weight:500">发送更多身体上下文（睡眠/静息心率/HRV）</label>'
+    + '<label class="switch"><input type="checkbox"' + (cfg.moreBody ? ' checked' : '') + ' onchange="aiToggleBody(this.checked)"><span class="sl"></span></label></div>'
+    + '</div>';
+}
+function aiSetProvider(id) { // 预设切换：url+model 一键填好
+  const p = AI_PROVIDERS.find((x) => x.id === id);
+  if (!p) return;
+  D.state.aiCfg = { provider: p.id, url: p.url, model: p.model, moreBody: (aiCfg().moreBody || false) };
+  D.state.updatedAt = Date.now();
+  persist();
+  renderProfile();
+}
+function aiSetCustom() { // 自定义供应商：读当前输入框值保存（url 解除只读可改）
+  const u = ((document.getElementById('aiUrl') || {}).value || '').trim();
+  const m = ((document.getElementById('aiModel') || {}).value || '').trim();
+  D.state.aiCfg = { provider: 'custom', url: u, model: m, moreBody: (aiCfg().moreBody || false) };
+  D.state.updatedAt = Date.now();
+  persist();
+  renderProfile();
+  toast('已保存自定义接口配置');
+}
+function aiSaveKey() {
+  const el = document.getElementById('aiKeyInput');
+  const v = el ? el.value.trim() : '';
+  if (!v) { toast('先粘贴 Key'); return; }
+  try { localStorage.setItem('tineng_aikey', v); } catch (e) { toast('本机存储不可用'); return; }
+  toast('Key 已保存（仅本机，不同步）');
+  renderProfile();
+}
+function aiClearKey() {
+  try { localStorage.removeItem('tineng_aikey'); } catch (e) {}
+  toast('已清除 Key');
+  renderProfile();
+}
+function aiToggleBody(on) {
+  D.state.aiCfg = aiCfg();
+  D.state.aiCfg.moreBody = on;
+  D.state.updatedAt = Date.now();
+  persist();
+}
+function aiTestKey() { // 最小请求验证 url+key+model 三件套
+  const k = aiKey();
+  if (!k) { toast('先保存 Key 再测试'); return; }
+  toast('测试中…');
+  fetch(aiCfg().url, {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + k, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: aiCfg().model, messages: [{ role: 'user', content: '回复"通"一个字' }], max_tokens: 8 })
+  }).then((r) => {
+    if (r.status === 401 || r.status === 403) { toast('Key 无效或过期'); return null; }
+    if (!r.ok) { toast('接口异常（' + r.status + '），检查地址与模型名'); return null; }
+    return r.json();
+  }).then((j) => {
+    if (j && j.choices && j.choices[0]) toast('连接成功，可以开问');
+    else if (j) toast('接口返回异常，检查模型名');
+  }).catch(() => toast('连不上（网络或地址问题）'));
+}
 function renderProfile() {
   updateSyncBadge();
   const p = D.profile;
@@ -3643,6 +3938,7 @@ function renderProfile() {
     + '<div class="field"><label>HRV 基线（毫秒）</label><input id="pHrv" type="number" inputmode="numeric" value="' + (p.hrvBaseline != null ? p.hrvBaseline : 50) + '"></div>'
     + '<div class="field"><label>睡眠基线（小时）</label><input id="pSleep" type="number" step="0.1" inputmode="decimal" value="' + (p.sleepBaseline != null ? p.sleepBaseline : 5.4) + '"></div>'
     + '<button class="btn-primary" onclick="saveProfileEdit()">保存档案修改</button></div>';
+  h += aiSettingsHtml(); // 批12a：AI 问答设置（可选，key 只存本机 localStorage 不进同步数据）
   // 当前阶段
   h += '<div class="card"><div class="card-title" style="margin-bottom:8px">当前阶段</div>'
     + '<div class="big-num" style="font-size:28px">阶段 ' + s.phase + '</div>'
