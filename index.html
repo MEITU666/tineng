@@ -593,6 +593,13 @@ const CONFIG = {
   mapPlank: [[120,5],[90,4],[60,3],[30,2],[0,1]],
   mapStand: [[45,5],[30,4],[20,3],[10,2],[0,1]],
   mapStep:  [[45,5],[35,4],[25,3],[15,2],[0,1]],
+  /* 城市坐标（批10 实况天气用；Open-Meteo 免费无 key） */
+  CITY_COORDS: {
+    '武汉': [30.59, 114.30], '北京': [39.90, 116.41], '上海': [31.23, 121.47], '广州': [23.13, 113.26],
+    '成都': [30.57, 104.07], '西安': [34.34, 108.94], '昆明': [25.04, 102.71], '拉萨': [29.65, 91.14],
+    '西宁': [36.62, 101.78], '乌鲁木齐': [43.83, 87.62]
+  },
+
   recovery: { L5:{over:0,sleepPct:85}, L4:{over:0,sleepPct:70}, L3:{over:1,sleepPct:70}, L2:{sleepPct:40} }
 };
 
@@ -657,7 +664,7 @@ function defaultData() {
       gender: '男', height: 176, weight0: 60,
       weeklyDays: 6, stairs: true, gear: '背包、登山杖（无重装背包）',
       injury: CONFIG.copy.injuryPreset, targetWindow: null, createdAt: null,
-      rhrBaseline: 60, hrvBaseline: 50, sleepBaseline: 5.4, sleepAnchor: '23:30',
+      rhrBaseline: 60, hrvBaseline: 50, sleepBaseline: 5.4, sleepAnchor: '23:30', city: '武汉',
       updatedAt: 0
     },
     daily: [], metrics: [], weekly: [], tests: [], external: [],
@@ -666,7 +673,7 @@ function defaultData() {
       lastSyncAt: 0, pendingSync: false, strengthFails: 0, theme: 'auto', lastForm: null,
       strengthReps: { '深蹲': 12, '俯卧撑': 8, '下斜俯卧撑': 10, '平板': 30, '侧桥': 20, '箭步蹲': 8, '臀桥': 15, '俯卧YW': 8, '俯卧超人': 10 },
       backfillDone: false, profileDone: false, downgradedAt: null, progressionLog: [], scheduleText: null,
-      preTrip: null, tour7: null, weekRev: null, // 最终版增量（可选键）：行前判定缓存/新手7天引导/周复盘去重——normalize/merge 补默认
+      preTrip: null, tour7: null, weekRev: null, weather: null, // 最终版增量（可选键）：行前判定缓存/新手7天引导/周复盘去重/今晨实况天气——normalize/merge 补默认
       updatedAt: 0
     }
   };
@@ -792,7 +799,7 @@ function mergeData(local, remote) {
   out.state.strengthReps = out.state.strengthReps || {};
   CONFIG.actions.forEach((a) => { if (out.state.strengthReps[a.repsKey] == null) out.state.strengthReps[a.repsKey] = 10; }); // Codex 复核 P1-1 修复：合并后补缺键，防 undefined/NaN 污染
   // 最终版增量键缺键防线（与 4f52b7f 同套路）：老远端备份无这些键时补默认
-  ['preTrip', 'tour7', 'weekRev'].forEach((k) => { if (out.state[k] === undefined) out.state[k] = null; });
+  ['preTrip', 'tour7', 'weekRev', 'weather'].forEach((k) => { if (out.state[k] === undefined) out.state[k] = null; });
   out.daily = mergeByKey(local.daily, remote.daily, 'date');
   out.metrics = mergeByKey(local.metrics, remote.metrics, 'date');
   out.tests = mergeByKey(local.tests, remote.tests, 'date');
@@ -1018,6 +1025,7 @@ function askRestore(remote) {
 function afterEnter() {
   updateSyncBadge();
   renderToday();
+  fetchWeather(); // 批10：进产品即拉今晨实况（异步不阻塞，断网静默）
   if (readOnly) return;
   if (!D.state.profileDone) { openGuide(); return; }
   if (!D.state.backfillDone) openBackfill();
@@ -2208,16 +2216,18 @@ function moodChips() {
 }
 
 /* 今日安排卡：按周模板（CONFIG可改），力量/有氧展开对应知识 */
+function curWx() { const w = D.state.weather; return (w && w.date === U.todayStr() && w.wx) ? w.wx : (tf.weather || ''); }
+function weatherLabel() { const w = D.state.weather; return (w && w.date === U.todayStr()) ? '今晨实况：' + U.esc(D.profile.city || '武汉') + ' ' + U.esc(w.desc || '') + ' → 按「' + U.esc(w.wx) + '」安排（可手改）' : '今天天气（联网后自动获取，或点选）'; }
 function planHtml() {
   const dayIdx = new Date().getDay();
   const dayType = effTemplate()[dayIdx];
   const eff = CONFIG.trainTypes.indexOf(tf.type) >= 0 ? tf.type : dayType;
   let h = '<div class="card-head"><div class="bubble bg-blue" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="3"/><path d="M8 3v4M16 3v4M4 10h16"/></svg></div>'
     + '<div style="flex:1"><div class="card-title" style="margin:0">今日安排 · ' + dayType + '</div><div class="sub">按周模板自动生成</div></div></div>'
-    + '<div class="field" style="margin-top:8px"><label>今天天气（选了自动给替代方案，K4 口径）</label><div class="chips">'
-    + ['好天', '雨雪', '闷热', '大风降温'].map((x) => '<button class="chip' + (tf.weather === x ? ' on' : '') + '" onclick="setWeather(\'' + x + '\')">' + x + '</button>').join('') + '</div></div>';
+    + '<div class="field" style="margin-top:8px"><label>' + weatherLabel() + '</label><div class="chips">'
+    + ['好天', '雨雪', '闷热', '大风降温'].map((x) => '<button class="chip' + (curWx() === x ? ' on' : '') + '" onclick="setWeather(\'' + x + '\')">' + x + '</button>').join('') + '</div></div>';
   if (eff === '有氧') {
-    if (tf.weather && tf.weather !== '好天') h += '<div class="callout-warn" style="margin-bottom:8px">' + U.esc(CONFIG.weatherAlt) + '</div>'; // 批9：天气联动替代方案（K4）
+    if (curWx() && curWx() !== '好天') h += '<div class="callout-warn" style="margin-bottom:8px">' + U.esc(CONFIG.weatherAlt) + '</div>'; // 天气联动替代方案（K4）——实况自动或手选
     h += '<div class="field"><label>有氧方式（3选1）</label><div class="chips" id="cardioChips">'
       + CONFIG.cardio.map((c) => '<button class="chip' + (tf.cardioChoice === c.name ? ' on' : '') + '" onclick="setCardio(\'' + c.name + '\')">' + c.name + '</button>').join('')
       + '</div></div>';
@@ -2249,7 +2259,7 @@ function planHtml() {
         + '</div></details>';
     }
   } else if (eff === '长时活动') {
-    if (tf.weather && tf.weather !== '好天') h += '<div class="callout-warn" style="margin-bottom:8px">' + U.esc(CONFIG.weatherAlt) + '</div>';
+    if (curWx() && curWx() !== '好天') h += '<div class="callout-warn" style="margin-bottom:8px">' + U.esc(CONFIG.weatherAlt) + '</div>';
     h += '<div class="body-tx" style="line-height:1.9">' + U.esc(CONFIG.longCopy) + '</div>';
   } else {
     h += '<div class="body-tx">今日休息：可做八段锦与足底康复，计入连续性、不计入负荷。</div>';
@@ -2284,10 +2294,36 @@ function setCardio(c) {
   const pc = document.getElementById('planCard');
   if (pc) pc.innerHTML = planHtml();
 }
-function setWeather(wx) { // 批9：天气选择（当天表单态，不落库——天气是当日临时信息）
+function setWeather(wx) { // 手动改天气：覆盖自动实况（manual 标记），当天有效
   tf.weather = wx;
+  D.state.weather = { date: U.todayStr(), wx: wx, desc: '手动选择', manual: true, t: Date.now() };
+  D.state.updatedAt = Date.now();
+  persist();
   const pc = document.getElementById('planCard');
   if (pc) pc.innerHTML = planHtml();
+}
+function wxFromCode(code, appMax, windKmh) { // WMO weather code → 产品天气档（wind 单位 km/h——open-meteo 实测确认，阈值 39≈6 级风）
+  code = code == null ? 0 : code;
+  if ([51,53,55,56,57,61,63,65,66,67,71,73,75,77,80,81,82,85,86,95,96,99].indexOf(code) >= 0) return ['雨雪', code >= 95 ? '雷雨' : (code >= 71 ? '雪' : '降水')];
+  if (windKmh != null && windKmh >= 39) return ['大风降温', '风速' + Math.round(windKmh) + 'km/h'];
+  if (appMax != null && appMax >= 33) return ['闷热', '体感' + Math.round(appMax) + '°C'];
+  return ['好天', code === 0 ? '晴' : (code <= 3 ? '多云' : '雾/霾')];
+}
+async function fetchWeather() { // 批10：接入 Open-Meteo 实况（免费无 key，已真机验证武汉返回）——有网自动、断网静默回退手动点选
+  if (readOnly || !navigator.onLine) return;
+  const c = CONFIG.CITY_COORDS[D.profile.city] || CONFIG.CITY_COORDS['武汉'];
+  try {
+    const r = await fetch('https://api.open-meteo.com/v1/forecast?latitude=' + c[0] + '&longitude=' + c[1] + '&daily=weather_code,apparent_temperature_max,wind_speed_10m_max&timezone=auto&forecast_days=1', { cache: 'no-store' });
+    if (!r.ok) return;
+    const j = await r.json();
+    const d = j.daily || {};
+    const wx = wxFromCode((d.weather_code || [])[0], (d.apparent_temperature_max || [])[0], (d.wind_speed_10m_max || [])[0]);
+    if (D.state.weather && D.state.weather.date === U.todayStr() && D.state.weather.manual) return; // 手改过的当天不覆盖
+    D.state.weather = { date: U.todayStr(), wx: wx[0], desc: wx[1] + '·' + Math.round((d.apparent_temperature_max || [])[0]) + '°C', t: Date.now() };
+    D.state.updatedAt = Date.now();
+    persist();
+    renderToday();
+  } catch (e) { /* 断网/超时：静默，手动点选兜底 */ }
 }
 function tfCheck(i) {
   tf.checks[i] = !tf.checks[i];

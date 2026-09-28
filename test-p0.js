@@ -909,6 +909,37 @@ check('⑲ 保存不覆盖晨检（走查抓到的数据丢失 bug）：先晨�
   return 'chk/trip 合并保留 ✓';
 });
 
+/* ---------- ⑳ 实况天气（批10）：Open-Meteo 接入（免费无 key，武汉真机已验证） ---------- */
+check('⑳ 天气映射：2026-09-28 武汉真实返回(code=80/体感32.3/风速14.6km/h)→雨雪；全档位映射', () => {
+  if (loadErr) throw loadErr;
+  const real = w.eval('wxFromCode(80, 32.3, 14.6)');
+  if (real[0] !== '雨雪') throw new Error('真实值映射错：' + real);
+  const cases = [[0, 25, 10, '好天'], [95, 25, 10, '雨雪'], [73, 25, 10, '雨雪'], [0, 35, 20, '闷热'], [3, 20, 45, '大风降温']];
+  for (const [c, a, wd, want] of cases) {
+    const r = w.eval(`wxFromCode(${c},${a},${wd})`);
+    if (r[0] !== want) throw new Error(`wxFromCode(${c},${a},${wd})=${r[0]}，应 ${want}`);
+  }
+  return '真实值+5 档映射 ✓（风速单位 km/h 已实测确认）';
+});
+check('⑳ 天气键防线：state.weather 缺键 normalize/merge 补 null；城市表含武汉', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = normalizeData(window.__bkBackup)');
+  if (w.eval('D.state.weather') !== null) throw new Error('normalize 未补 weather');
+  const m = w.eval('JSON.stringify((function(){ const l = normalizeData(window.__bkBackup); const r = JSON.parse(JSON.stringify(l)); delete r.state.weather; return mergeData(l, r).state; })())');
+  if (m.indexOf('"weather":null') < 0) throw new Error('merge 未补 weather');
+  if (!w.eval('CONFIG.CITY_COORDS["武汉"]')) throw new Error('缺武汉坐标');
+  return '防线+城市表 ✓';
+});
+check('⑳ 今日安排实况展示：state.weather 当日 → 标签显示实况+自动选中+雨雪出替代方案', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); D.state.weather = { date: U.todayStr(), wx: "雨雪", desc: "降水·28°C" }; tf.type = "有氧"; tf.cardioChoice = "快走"');
+  const h = w.eval('planHtml()');
+  if (h.indexOf('今晨实况：武汉') < 0 || h.indexOf('降水·28°C') < 0) throw new Error('实况标签缺失');
+  if (h.indexOf('室内原地快走') < 0) throw new Error('雨雪替代方案未触发');
+  if (!/class="chip on" onclick="setWeather\('雨雪'\)"/.test(h)) throw new Error('雨雪未自动选中');
+  return '实况→安排全链 ✓';
+});
+
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);
 console.log('================ P0 jsdom 断言报告（node ' + process.version + ' · jsdom ' + require('jsdom/package.json').version + '） ================');
