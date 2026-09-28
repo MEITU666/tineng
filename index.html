@@ -948,11 +948,12 @@ async function tryUnlock() {
 }
 function enterOffline() {
   if (!D) D = defaultData(); // 兜底
-  readOnly = true;
+  // 批9走查修复（重大）：离线模式放开本地写入——山上断网必须能晨检能记录（验收五条第5条）。
+  // 本地 IndexedDB 写入不依赖网络；未同步数据带 updatedAt，联网解锁后 mergeData 自动合并，不会覆盖云端。
   document.getElementById('gate').hidden = true;
   document.getElementById('app').hidden = false;
   nav('pgToday');
-  toast('离线只读模式：数据来自本机缓存，可能不是最新');
+  toast('离线模式：可以正常晨检和记录，改动先存本机，联网解锁后自动同步');
 }
 function localEmpty() { return ['daily', 'metrics', 'weekly', 'tests', 'external'].every((k) => !D[k].length); }
 function recCount(o) { return ['daily', 'metrics', 'weekly', 'tests', 'external'].reduce((s, k) => s + ((o[k] && o[k].length) || 0), 0); }
@@ -1633,7 +1634,7 @@ function chkBarHtml() { // 晨检条：日常一行，点开 60 秒点选完成�
   const c = todayChk();
   let head;
   if (!c) head = '<div class="sub" style="margin-top:8px"><b>今天哪疼、什么感觉？</b>点开选一下，我告诉你今天能不能练。</div>';
-  else if (c.out === 'ok') head = '<div class="sub" style="margin-top:8px;color:var(--green)">✓ 晨检已做：身体正常，按计划练。</div>';
+  else if (c.out === 'ok') head = '<div class="sub" style="margin-top:8px;color:var(--green)">✓ 晨检已做：' + (c.why ? U.esc(c.why) : '身体正常，按计划练') + '。</div>';
   else if (c.out === 'watch') head = '<div class="sub" style="margin-top:8px;color:var(--orange)">⚠ 晨检：' + U.esc(c.why) + '——今日已自动降档，改法见上。</div>';
   else head = '<div class="sub" style="color:var(--red);font-weight:600;margin-top:8px">🚩 晨检：' + U.esc(c.why) + '——今日停训，恢复课已自动替换，就医线见停训卡。</div>';
   return '<div class="field" style="margin-top:10px"><label>康复师晨检</label>' + head
@@ -2504,6 +2505,7 @@ function tfSave() {
   D.state.updatedAt = Date.now();
   const old = M.dailyOn(rec.date);
   if (old && old.painProcessed) rec.painProcessed = true; // 防重复降级
+  ['chk', 'trip'].forEach((k) => { if (old && old[k]) rec[k] = old[k]; }); // 批9走查修复：保存记录不得覆盖晨检/行后复盘（可选字段原位合并）
   recStamp(rec);
   upsertByDate(D.daily, rec);
   // 被动指标
@@ -2553,7 +2555,7 @@ function tfSave() {
     nb.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>已保存';
     setTimeout(() => { nb.classList.remove('saved'); nb.disabled = false; nb.textContent = '保存今日记录'; }, 1000);
   }
-  if (!navigator.onLine) toast('离线模式，待同步');
+  if (!navigator.onLine) toast('离线模式，已存本机待同步');
   else if (warn) toast('已保存' + warn);
   else toast('已保存');
 }

@@ -885,6 +885,30 @@ check('⑲ 备注信号引擎：抽筋/疲劳/心率词命中给反馈，红线�
   return '备注信号 ✓（规则引擎，不装语义全懂）';
 });
 
+check('⑲ 离线模式可写（走查发现的重大缺陷修复）：enterOffline 不再锁只读，晨检/记录本地可存待同步', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); enterOffline()');
+  if (w.eval('readOnly') !== false) throw new Error('离线模式仍锁只读——山上无法记录');
+  w.eval('chkSel = { parts: ["肩"], kinds: ["酸胀"], relief: "ease" }; chkSubmit()');
+  const c = w.eval('JSON.stringify((M.dailyOn(U.todayStr())||{}).chk||null)');
+  if (JSON.parse(c).out !== 'ok') throw new Error('离线晨检未写入：' + c);
+  const src = w.eval('String(enterOffline)');
+  if (src.indexOf('readOnly = true') >= 0) throw new Error('enterOffline 仍在设只读');
+  return '离线可写 ✓（本地存+联网后 merge 合并）';
+});
+
+check('⑲ 保存不覆盖晨检（走查抓到的数据丢失 bug）：先晨检再保存训练记录，chk 保留', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); chkSel = { parts: ["肩"], kinds: ["酸胀"], relief: "ease" }; chkSubmit()');
+  w.eval('tf.type = "有氧"; tf.cardioChoice = "单车"; tf.mood = "好"; tf.fromWorkout = false; var __sv = tfSave');
+  w.eval('(function(){ document.getElementById("fDur").value = "30"; document.getElementById("fRpe").value = "5"; tfSave(); })()');
+  const rec = w.eval('JSON.stringify(M.dailyOn(U.todayStr()) || {})');
+  const o = JSON.parse(rec);
+  if (o.durationMin !== 30) throw new Error('记录未保存：' + rec.slice(0, 120));
+  if (!o.chk || o.chk.out !== 'ok') throw new Error('晨检被保存覆盖丢失！');
+  return 'chk/trip 合并保留 ✓';
+});
+
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);
 console.log('================ P0 jsdom 断言报告（node ' + process.version + ' · jsdom ' + require('jsdom/package.json').version + '） ================');
