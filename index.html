@@ -3014,7 +3014,7 @@ function renderAbility() {
     h += '<div class="body-tx">' + nr + (left < 0 ? '（已过期 ' + (-left) + ' 天）' : '（还有 ' + left + ' 天）') + '</div>';
   }
   h += '</div>';
-  box.innerHTML = banner + h;
+  box.innerHTML = banner + h + rehabWorkbenchHtml(); // 批11：踝门三线+禁区进度接入能力页（与今日页同源同口径）
 }
 function showAnchor(key) {
   const a = ANCHORS[key];
@@ -3156,6 +3156,9 @@ function renderGoal() {
     h += '</div>';
   });
   h += '</div></details></div>';
+  h += '<div class="card"><div class="card-head"><div class="bubble bg-orange" aria-hidden="true"><svg viewBox="0 0 24 24"><ellipse cx="10" cy="14" rx="4" ry="6"/><circle cx="16.5" cy="7.5" r="1.4"/><circle cx="18.5" cy="11" r="1.4"/><circle cx="18.5" cy="15" r="1.4"/></svg></div>'
+    + '<div style="flex:1"><div class="card-title" style="margin:0">体重账 · 吃有没有效果的秤</div></div></div>' + weightLedgerLine() + '</div>'; // 批11：体重账接入目标页
+  h += rehabWorkbenchHtml(); // 批11：康复进度/12周复测点接入目标页（与今日页同源同口径）
   box.innerHTML = h;
   runAnims(box);
 }

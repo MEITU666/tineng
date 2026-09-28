@@ -940,6 +940,35 @@ check('⑳ 今日安排实况展示：state.weather 当日 → 标签显示实�
   return '实况→安排全链 ✓';
 });
 
+/* ---------- ㉑ 目标页/能力页接入（批11还欠账）+全页面复核 ---------- */
+check('㉑ 目标页：体重账+康复进度（三线/复测点）已接入，与今日页同源', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = normalizeData(window.__bkBackup); upsertByDate(D.tests, recStamp({ date: "2026-09-27", standR: 30 })); upsertByKey(D.weekly, recStamp({ weekStart: "2026-09-28", weightKg: 60.2 }), "weekStart"); renderGoal()');
+  const h = w.eval('document.getElementById("goalBody").innerHTML');
+  for (const k of ['体重账', '康复师工作台', '还差 17s', '下次周日复测']) if (h.indexOf(k) < 0) throw new Error('缺「' + k + '」');
+  return '目标页接入 ✓';
+});
+check('㉑ 能力页：踝门三线进度+禁区解锁已接入', () => {
+  if (loadErr) throw loadErr;
+  w.eval('renderAbility()');
+  const h = w.eval('document.getElementById("abilityBody").innerHTML');
+  for (const k of ['康复师工作台', '47', '57', '越野跑 R1']) if (h.indexOf(k) < 0) throw new Error('缺「' + k + '」');
+  return '能力页接入 ✓';
+});
+check('㉑ 全页面复核：七页渲染无 throw、今日页天气行在（空态文案）', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = normalizeData(window.__bkBackup)');
+  const pages = [['pgToday', 'renderToday', 'todayBody'], ['pgTrend', 'renderTrend', 'trendBody'], ['pgAbility', 'renderAbility', 'abilityBody'], ['pgGoal', 'renderGoal', 'goalBody'], ['pgGuide', 'renderGuideTab', 'guideTabBody'], ['pgProfile', 'renderProfile', 'profileBody'], ['pgTest', 'renderTest', 'testBody']];
+  for (const [pg, fn, body] of pages) {
+    w.eval(fn + '()');
+    const len = w.eval(`document.getElementById('${body}').innerHTML.length`);
+    if (len < 300) throw new Error(pg + ' 渲染过短 ' + len);
+  }
+  w.eval('renderToday()');
+  if (w.eval('document.getElementById("todayBody").innerHTML').indexOf('今天天气') < 0) throw new Error('天气行缺失');
+  return '七页+天气行 ✓';
+});
+
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);
 console.log('================ P0 jsdom 断言报告（node ' + process.version + ' · jsdom ' + require('jsdom/package.json').version + '） ================');
