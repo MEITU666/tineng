@@ -598,7 +598,7 @@ check('⑮ 线路库：12 条预埋在位（6 已核+6 待核），鳌太带 ris
   if (names !== 'gangrenboqi,lianbaoyeze,jiesigou,wugongshan,nantaihang,aotai,tengger,nanjiluo,yading,meili,genie,bogeda') throw new Error(names);
   if (w.eval('TRIP_ROUTES.find(r=>r.id==="aotai").riskLine') !== true) throw new Error('鳌太缺 riskLine');
   const unvetted = w.eval('TRIP_ROUTES.filter(r=>r.grade==="待核").length');
-  if (unvetted !== 6) throw new Error('待核线数=' + unvetted);
+  if (unvetted !== 7) throw new Error('待核线数=' + unvetted + '（南太行+6 条新靶场线）');
   if (String(w.eval('TRIP_ROUTES.find(r=>r.id==="nantaihang").src')).indexOf('待核') < 0) throw new Error('南太行未标待核');
   return '12 线路（6 已核+6 待核全标注）✓';
 });
