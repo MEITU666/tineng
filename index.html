@@ -1608,17 +1608,25 @@ function stFeel(f) { // 主观点选：写当日标记并重判
    - 禁区解锁条件 = K21 晋升技能包 + K23 两把闸门 + footStages 晋级门槛，逐字不改 */
 const CHK_KINDS = ['酸胀', '刺痛', '跳着疼', '晨僵', '夜间痛', '肿胀', '无法承重'];
 const CHK_RED = ['夜间痛', '肿胀', '无法承重']; // 晨检性质里可点到的红线词（压痛/畸形/绞锁仍由疼痛文本筛查兜底）
-const CHK_PARTS = ['无', '右足底', '右踝', '膝', '腰']; // 与 CONFIG.painOptions 同表（晨检只点选，自填走记录卡）
+const CHK_PARTS = ['无', '右足底', '右踝', '膝', '腰', '肩', '上背', '臀/髋', '大腿', '小腿']; // 全身部位（批9实测反馈：练狠了 DOMS 不只足踝膝腰）
+const CHK_GUARD = ['右足底', '右踝', '膝', '腰']; // 伤病守门区：不走 DOMS 绿灯通路（K7 灯色规则区）
 function todayChk() { // 今日晨检记录（daily[n].chk 可选字段，架构冻结下合法增量；缺=未做）
   const d = M.dailyOn(U.todayStr());
   return (d && d.chk && d.chk.out) ? d.chk : null;
 }
-function chkEval(parts, kinds) { // 晨检判定：绿 ok / 黄 watch / 红 stop——只组合既有规则
+function chkEval(parts, kinds, relief) { // 晨检判定：绿 ok / 黄 watch / 红 stop。relief='ease'活动后缓解|'worse'更痛|''未答
   const red = (kinds || []).filter((k) => CHK_RED.indexOf(k) >= 0);
   if (red.length) return { out: 'stop', why: '红线信号：' + red.join('、') };
   const real = (parts || []).filter((p) => p && p !== '无');
   if (real.indexOf('膝') >= 0 || real.indexOf('腰') >= 0) return { out: 'stop', why: '膝/腰疼痛（K7：停训）' };
-  if (real.length) return { out: 'watch', why: real.join('、') + '疼痛' + ((kinds || []).length ? '（' + kinds.join('、') + '）' : '') };
+  if (real.length) {
+    const inGuard = real.some((p) => CHK_GUARD.indexOf(p) >= 0);
+    if (relief === 'ease' && !inGuard && (!kinds || (kinds.length === 1 && kinds[0] === '酸胀'))) {
+      return { out: 'ok', why: real.join('、') + '酸胀、活动后缓解——DOMS 特征（K24：24-72h 到顶），正常练，热身拉长一点' };
+    }
+    const worse = relief === 'worse' ? '、活动后更痛——今天降档练，明天不缓解就就医评估' : '';
+    return { out: 'watch', why: real.join('、') + '疼痛' + ((kinds || []).length ? '（' + kinds.join('、') + '）' : '') + worse };
+  }
   return { out: 'ok', why: '' };
 }
 function chkBarHtml() { // 晨检条：日常一行，点开 60 秒点选完成；绿=10 秒收起
@@ -1634,11 +1642,13 @@ function chkBarHtml() { // 晨检条：日常一行，点开 60 秒点选完成�
     + '<div class="chips">' + CHK_PARTS.map((p) => '<button class="chip" onclick="chkPickParts(\'' + p + '\',this)">' + p + '</button>').join('') + '</div>'
     + '<div class="sub" style="margin:6px 0 4px">第 2 步：什么感觉？（可多选）</div>'
     + '<div class="chips">' + CHK_KINDS.map((k) => '<button class="chip" onclick="chkPickKinds(\'' + k + '\',this)">' + k + '</button>').join('') + '</div>'
+    + '<div class="sub" style="margin:6px 0 4px">第 3 步：动一动这些地方，会缓解还是更痛？（区分"练狠了的酸"和"伤"）</div>'
+    + '<div class="chips">' + [['ease', '活动后缓解'], ['worse', '活动后更痛'], ['', '没试']].map((x) => '<button class="chip' + (chkSel.relief === x[0] && x[0] ? ' on' : '') + '" onclick="chkPickRelief(\'' + x[0] + '\',this)">' + x[1] + '</button>').join('') + '</div>'
     + '<button class="btn-primary" style="margin-top:10px" onclick="chkSubmit()">出判定</button>'
     + '<div class="sub" style="margin-top:6px">判据：红线词（夜间痛/肿胀/无法承重）→停训就医；膝/腰→停训；足/踝→降档。只按既有规则给提示，不做诊断。</div>'
     + '</div></details></div>';
 }
-let chkSel = { parts: [], kinds: [] };
+let chkSel = { parts: [], kinds: [], relief: '' };
 function chkChipToggle(arr, v, el) { // 部位单选（"无"清空其他），性质多选
   const i = arr.indexOf(v);
   if (i >= 0) arr.splice(i, 1);
@@ -1648,18 +1658,19 @@ function chkChipToggle(arr, v, el) { // 部位单选（"无"清空其他），�
 }
 function chkPickParts(p, el) { chkChipToggle(chkSel.parts, p, el); }
 function chkPickKinds(k, el) { chkChipToggle(chkSel.kinds, k, el); }
+function chkPickRelief(v, el) { chkSel.relief = v; el.parentNode.querySelectorAll('.chip').forEach((b) => b.classList.remove('on')); if (v) el.classList.add('on'); }
 function chkSubmit() { // 晨检提交：写当日 daily.chk → persist → 重判（红灯自动改恢复课由 renderToday 联动）
   if (readOnly) { toast('离线只读模式，改动不保存'); return; }
   if (chkSel.parts.length && chkSel.parts[0] !== '无' && !chkSel.kinds.length) { toast('选了部位，再点一下什么感觉'); return; }
   if (!chkSel.parts.length) chkSel.parts = ['无'];
-  const ev = chkEval(chkSel.parts, chkSel.kinds);
+  const ev = chkEval(chkSel.parts, chkSel.kinds, chkSel.relief);
   let rec = M.dailyOn(U.todayStr());
   if (!rec) { rec = recStamp(makeDailyRecord(U.todayStr())); upsertByDate(D.daily, rec); }
-  rec.chk = { parts: chkSel.parts.slice(), kinds: chkSel.kinds.slice(), out: ev.out, why: ev.why, t: Date.now() };
+  rec.chk = { parts: chkSel.parts.slice(), kinds: chkSel.kinds.slice(), relief: chkSel.relief, out: ev.out, why: ev.why, t: Date.now() };
   recStamp(rec);
   D.state.updatedAt = Date.now();
   persist();
-  chkSel = { parts: [], kinds: [] };
+  chkSel = { parts: [], kinds: [], relief: '' };
   renderToday();
   if (ev.out === 'stop') openStopCard(ev.why);
 }
@@ -1734,12 +1745,19 @@ function rehabWorkbenchHtml() { // 复测可视化+禁区解锁（康复师折�
    鳌太类风险线永不给"能走"；高原线只给节奏条件（Chen 2023：低氧血液学适应平原练不到，靠行程节奏补）。
    全程纯前端离线可用（无 fetch、无 timer——折返对照只在打开时算一次，不碰时间戳计时红线）。 */
 const TRIP_ROUTES = [
-  { id: 'gangrenboqi', name: '冈仁波齐转山', grade: 'L3', days: '3 天', alt: '垭口 5630m/夜宿 4670m+', standNeed: 57, plateau: true, src: 'K22 详档：12 周目标线，难度不在走路在连续 3 天高海拔' },
-  { id: 'lianbaoyeze', name: '莲宝叶则', grade: 'L1', days: '1 天', alt: '4000-4500m', standNeed: null, plateau: true, src: 'K22 详档：检阅/适应线；行前必查当季官方公告' },
-  { id: 'jiesigou', name: '结斯沟穿山洞', grade: 'L3', days: '1 天往返 12km/爬升 1100m', alt: '顶 4880m', standNeed: 47, plateau: false, src: 'K22 详档：实历未登顶，卡点=体力分配（先看节奏纪律再谈加体能）' },
-  { id: 'wugongshan', name: '武功山', grade: 'L2', days: '2-4 天', alt: '1900m 级', standNeed: null, plateau: false, src: 'K21/K22：实历客栈型已过' },
-  { id: 'nantaihang', name: '南太行', grade: '待核', days: '—', alt: '—', standNeed: null, plateau: false, custom: true, src: 'K22 无详档（待核，不拍板）；实历短板=碎石下坡慢' },
-  { id: 'aotai', name: '鳌太', grade: 'L5', days: '—', alt: '3000m+ 石海', standNeed: null, plateau: false, riskLine: true, src: 'K22 风险教育卡：2018 年起明令禁止穿越，永不种草' }
+  { id: 'gangrenboqi', name: '冈仁波齐转山', grade: 'L3', days: '3 天', alt: '垭口 5630m/夜宿 4670m+', standNeed: 57, aeroNeed: 3, plateau: true, src: 'K22 详档：12 周目标线，难度不在走路在连续 3 天高海拔' },
+  { id: 'lianbaoyeze', name: '莲宝叶则', grade: 'L1', days: '1 天', alt: '4000-4500m', standNeed: null, aeroNeed: 2, plateau: true, src: 'K22 详档：检阅/适应线；行前必查当季官方公告' },
+  { id: 'jiesigou', name: '结斯沟穿山洞', grade: 'L3', days: '1 天往返 12km/爬升 1100m', alt: '顶 4880m', standNeed: 47, aeroNeed: 3, plateau: false, src: 'K22 详档：实历未登顶，卡点=体力分配（先看节奏纪律再谈加体能）' },
+  { id: 'wugongshan', name: '武功山', grade: 'L2', days: '2-4 天', alt: '1900m 级', standNeed: null, aeroNeed: 2, plateau: false, src: 'K21/K22：实历客栈型已过' },
+  { id: 'nantaihang', name: '南太行', grade: '待核', days: '—', alt: '—', standNeed: null, aeroNeed: null, plateau: false, custom: true, src: 'K22 无详档（待核，不拍板）；实历短板=碎石下坡慢' },
+  { id: 'aotai', name: '鳌太', grade: 'L5', days: '—', alt: '3000m+ 石海', standNeed: null, aeroNeed: null, plateau: false, riskLine: true, src: 'K22 风险教育卡：2018 年起明令禁止穿越，永不种草' },
+  // 批9 实测反馈扩充：产出C 靶场候选线入库——全部"未守门待核"（难度档未经 notes 守门，不判能不能走，只给自查要素）
+  { id: 'tengger', name: '腾格里（徒步）', grade: '待核', days: '—', alt: '—', standNeed: null, aeroNeed: null, plateau: false, src: '待核（未守门）：沙漠要素=水源/温差，不在本判定范围' },
+  { id: 'nanjiluo', name: '南极洛', grade: '待核', days: '—', alt: '—', standNeed: null, aeroNeed: null, plateau: true, src: '待核（未守门）：行前必查当季预约与开放公告' },
+  { id: 'yading', name: '亚丁大转', grade: '待核', days: '—', alt: '—', standNeed: null, aeroNeed: null, plateau: true, src: '待核（未守门）：高原线按 K20 节奏条件执行' },
+  { id: 'meili', name: '梅里外转', grade: '待核', days: '—', alt: '—', standNeed: null, aeroNeed: null, plateau: true, src: '待核（未守门）：高原线按 K20 节奏条件执行' },
+  { id: 'genie', name: '格聂C线', grade: '待核', days: '—', alt: '—', standNeed: null, aeroNeed: null, plateau: true, src: '待核（未守门）：高原线按 K20 节奏条件执行' },
+  { id: 'bogeda', name: '博格达', grade: '待核', days: '—', alt: '—', standNeed: null, aeroNeed: null, plateau: true, src: '待核（未守门）：技术性存疑，风险自查优先' }
 ];
 function standGateNow() { // 踝门现状（联动康复师席同一数据源）
   const t = M.latestTest();
@@ -1747,10 +1765,16 @@ function standGateNow() { // 踝门现状（联动康复师席同一数据源）
 }
 function preTripEval(r) { // 三档判定：go 能走 / cond 有条件能走 / no 还不能走——对照锚点全部来自现有数据
   if (r.riskLine) return { out: 'no', lines: ['这条线不在讨论范围：' + r.name + ' 是技术探险线（L5），2018 年起明令禁止穿越。本产品只做风险认知（K22），任何体能状态下都不给"能走"。'] };
+  if (r.grade === '待核') return { out: 'cond', lines: ['该线难度档未守门（K22 无详档）：不判"能不能走"。自查三件事——对照 K22 八维（最高海拔/睡眠海拔/天数/日均里程/日均爬升/负重/技术性/补给撤离）；行前查当季官方公告与天气；首次走按低一档预期安排。'] };
   const sg = standGateNow(), lines = [], gaps = [];
   if (r.standNeed != null) {
     if (sg.v == null) { gaps.push('踝门未测：先在体测页录一次右脚闭眼单腿站（门槛 ' + r.standNeed + 's）'); }
     else if (sg.v < r.standNeed) { gaps.push('踝门 ' + sg.v + 's，这条线门槛 ' + r.standNeed + 's，还差 ' + (r.standNeed - sg.v) + 's'); }
+  }
+  if (r.aeroNeed != null) { // 批9 实测反馈：心肺维度接入判定（能力雷达同源 dimLevel）
+    const aeroLv = dimLevel('有氧底盘');
+    if (aeroLv == null) lines.push('有氧底盘未评（能力雷达缺数据）——补录有氧日记录后判定更准');
+    else if (aeroLv < r.aeroNeed) gaps.push('有氧底盘 L' + aeroLv + '，这条线建议 L' + r.aeroNeed + '+——有氧日把 Zone2 单次拉到 ' + (r.aeroNeed >= 3 ? '60 分钟以上' : '40 分钟以上'));
   }
   const wk = mountainWeekOf(U.todayStr());
   if (r.grade === 'L3' && wk < 12) lines.push('12 周倒排当前第 ' + (wk >= 1 ? wk : 0) + '/12 周——L3 线按检阅周（12/20）过了再定行程');
@@ -1763,6 +1787,16 @@ function preTripEval(r) { // 三档判定：go 能走 / cond 有条件能走 / n
   }
   if (r.grade === 'L3' && wk < 12) return { out: 'cond', lines: lines };
   return { out: 'go', lines: lines };
+}
+function tripPrepHtml(r) { // 批9：装备与行前准备（判定卡折叠区）——profile.gear+K20/K22 既有口径聚合
+  let h = '<details class="fold" style="margin-top:8px"><summary>装备与行前准备（为什么这么走）</summary><div class="fold-body sub">';
+  h += '· 装备档案：' + U.esc(D.profile.gear || '未录入') + '——过夜线对照 K21 晋升四件自查（过夜能力/导航冗余：纸图+指北针+练过）<br>';
+  if (r.id === 'gangrenboqi') h += '· 为什么是 3 天：52km/垭口 5630m/3 天为主流（K22）——难点不在走路，在连续 3 天睡 4670m+；D1 适应日、垭口日早出发抢窗口（K20 三天模板）<br>';
+  if (r.plateau) h += '· 高原行前五件事（K20/K22）：到达后缓冲 1-2 天再起转；全程谈话测试；补给节拍每 30-60 分钟一次（碳水 30-60g/h）；高走低睡；出发前查当季官方公告与天气<br>';
+  else h += '· 行前常规：离线地图演练、行程报备、咸味补给、定好折返时间——行中模式清单全覆盖<br>';
+  if (r.plateau) h += '· 为什么没有血氧判定：血氧在 K1 被有意排除（不改变训练决策）；高原血液学适应平原练不到（Chen 2023）——所以给的是节奏条件，不是血氧指标<br>';
+  h += '</div></details>';
+  return h;
 }
 function preTripHtml() { // 行前判定 modal（M6 卡点入）：选线→要素卡→三档判定
   const saved = D.state.preTrip || {};
@@ -1785,6 +1819,7 @@ function preTripCard(id) { // 选中线路的要素卡+判定
     + (lastTrip ? '<div class="sub" style="color:var(--orange)">上次行后复盘：' + U.esc(lastTrip.res || '') + (lastTrip.pit ? '，踩坑：' + U.esc(lastTrip.pit) : '') + '</div>' : '')
     + '<div style="margin:10px 0;padding:8px;border-radius:8px;background:color-mix(in srgb, ' + MAP[1] + ' 12%, transparent)"><b style="color:' + MAP[1] + '">' + MAP[0] + '</b>'
     + ev.lines.map((l) => '<div class="sub" style="margin-top:4px">' + U.esc(l) + '</div>').join('') + '</div>'
+    + tripPrepHtml(r)
     + '<button class="btn-primary" onclick="closeModal();openMidTrip()">出发当天 → 行中模式</button>';
 }
 function preTripPick(id) { // 选线：写缓存 → 重渲 modal
@@ -1974,6 +2009,16 @@ function weightLedgerLine() { // 体重账：吃有没有效果的唯一秤（we
     else tail = '最新 ' + cur.weightKg + 'kg（' + delta.toFixed(1) + '）——掉了：热量缺口在偷肌肉（Nedeltcheva 机理），先加餐再谈练。';
   }
   return '<div class="sub" style="margin-top:4px"><b>体重账：</b>' + tail + '</div>';
+}
+const NOTE_SIGNALS = [ // 备注信号引擎（批9）：关键词规则，不是语义理解——只抓明确信号并给反馈，抓不到的明说
+  { re: /夜间痛|夜间疼|肿胀|无法承重|畸形|绞锁/, modal: true, msg: '' },
+  { re: /抽筋|痉挛/, msg: '抽筋记下了：K20——前 1 小时控速+出发就带咸味补给，预防在行前不在行中' },
+  { re: /很累|太累|累垮|透支|好虚/, msg: '收到"累"：今晚锚点提前 30 分钟；明天晨检如实勾状态，引擎会自动降档' },
+  { re: /喘|心率高|心率快|心率太高/, msg: '强度信号：Zone2 口径=能完整说整句话（K3）——下次放慢，成效看复测不看今天的汗' }
+];
+function noteSignals(note) { // 返回第一条命中；tfSave 保存后触发
+  for (const s of NOTE_SIGNALS) if (s.re.test(note || '')) return s;
+  return null;
 }
 const COACH_QA = [ // 问教练：高频追问的离线直答，全部产品既有口径，零新判据（问答外挂的离线底座）
   { q: '为什么今天练这几个动作？', a: '课单按周模板生成：力量打全身底盘、Zone2 练的是转山 8 小时慢走的心肺（K3）、长走练持续输出。每个动作旁的"为什么练它"写着它服务于 12 周后的哪一环。', src: 'K1/K3/M6' },
@@ -2167,8 +2212,11 @@ function planHtml() {
   const dayType = effTemplate()[dayIdx];
   const eff = CONFIG.trainTypes.indexOf(tf.type) >= 0 ? tf.type : dayType;
   let h = '<div class="card-head"><div class="bubble bg-blue" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="3"/><path d="M8 3v4M16 3v4M4 10h16"/></svg></div>'
-    + '<div style="flex:1"><div class="card-title" style="margin:0">今日安排 · ' + dayType + '</div><div class="sub">按周模板自动生成</div></div></div>';
+    + '<div style="flex:1"><div class="card-title" style="margin:0">今日安排 · ' + dayType + '</div><div class="sub">按周模板自动生成</div></div></div>'
+    + '<div class="field" style="margin-top:8px"><label>今天天气（选了自动给替代方案，K4 口径）</label><div class="chips">'
+    + ['好天', '雨雪', '闷热', '大风降温'].map((x) => '<button class="chip' + (tf.weather === x ? ' on' : '') + '" onclick="setWeather(\'' + x + '\')">' + x + '</button>').join('') + '</div></div>';
   if (eff === '有氧') {
+    if (tf.weather && tf.weather !== '好天') h += '<div class="callout-warn" style="margin-bottom:8px">' + U.esc(CONFIG.weatherAlt) + '</div>'; // 批9：天气联动替代方案（K4）
     h += '<div class="field"><label>有氧方式（3选1）</label><div class="chips" id="cardioChips">'
       + CONFIG.cardio.map((c) => '<button class="chip' + (tf.cardioChoice === c.name ? ' on' : '') + '" onclick="setCardio(\'' + c.name + '\')">' + c.name + '</button>').join('')
       + '</div></div>';
@@ -2200,6 +2248,7 @@ function planHtml() {
         + '</div></details>';
     }
   } else if (eff === '长时活动') {
+    if (tf.weather && tf.weather !== '好天') h += '<div class="callout-warn" style="margin-bottom:8px">' + U.esc(CONFIG.weatherAlt) + '</div>';
     h += '<div class="body-tx" style="line-height:1.9">' + U.esc(CONFIG.longCopy) + '</div>';
   } else {
     h += '<div class="body-tx">今日休息：可做八段锦与足底康复，计入连续性、不计入负荷。</div>';
@@ -2231,6 +2280,11 @@ function setCardio(c) {
   tf.cardioChoice = c;
   const el = document.getElementById('cardioChips');
   if (el) el.innerHTML = CONFIG.cardio.map((x) => '<button class="chip' + (tf.cardioChoice === x.name ? ' on' : '') + '" onclick="setCardio(\'' + x.name + '\')">' + x.name + '</button>').join('');
+  const pc = document.getElementById('planCard');
+  if (pc) pc.innerHTML = planHtml();
+}
+function setWeather(wx) { // 批9：天气选择（当天表单态，不落库——天气是当日临时信息）
+  tf.weather = wx;
   const pc = document.getElementById('planCard');
   if (pc) pc.innerHTML = planHtml();
 }
@@ -2483,6 +2537,12 @@ function tfSave() {
     showModal('<div class="card-title" style="margin-bottom:10px">就医提醒</div>'
       + '<div class="body-tx">' + U.esc(CONFIG.copy.footDoctor) + '</div>'
       + '<div class="m-actions"><button class="btn-primary" onclick="closeModal()">知道了</button></div>');
+  }
+  // 备注信号引擎（批9）：保存后对备注跑关键词规则，命中给即时反馈
+  const __sig = noteSignals(rec.note);
+  if (__sig) {
+    if (__sig.modal) openStopCard('备注命中红线信号（夜间痛/肿胀/无法承重等）——停训就医评估（K14 口径）');
+    else setTimeout(() => toast(__sig.msg), 1400);
   }
   prefillToday();
   renderToday();

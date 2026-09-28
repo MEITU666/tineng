@@ -590,15 +590,17 @@ check('⑭ 老数据兼容：线上备份（daily 无 chk 字段）normalize 后
 });
 
 /* ---------- ⑮ 户外指导员席（最终版批2）：行前判定+行中模式+行后复盘+晋升标记 ---------- */
-check('⑮ 线路库：六条预埋在位，鳌太带 riskLine，南太行标待核', () => {
+check('⑮ 线路库：12 条预埋在位（6 已核+6 待核），鳌太带 riskLine，新线路全标待核', () => {
   if (loadErr) throw loadErr;
   const n = w.eval('TRIP_ROUTES.length');
-  if (n !== 6) throw new Error('线路数=' + n);
+  if (n !== 12) throw new Error('线路数=' + n);
   const names = w.eval('TRIP_ROUTES.map(r=>r.id).join(",")');
-  if (names !== 'gangrenboqi,lianbaoyeze,jiesigou,wugongshan,nantaihang,aotai') throw new Error(names);
+  if (names !== 'gangrenboqi,lianbaoyeze,jiesigou,wugongshan,nantaihang,aotai,tengger,nanjiluo,yading,meili,genie,bogeda') throw new Error(names);
   if (w.eval('TRIP_ROUTES.find(r=>r.id==="aotai").riskLine') !== true) throw new Error('鳌太缺 riskLine');
+  const unvetted = w.eval('TRIP_ROUTES.filter(r=>r.grade==="待核").length');
+  if (unvetted !== 6) throw new Error('待核线数=' + unvetted);
   if (String(w.eval('TRIP_ROUTES.find(r=>r.id==="nantaihang").src')).indexOf('待核') < 0) throw new Error('南太行未标待核');
-  return '6 线路 ✓';
+  return '12 线路（6 已核+6 待核全标注）✓';
 });
 check('⑮ 行前判定：鳌太→no+明令禁止穿越，永不给能走', () => {
   if (loadErr) throw loadErr;
@@ -827,6 +829,60 @@ check('⑱ 吃账+入口：今日页含吃账行与问教练按钮；K11 含已�
   const k11 = w.eval('CONFIG.knowledge.find(x=>x.id==="K11").body');
   if (k11.indexOf('2400-2600') < 0 || k11.indexOf('总日量优先') < 0) throw new Error('K11 未升级');
   return '吃账露出+K11 升级 ✓';
+});
+
+/* ---------- ⑲ 实测问题修复（批9）：晨检全身+DOMS 通路/行前心肺维度+待核线路/天气联动/备注信号 ---------- */
+check('⑲ 晨检部位扩全身（≥10 项）且 DOMS 通路成立', () => {
+  if (loadErr) throw loadErr;
+  if (w.eval('CHK_PARTS.length') < 10) throw new Error('部位不足');
+  const doms = w.eval('chkEval(["大腿","上背"],["酸胀"],"ease")');
+  if (doms.out !== 'ok' || doms.why.indexOf('DOMS') < 0) throw new Error('DOMS 通路失效：' + JSON.stringify(doms));
+  const guard = w.eval('chkEval(["右踝"],["酸胀"],"ease")');
+  if (guard.out !== 'watch') throw new Error('守门区被 DOMS 误放行');
+  const worse = w.eval('chkEval(["大腿"],["酸胀"],"worse")');
+  if (worse.out !== 'watch' || worse.why.indexOf('更痛') < 0) throw new Error('更痛通路失效');
+  return '全身部位+三态 ✓（守门区不放行）';
+});
+check('⑲ 行前判定：待核线不给三档只给自查要素；线路池扩到 12 条', () => {
+  if (loadErr) throw loadErr;
+  const n = w.eval('TRIP_ROUTES.length');
+  if (n !== 12) throw new Error('线路数=' + n);
+  const r = w.eval('preTripEval(TRIP_ROUTES.find(x=>x.id==="tengger"))');
+  if (r.out !== 'cond' || String(r.lines[0]).indexOf('未守门') < 0 || String(r.lines[0]).indexOf('八维') < 0) throw new Error('待核线口径错：' + JSON.stringify(r.lines));
+  return '12 线路+待核不拍板 ✓';
+});
+check('⑲ 行前判定：心肺维度接入（有氧底盘未评=提示级不判负；跟能力雷达同源）', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); upsertByDate(D.tests, recStamp({ date: "2026-09-27", standR: 57 }))');
+  const r = w.eval('preTripEval(TRIP_ROUTES.find(x=>x.id==="gangrenboqi"))');
+  if (r.out !== 'cond') throw new Error('踝门过线+有氧未评 应为 cond（提示级），实际 ' + r.out);
+  if (JSON.stringify(r.lines).indexOf('有氧底盘未评') < 0) throw new Error('缺提示行');
+  return '心肺维度 ✓';
+});
+check('⑲ 行前准备卡：冈仁波齐含"为什么是 3 天"+高原五件事+血氧诚实说明+装备档案', () => {
+  if (loadErr) throw loadErr;
+  const h = w.eval('tripPrepHtml(TRIP_ROUTES.find(x=>x.id==="gangrenboqi"))');
+  for (const k of ['为什么是 3 天', '连续 3 天睡 4670m+', '高原行前五件事', '血氧', '装备档案', 'K20/K22']) if (h.indexOf(k) < 0) throw new Error('缺「' + k + '」');
+  return '准备卡 ✓';
+});
+check('⑲ 天气联动：今日安排含天气选择，雨雪日有氧出替代方案（K4 口径）', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); tf.type = "有氧"; tf.cardioChoice = "快走"; tf.weather = "雨雪"');
+  const h = w.eval('planHtml()');
+  for (const k of ['今天天气', '好天', '雨雪', '室内原地快走']) if (h.indexOf(k) < 0) throw new Error('缺「' + k + '」');
+  return '天气联动 ✓';
+});
+check('⑲ 备注信号引擎：抽筋/疲劳/心率词命中给反馈，红线词弹停训卡；tfSave 已挂载', () => {
+  if (loadErr) throw loadErr;
+  const s1 = w.eval('noteSignals("今天抽筋了两次")');
+  if (!s1 || s1.msg.indexOf('K20') < 0) throw new Error('抽筋信号失效');
+  const s2 = w.eval('noteSignals("练得很累")');
+  if (!s2 || s2.msg.indexOf('晨检') < 0) throw new Error('疲劳信号失效');
+  const s3 = w.eval('noteSignals("半夜肿胀")');
+  if (!s3 || !s3.modal) throw new Error('红线信号未走停训卡');
+  if (w.eval('noteSignals("今天状态不错")') !== null) throw new Error('无信号词不应命中');
+  if (w.eval('String(tfSave)').indexOf('noteSignals') < 0) throw new Error('tfSave 未挂信号引擎');
+  return '备注信号 ✓（规则引擎，不装语义全懂）';
 });
 
 /* ---------- 输出 ---------- */
