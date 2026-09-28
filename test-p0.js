@@ -788,6 +788,47 @@ check('⑰ tryUnlock 断网降级链：密文缓存→本机数据自动离线�
   return '降级链 ✓（网络→会话缓存→离线模式；404 不降级）';
 });
 
+/* ---------- ⑱ 教练开口层（批7）：课单为什么+体重账+问教练+吃账 ---------- */
+check('⑱ 课单为什么：9 动作 WHY_MAP 全覆盖且 planHtml 渲染', () => {
+  if (loadErr) throw loadErr;
+  const names = w.eval('CONFIG.actions.map(a=>a.name)');
+  const missing = names.filter((n) => w.eval(`!WHY_MAP[${JSON.stringify(n)}]`));
+  if (missing.length) throw new Error('缺 why：' + missing.join('、'));
+  const h = w.eval('(function(){ tf.type = "力量"; return planHtml(); })()');
+  if (h.indexOf('为什么练它') < 0 || h.indexOf('碎石坡') < 0) throw new Error('planHtml 未渲染 why');
+  return '9/9 动作带为什么 ✓';
+});
+check('⑱ 体重账：无记录引导称重；在带内/持平/掉秤三态判读正确', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData()');
+  if (w.eval('weightLedgerLine()').indexOf('还没称过') < 0) throw new Error('空态错');
+  w.eval('upsertByKey(D.weekly, recStamp({ weekStart: "2026-09-21", weightKg: 60.0 }), "weekStart"); upsertByKey(D.weekly, recStamp({ weekStart: "2026-09-28", weightKg: 60.2 }), "weekStart")');
+  if (w.eval('weightLedgerLine()').indexOf('在带内') < 0) throw new Error('在带内判读错');
+  w.eval('upsertByKey(D.weekly, recStamp({ weekStart: "2026-09-28", weightKg: 60.0 }), "weekStart")');
+  if (w.eval('weightLedgerLine()').indexOf('没涨=吃的没到位') < 0) throw new Error('持平判读错');
+  w.eval('upsertByKey(D.weekly, recStamp({ weekStart: "2026-09-28", weightKg: 59.0 }), "weekStart")');
+  if (w.eval('weightLedgerLine()').indexOf('偷肌肉') < 0) throw new Error('掉秤判读错');
+  return '四态 ✓（0.5% 带内 0.3 判在带内）';
+});
+check('⑱ 问教练：8 问全预埋且口径词命中（鳌太/两把闸门/Nedeltcheva/2400-2600）', () => {
+  if (loadErr) throw loadErr;
+  if (w.eval('COACH_QA.length') !== 8) throw new Error('应 8 问');
+  w.eval('showCoachQA()');
+  const h = w.eval('document.getElementById("modalBox").innerHTML');
+  for (const k of ['为什么今天练', '疼了还能练', '吃怎么安排', '睡不够', '两把闸门', '鳌太', '2400-2600', '偷肌肉', '口径：']) if (h.indexOf(k) < 0) throw new Error('缺「' + k + '」');
+  w.eval('closeModal()');
+  return '8 问直答 ✓';
+});
+check('⑱ 吃账+入口：今日页含吃账行与问教练按钮；K11 含已核热量带', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); renderToday()');
+  const h = w.eval('document.getElementById("todayBody").innerHTML');
+  if (h.indexOf('今日吃账') < 0 || h.indexOf('2400-2600') < 0 || h.indexOf('问教练') < 0) throw new Error('吃账/入口缺失');
+  const k11 = w.eval('CONFIG.knowledge.find(x=>x.id==="K11").body');
+  if (k11.indexOf('2400-2600') < 0 || k11.indexOf('总日量优先') < 0) throw new Error('K11 未升级');
+  return '吃账露出+K11 升级 ✓';
+});
+
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);
 console.log('================ P0 jsdom 断言报告（node ' + process.version + ' · jsdom ' + require('jsdom/package.json').version + '） ================');

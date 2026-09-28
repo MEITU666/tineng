@@ -1892,7 +1892,9 @@ function weekReviewHtml() { // 周复盘卡（仅周日出现）：打卡率/档
     + '<div style="flex:1"><div class="card-title" style="margin:0">周复盘 · 私教</div><div class="sub">只在周日出现，看完就收</div></div></div>'
     + '<div class="body-tx" style="margin-top:6px;font-weight:600">' + concl + '</div>'
     + why.map((w) => '<div class="sub">· ' + U.esc(w) + '</div>').join('')
-    + '<div class="sub" style="margin-top:4px">训练分布：' + (Object.keys(typeCnt).length ? Object.keys(typeCnt).map((k) => k + ' ' + typeCnt[k] + ' 次').join('、') : '本周无训练记录') + '</div></div>';
+    + weightLedgerLine()
+    + '<div class="sub" style="margin-top:4px">训练分布：' + (Object.keys(typeCnt).length ? Object.keys(typeCnt).map((k) => k + ' ' + typeCnt[k] + ' 次').join('、') : '本周无训练记录') + '</div>'
+    + '<div style="margin-top:8px"><button class="ci-btn" onclick="showCoachQA()">💬 问教练：为什么这么练 / 吃什么 / 什么时候能跑</button></div></div>';
 }
 const TOUR7_TASKS = [ // 新手 7 天引导任务：全部指向现有功能，不发明新交互
   '今天只做一件事：点上面的「康复师晨检」，选一下身体状态（60 秒）',
@@ -1935,6 +1937,60 @@ function tour7Skip() { // 跳过：永久关闭（尊重用户，不再弹）
   persist();
   renderToday();
 }
+
+/* ============ 教练开口层（2026-09-28 白天批7）：课单为什么+体重账+问教练+吃账 ============ */
+/* 口径纪律：热量带 2400-2600 出自 notes/08 §四 owner 裁决（已核）；蛋白按食物份量表述，g/kg 公式标待核；
+   练后窗口按"总日量优先于时机"表述（主流综述口径，标待核）。零新增采集字段。 */
+const WHY_MAP = { // 课单"为什么练它"：键=CONFIG.actions.name，内容=part 字段+12 周转山场景，不发明新功能
+  '自重深蹲': '下肢推底盘——背得动 8kg 走长坡，腿先扛得住',
+  '俯卧撑': '上肢推——背包肩带压实不晃，靠它',
+  '下斜俯卧撑': '进阶推力——负重上坡撑杖的下限保障',
+  '箭步蹲': '单侧下肢——碎石坡一步一踩的单侧稳定',
+  '臀桥': '后链——上坡的发动机在臀，不在腰',
+  '平板支撑': '核心抗伸展——负重前倾不塌腰',
+  '侧桥': '核心抗侧屈——背包重心晃动压得住',
+  '俯卧YW伸展': '上背肩胛——登山杖撑一天不借斜方代偿',
+  '俯卧超人式': '后链+核心——下山收得住、腰不代偿'
+};
+function eatLine() { // 今日吃账一行：静态口径露出，吃4睡3练3 的"吃"在日频页有位置
+  const dayType = effTemplate()[new Date().getDay()];
+  const isTrain = CONFIG.trainTypes.indexOf(dayType) >= 0 || (tf.type && CONFIG.trainTypes.indexOf(tf.type) >= 0);
+  return '<div class="sub" style="margin-top:4px;color:var(--text2)">今日吃账：热量 2400-2600（notes/08 已核带）· 每餐一掌心蛋白+每日两个蛋一盒奶 · '
+    + (isTrain ? '<b style="color:var(--accent)">练后一顿别跳</b>——总日量优先于"窗口时机"（主流综述口径，标待核）' : '休息日照常吃，恢复也是练') + '。</div>';
+}
+function weightLedgerLine() { // 体重账：吃有没有效果的唯一秤（weekly.weightKg 既有数据，零采集）
+  const ws = D.weekly.filter((w) => w && w.weightKg != null);
+  if (!ws.length) return '<div class="sub" style="margin-top:4px"><b>体重账：</b>还没称过——每周晨起空腹一次（档案页录入），这是"吃"有没有效果的唯一秤。</div>';
+  const cur = ws[ws.length - 1];
+  const prev = ws.length >= 2 ? ws[ws.length - 2] : null;
+  let tail;
+  if (!prev) tail = '最新 ' + cur.weightKg + 'kg，下周同一晨重对比才开始记账。';
+  else {
+    const delta = cur.weightKg - prev.weightKg;
+    const band = cur.weightKg * 0.005; // 0.5%/周上限=K11/Iraki 已核口径
+    if (delta > 0 && delta <= band) tail = '最新 ' + cur.weightKg + 'kg（较上次 +' + delta.toFixed(1) + '）——在带内，按这个节奏吃。';
+    else if (delta > band) tail = '最新 ' + cur.weightKg + 'kg（+' + delta.toFixed(1) + '，超 0.5%/周带）——涨太快多半在涨脂，收到带内。';
+    else if (delta === 0) tail = '最新 ' + cur.weightKg + 'kg（持平）——没涨=吃的没到位：每天加一碗饭+一个蛋，练后一顿别跳，下周再称。';
+    else tail = '最新 ' + cur.weightKg + 'kg（' + delta.toFixed(1) + '）——掉了：热量缺口在偷肌肉（Nedeltcheva 机理），先加餐再谈练。';
+  }
+  return '<div class="sub" style="margin-top:4px"><b>体重账：</b>' + tail + '</div>';
+}
+const COACH_QA = [ // 问教练：高频追问的离线直答，全部产品既有口径，零新判据（问答外挂的离线底座）
+  { q: '为什么今天练这几个动作？', a: '课单按周模板生成：力量打全身底盘、Zone2 练的是转山 8 小时慢走的心肺（K3）、长走练持续输出。每个动作旁的"为什么练它"写着它服务于 12 周后的哪一环。', src: 'K1/K3/M6' },
+  { q: '疼了还能练吗？', a: '先做晨检：红线信号（夜间痛/肿胀/无法承重）→停训就医；膝/腰→停训；足/踝→降档给改法。疼痛即停是硬线，不是商量。', src: 'K14/K7' },
+  { q: '吃怎么安排？', a: '热量 2400-2600/天（已核带）；每日两个蛋+一盒奶打底、每餐一掌心肉/鱼/豆；练完那一顿别跳。总吃够比纠结"练后 30 分钟黄金窗"重要——总日量优先。', src: 'notes/08+K11' },
+  { q: '睡不够硬练行吗？', a: '不行。睡眠 5.5h+热量不足的实证：瘦体重多丢 60%——睡不够时练=白练还倒贴。先守固定关灯锚点，比几点起床重要。', src: 'Nedeltcheva 2010/K9' },
+  { q: '什么时候能跑步？', a: '两把闸门：踝毕业评审通过+医生放行，缺一不启动 R1。K23 有全貌，"提前跑一点点试试"是红线。', src: 'K23' },
+  { q: '下坡为什么不给专项？', a: '下楼禁区没解锁（踝毕业评审+医生放行前，一切下楼/下坡离心专项不排）。进度看今日页康复师工作台。', src: 'K1/K23' },
+  { q: '鳌太到底能不能走？', a: '这个问题产品永远答"不做可行性判定"——技术探险线（L5），2018 年起明令禁止穿越，只做风险认知。', src: 'K22' },
+  { q: '体重就是不涨怎么办？', a: '看周复盘的体重账：持平=每天加一碗饭+一个蛋；掉了=热量缺口在偷肌肉，先加餐；涨太快超 0.5%/周带=收到带内。', src: 'K11/体重账' }
+];
+function showCoachQA() { // 问教练 modal：预埋问答，全程离线
+  showModal('<div class="card-title" style="margin-bottom:8px">问教练</div>'
+    + '<div class="sub" style="margin-bottom:8px">高频追问先答在这里——全部按产品既有规则回答，不带新判据。</div>'
+    + COACH_QA.map((x) => '<details class="fold" style="margin:4px 0"><summary>' + U.esc(x.q) + '</summary><div class="fold-body sub">' + U.esc(x.a) + '<br><span style="color:var(--text2)">口径：' + U.esc(x.src) + '</span></div></details>').join('')
+    + '<div class="m-actions"><button class="btn-primary" onclick="closeModal()">问完了</button></div>');
+}
 function renderToday() {
   updateSyncBadge();
   const t = U.todayStr();
@@ -1964,7 +2020,9 @@ function renderToday() {
     + footRedCheck()
     + chkBarHtml()
     + ankleGateLine()
+    + eatLine()
     + '<div class="field" style="margin-top:10px"><label>今天的你（点一下立即重判）</label><div class="chips" id="feelChips">' + feelChips() + '</div></div>'
+    + '<div style="margin-top:8px"><button class="ci-btn" onclick="showCoachQA()">💬 问教练：为什么这么练 / 疼了怎么办 / 吃什么</button></div>'
     + rehabWorkbenchHtml() + '</div>';
   // N7 年报入口卡（12/20-次年1/10 期间显示）
   const nw = new Date();
@@ -2127,7 +2185,8 @@ function planHtml() {
       return '<div class="check-item"><div class="ck' + (tf.checks[i] ? ' on' : '') + '" id="ck' + i + '" onclick="tfCheck(' + i + ')" role="checkbox" aria-checked="' + tf.checks[i] + '" aria-label="' + U.esc(a.name) + '">'
         + '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg></div>'
         + '<div class="ci-main"><div class="ci-name">' + a.name + '<span class="sub">｜' + a.part + '｜3×' + reps + a.unit + '</span></div>'
-        + '<div class="ci-sub">' + U.esc(a.guide) + '</div></div>'
+        + '<div class="ci-sub">' + U.esc(a.guide) + '</div>'
+        + (WHY_MAP[a.name] ? '<div class="ci-sub" style="color:var(--text2)">为什么练它：' + U.esc(WHY_MAP[a.name]) + '</div>' : '') + '</div>'
         + '<div class="ci-btns"><button class="ci-btn" onclick="showComp(' + i + ')">' + ic('warn', 12) + ' 自查</button>'
         + '<button class="ci-btn" onclick="window.open(\'' + a.link + '\')">📺教学</button></div></div>';
     }).join('');
@@ -3022,7 +3081,7 @@ CONFIG.knowledge = [
   { id: 'K8', group: '训练', title: 'K8 八段锦模块', body: U.esc(CONFIG.baduanjin.note) + '<br><br>' + CONFIG.baduanjin.forms.map((f, i) => (i + 1) + ' ' + U.esc(f)).join('<br>') + '<br><br>' + U.esc(CONFIG.baduanjin.timing) + '<br><button class="ci-btn" style="margin-top:6px" onclick="window.open(\'' + CONFIG.baduanjin.teach + '\')">' + CONFIG.baduanjin.teachLabel + '</button> <button class="ci-btn" onclick="window.open(\'' + CONFIG.baduanjin.follow + '\')">' + CONFIG.baduanjin.followLabel + '</button>' },
   { id: 'K9', group: '康复', title: 'K9 睡眠修复方案', bodyFn: function () { return '当前数据：近3月平均5.4h（基线），目标7h+<br><b>执行规则（按优先级）：</b><br>1. 固定关灯时间锚点（当前 <b>' + U.esc(D.profile.sleepAnchor) + '</b>，可在档案页修改；比几点起床更重要，先守21天）<br>2. 睡前一小时屏幕调暗、手机放远<br>3. 咖啡因午后不碰<br>4. 卧室只睡觉<br>5. 晚间中低强度训练（每日包/提踵/拉伸）不害睡眠，只避开<b>睡前 1 小时内的剧烈课</b>（Stutz 2019，23 项研究 meta：总体不支持晚间运动损害睡眠）<br><b>为什么睡眠是第一优先级：</b>睡不够的时候，身体宁可丢肌肉、保着脂肪——想涨肌肉，先把睡眠修好<span class="sub">（依据 Nedeltcheva 2010 ✅原文核对：热量限制 14 天试验，睡 5.5h 组瘦体重丢失比睡足组多 60%——减脂期语境、样本 10 人，方向性参考，不是增肌损失率）</span><br><b>记录与反馈：</b>每天从健康App抄睡眠时长；连续2天&lt;6h系统自动黄灯减量；趋势页睡眠柱状图&lt;6h标橙、画7h虚线'; } },
   { id: 'K10', group: '理念', title: 'K10 阶段全景', body: '阶段0 习惯建立(约4周)：有氧20-30分钟+力量基础+足康复Stage0+睡眠锚点<br>阶段1 有氧容量：Zone2至60分钟+下肢肌耐力+足康复Stage1<br>阶段2 爬升负重：楼梯专项+背包负重引入(5kg起)+足康复Stage2<br>阶段3 户外转移：周末真实山地、负重15kg级、背靠背两日<br><span class="sub">各阶段解锁条件与阶段状态机一致（第七部分），当前阶段见「档案与设置」。</span>' },
-  { id: 'K11', group: '生活', title: 'K11 营养与体重', body: '偏瘦者(176/60, BMI 19.4)加量期原则：<br>· 不节食；训练日适当增加蛋白质与碳水(鸡蛋/奶/米饭多一口)<br>· 每周晨起空腹称重一次(可空)；较前值降&gt;2kg→系统横幅提醒加餐<br>· 增重节奏带子：每周涨幅不超过体重的 0.5%（59.6kg≈0.15-0.3kg/周）——这是上限不是承诺，不按月数倒推；睡眠不修，练得再狠也涨不动（Iraki 2019 ✅原文核对 0.25-0.5%/周，健美者非赛季口径→向普通训练者迁移=检索级）<br>· 目标不是减重，是让体重稳定或缓升(肌肉增长)' },
+  { id: 'K11', group: '生活', title: 'K11 营养与体重', body: '偏瘦者(176/60, BMI 19.4)加量期原则：<br>· 不节食；训练日适当增加蛋白质与碳水(鸡蛋/奶/米饭多一口)<br>· 热量带：2400-2600 kcal/天（notes/08 §四 owner 裁决已核）——增重期"吃够"是硬指标不是可选项，热量缺口下练=掉瘦体重（Nedeltcheva 2010 实证：睡眠不足+热量限制组多丢 60% 瘦体重）<br>· 蛋白怎么落（食物版）：每日两个蛋+一盒奶打底、每餐一掌心肉/鱼/豆、练后一顿别跳——总日量优先于"练后 30 分钟窗口"（主流综述口径，标待核；g/kg 公式 1.6-2.2 同标待核，不进引擎）<br>· 每周晨起空腹称重一次(可空)；较前值降&gt;2kg→系统横幅提醒加餐；周复盘卡"体重账"按 0.5%/周带自动判读<br>· 增重节奏带子：每周涨幅不超过体重的 0.5%（59.6kg≈0.15-0.3kg/周）——这是上限不是承诺，不按月数倒推；睡眠不修，练得再狠也涨不动（Iraki 2019 ✅原文核对 0.25-0.5%/周，健美者非赛季口径→向普通训练者迁移=检索级）<br>· 目标不是减重，是让体重稳定或缓升(肌肉增长)' },
   { id: 'K12', group: '生活', title: 'K12 9/23 国民体测备战卡', body: CONFIG.k12.map((x) => '· ' + U.esc(x)).join('<br>') + '<br><span class="sub">本卡在目标页顶部 9/23 前显示、之后自动隐藏；「体测页-外部检测」折叠区常驻，不随日期关闭。</span>' },
   { id: 'K13', group: '理念', title: 'K13 高海拔行程前检查清单', body: '你有 5000 米未登顶史。任何高海拔行程（&gt;3500m）出发前必须完成：<br>· 心肺体检（心电图+血压）<br>· 阶梯适应日程（每上升 1000m 住一晚适应）<br>· 血氧仪+应急药品清单<br>· 下撤预案（什么症状必须下撤，写下来）<br><span class="sub">阶段3前仅展示、不可勾选。系统不提供"高原准备度"分数——高原适应无法在家训练，任何分数都是假的。</span>' },
   { id: 'K14', group: '康复', title: 'K14 红旗自查卡：命中立即就医/下撤', body: '看训练建议之前先过这一关。命中任意一条 → 立即就医或下撤，不要再问练不练：<br>· <b>外伤后无法承重 4 步 / 骨性压痛 / 畸形 / 关节绞锁 / 伤后 1-2h 迅速肿胀</b> → 影像就医；户外=固定+撤离<br>· <b>夜间静息痛（与活动无关）/ 发热伴红肿热痛 / 不明原因消瘦</b> → 就医评估（不是训练问题）<br>· <b>高原：共济失调或意识改变（HACE）/ 静息呼吸困难（HAPE）</b> → 立即下撤，不等评分<br>· <b>寒战停止+嗜睡（中度失温）</b> → 复温+撤离；禁酒禁搓轻搬<br>· <b>突发胸闷气促胸痛</b> → 立即停止活动+急救呼叫<br><span class="sub">出处：三角色知识包·分诊红线卡（2026-09-27 对抗审查通过版）。今日状态卡检测到红灯词会直接引用本卡。</span>' },
