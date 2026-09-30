@@ -673,7 +673,7 @@ function defaultData() {
       lastSyncAt: 0, pendingSync: false, strengthFails: 0, theme: 'auto', lastForm: null,
       strengthReps: { '深蹲': 12, '俯卧撑': 8, '下斜俯卧撑': 10, '平板': 30, '侧桥': 20, '箭步蹲': 8, '臀桥': 15, '俯卧YW': 8, '俯卧超人': 10 },
       backfillDone: false, profileDone: false, downgradedAt: null, progressionLog: [], scheduleText: null,
-      preTrip: null, tour7: null, weekRev: null, weather: null, aiCfg: null, // 最终版增量（可选键）：行前判定缓存/新手7天引导/周复盘去重/今晨实况天气/AI问答供应商配置——normalize/merge 补默认
+      preTrip: null, tour7: null, weekRev: null, weather: null, aiCfg: null, schedShift: null, // 最终版增量（可选键）：行前判定缓存/新手7天引导/周复盘去重/今晨实况天气/AI问答供应商配置/FR-B1顺延状态——normalize/merge 补默认
       updatedAt: 0
     }
   };
@@ -799,7 +799,7 @@ function mergeData(local, remote) {
   out.state.strengthReps = out.state.strengthReps || {};
   CONFIG.actions.forEach((a) => { if (out.state.strengthReps[a.repsKey] == null) out.state.strengthReps[a.repsKey] = 10; }); // Codex 复核 P1-1 修复：合并后补缺键，防 undefined/NaN 污染
   // 最终版增量键缺键防线（与 4f52b7f 同套路）：老远端备份无这些键时补默认
-  ['preTrip', 'tour7', 'weekRev', 'weather', 'aiCfg'].forEach((k) => { if (out.state[k] === undefined) out.state[k] = null; }); // aiCfg=问答外挂供应商配置（不含 key，key 只在本机 localStorage）
+  ['preTrip', 'tour7', 'weekRev', 'weather', 'aiCfg', 'schedShift'].forEach((k) => { if (out.state[k] === undefined) out.state[k] = null; }); // aiCfg=问答外挂供应商配置（不含 key，key 只在本机 localStorage）；schedShift=FR-B1 顺延状态
   out.daily = mergeByKey(local.daily, remote.daily, 'date');
   out.metrics = mergeByKey(local.metrics, remote.metrics, 'date');
   out.tests = mergeByKey(local.tests, remote.tests, 'date');
@@ -1533,47 +1533,110 @@ function footRedCheck() { // 红灯筛查：近 2 天疼痛文本命中红线词
    红线：只调档与替换、绝不建议禁区动作、绝不"补量"；越野跑不进课表（解锁阶梯只在指南页展示）；
    下楼禁区未解锁→无下坡专项。诚实边界（Chen 2023 修正）：本表练力量/有氧/负重经济性，
    低氧血液学适应平原练不到，靠行程节奏补（到达后缓冲 1-2 天+慢升）。 */
-const MOUNTAIN12 = [ // 12 周转山倒排（W1 起点 2026-09-28 周一；每周只动一个变量；W11 峰值 8kg；W12 检阅周）
-  { w: 1,  climb: 200, load: 0, walkH: 1.0, note: '停练回退期：先恢复习惯，无负重' },
-  { w: 2,  climb: 250, load: 0, walkH: 1.0, note: '有氧底盘重建，全程能说话' },
-  { w: 3,  climb: 300, load: 2, walkH: 1.5, note: '负重短走起步（每周 2 次），确认腰带传导' },
-  { w: 4,  climb: 350, load: 3, walkH: 1.5, note: '周日复测①：右脚闭眼站对照毕业线' },
-  { w: 5,  climb: 400, load: 4, walkH: 2.0, note: '' },
-  { w: 6,  climb: 450, load: 5, walkH: 2.0, note: '周日复测②：闭眼站+提踵耐力' },
-  { w: 7,  climb: 500, load: 6, walkH: 2.5, note: '' },
-  { w: 8,  climb: 550, load: 6, walkH: 2.5, note: '周日复测③：闭眼站 47s=土路门槛' },
-  { w: 9,  climb: 600, load: 7, walkH: 3.0, note: '' },
+const CYCLE_START = '2026-10-05'; // 周期锚点：冬训 W1 周一（v4.1 周期重排，12 周硬倒排废止）；顺延由 FR-B1 state.schedShift 动态加偏移
+const WINTER24 = [ // 冬训期约 24 周（v4.1 FR-F）：有氧底盘/力量/增重/睡眠保持四主题；每周只动一个变量；复测点 W4/8/12/16/20/24；爬升 150→450 为专项期 700 打底
+  { w: 1,  climb: 150, load: 0, walkH: 1.0, note: '停练回退期：先恢复习惯，无负重' },
+  { w: 2,  climb: 170, load: 0, walkH: 1.0, note: '有氧底盘重建，全程能说话' },
+  { w: 3,  climb: 190, load: 0, walkH: 1.0, note: '每日包稳定化：力量日不缺勤' },
+  { w: 4,  climb: 210, load: 0, walkH: 1.5, note: '周日复测①：右脚闭眼站对照 47s 线' },
+  { w: 5,  climb: 230, load: 0, walkH: 1.5, note: '长走加时 10 分钟，配速不变' },
+  { w: 6,  climb: 250, load: 0, walkH: 1.5, note: '力量档位渐进：RPR 每次只加一点' },
+  { w: 7,  climb: 270, load: 0, walkH: 1.5, note: '增重吃账启动：热量盈余上探（目标 61-62 分档）' },
+  { w: 8,  climb: 290, load: 0, walkH: 2.0, note: '周日复测②：闭眼站+提踵耐力' },
+  { w: 9,  climb: 300, load: 2, walkH: 2.0, note: '负重短走起步（每周 2 次），确认腰带传导' },
+  { w: 10, climb: 310, load: 2, walkH: 2.0, note: '' },
+  { w: 11, climb: 320, load: 2, walkH: 2.0, note: '睡眠保持自查：近 7 天均值守住 6.5h 底线' },
+  { w: 12, climb: 330, load: 3, walkH: 2.0, note: '周日复测③：阶段中检（体重账对照 61-62 分档）' },
+  { w: 13, climb: 340, load: 3, walkH: 2.0, note: '冬训过半：力量档位上探一档' },
+  { w: 14, climb: 350, load: 3, walkH: 2.5, note: '长走 2.5h 试点（提速不提坡）' },
+  { w: 15, climb: 360, load: 3, walkH: 2.5, note: '' },
+  { w: 16, climb: 370, load: 3, walkH: 2.5, note: '周日复测④：闭眼站 47s=土路门槛' },
+  { w: 17, climb: 380, load: 4, walkH: 2.5, note: '雨雪替代课演练：楼梯爬层/跟练加长' },
+  { w: 18, climb: 390, load: 4, walkH: 2.5, note: '' },
+  { w: 19, climb: 400, load: 4, walkH: 2.5, note: '负重 4kg 到位（专项期续爬到 8kg）' },
+  { w: 20, climb: 410, load: 4, walkH: 3.0, note: '周日复测⑤：提踵耐力+平板' },
+  { w: 21, climb: 420, load: 4, walkH: 3.0, note: '长走 3.0h：转山日节奏彩排（前半程压配速）' },
+  { w: 22, climb: 430, load: 4, walkH: 3.0, note: '下坡策略复盘：实历短板，碎石段慢=合理策略' },
+  { w: 23, climb: 440, load: 4, walkH: 3.0, note: '减量周：练量七成，睡够' },
+  { w: 24, climb: 450, load: 4, walkH: 3.0, note: '周日复测⑥+专项入学评审：闭眼站/体测/体重三值定基线' }
+];
+const SPECIAL12 = [ // 转山专项期骨架约 12 周（v4.1 FR-5）：冬训毕业评审通过后启用，起点=冬训末+1 周；爬升/负重从冬训末续爬，W11 峰值 8kg、W12 检阅减量
+  { w: 1,  climb: 470, load: 5, walkH: 3.0, note: '专项起步：冬训基线续爬' },
+  { w: 2,  climb: 490, load: 5, walkH: 3.0, note: '' },
+  { w: 3,  climb: 510, load: 6, walkH: 3.0, note: '海拔行程课表预研（K22 节奏卡）' },
+  { w: 4,  climb: 530, load: 6, walkH: 3.0, note: '周日复测⑦：闭眼站对照 50s 负重线' },
+  { w: 5,  climb: 550, load: 6, walkH: 3.0, note: '' },
+  { w: 6,  climb: 570, load: 7, walkH: 3.0, note: '' },
+  { w: 7,  climb: 590, load: 7, walkH: 3.0, note: '行前装备三态清单出卡（FR-7）' },
+  { w: 8,  climb: 610, load: 7, walkH: 3.0, note: '周日复测⑧：闭眼站+负重走' },
+  { w: 9,  climb: 630, load: 7, walkH: 3.0, note: '' },
   { w: 10, climb: 650, load: 7, walkH: 3.0, note: '' },
   { w: 11, climb: 700, load: 8, walkH: 3.5, note: '峰值周：负重 8kg 到位' },
   { w: 12, climb: 350, load: 8, walkH: 2.5, note: '检阅周：练量减半，周日复测=体测总分 100+右脚 57s+8kg 负重走' }
 ];
-function mountainWeekOf(dateStr) { // 返回 0（未开营）/1-12/13（已满）；W1 周一=2026-09-28
-  if (!dateStr) return 0;
-  const s = Math.floor((new Date(dateStr).getTime() - new Date('2026-09-28').getTime()) / 86400000);
-  return Math.max(0, Math.min(13, Math.floor(s / 7) + 1));
+function schedShiftWeeks() { // FR-B1 顺延读数：state.schedShift={weeks:0-2,log:[]} 可选键，钳位 0-2
+  const s = D.state.schedShift;
+  return (s && typeof s.weeks === 'number') ? Math.max(0, Math.min(2, s.weeks)) : 0;
 }
-function weekGoalLine() { // 长走日首句动作里带的 M6 本周目标（爬升换算楼梯：1 层≈3m）
-  const wk = mountainWeekOf(U.todayStr());
-  if (wk < 1 || wk > 12) return '';
-  const g = MOUNTAIN12[wk - 1];
+function anchorDate() { // 周期起点函数（v4.1）：CYCLE_START + 顺延周数×7 天——全周期进度/复测点/倒计时唯一锚
+  return U.todayStr(new Date(new Date(CYCLE_START).getTime() + schedShiftWeeks() * 7 * 86400000));
+}
+function cycleWeekOf(dateStr) { // 返回 0（未开营）/1-36（冬训 1-24 + 专项 25-36）/37（已满）
+  if (!dateStr) return 0;
+  const s = Math.floor((new Date(dateStr).getTime() - new Date(anchorDate()).getTime()) / 86400000);
+  return Math.max(0, Math.min(37, Math.floor(s / 7) + 1));
+}
+function cyclePhaseOf(wk) { // 周号→阶段信息（阶段名/行/总周数）；null=未开营或已满
+  if (wk >= 1 && wk <= 24) return { stage: '冬训', row: WINTER24[wk - 1], total: 24 };
+  if (wk >= 25 && wk <= 36) return { stage: '专项', row: SPECIAL12[wk - 25], total: 12 };
+  return null;
+}
+function weekGoalLine() { // 长走日首句动作里带的本周目标（爬升换算楼梯：1 层≈3m）
+  const ph = cyclePhaseOf(cycleWeekOf(U.todayStr()));
+  if (!ph) return '';
+  const g = ph.row;
   return '本周爬升目标 ' + g.climb + 'm≈' + Math.round(g.climb / 3) + ' 层楼梯' + (g.load ? '、负重 ' + g.load + 'kg' : '');
 }
-function mountainGoalHtml(dateStr) { // 今日页"转山倒排"卡（M6 目标层；起点锚 2026-09-28，终点=12 周后冈仁波齐 52km/5630m/3 天；可传日期便于测试）
-  const wk = mountainWeekOf(dateStr || U.todayStr());
-  let head, body;
-  if (wk < 1) { head = '转山倒排：9/28 开营'; body = '12 周倒排从下周一（9/28）起跑，本周是准备周：睡够、把每日包做起来。'; }
-  else if (wk > 12) { head = '转山倒排：12 周已满'; body = '倒排周期已结束——按检阅周结果定高原行程节奏（到达后缓冲 1-2 天+慢升），别顶着未达标硬上。'; }
+function mountainGoalHtml(dateStr) { // 今日页"周期进度"卡（M6 目标层 v4.1 重排：两段周期=冬训24+专项12，起点=anchorDate() 可顺延；可传日期便于测试）
+  const wk = cycleWeekOf(dateStr || U.todayStr());
+  const shifted = schedShiftWeeks();
+  const shiftTag = shifted ? '（顺延 ' + shifted + ' 周）' : '';
+  let head, body, prompt = '';
+  if (wk < 1) { head = '周期进度' + shiftTag + '：10/5 开营'; body = '冬训从下周一（10/5）起跑，本周是准备周：睡够、把每日包做起来。'; }
+  else if (wk > 36) { head = '周期进度' + shiftTag + '：已满'; body = '两段周期已结束——按专项检阅结果定高原行程节奏（到达后缓冲 1-2 天+慢升），别顶着未达标硬上。'; }
   else {
-    const g = MOUNTAIN12[wk - 1];
-    head = '转山倒排 · 第 ' + wk + '/12 周';
+    const ph = cyclePhaseOf(wk);
+    const g = ph.row;
+    head = ph.stage + '期 · 第 ' + g.w + '/' + ph.total + ' 周（总第 ' + wk + '/36 周）' + shiftTag;
     body = '本周：爬升 ' + g.climb + 'm≈' + Math.round(g.climb / 3) + ' 层楼梯（分散到有氧日）｜' + (g.load ? '负重 ' + g.load + 'kg 短走每周 2 次' : '暂不引入负重') + '｜长走 ' + g.walkH + 'h'
       + (g.note ? '<br><b>' + U.esc(g.note) + '</b>' : '')
-      + '<br><span class="sub">节奏纪律：前半程透支=后程崩，全程"能正常聊天"的配速；毕业线 47s（土路）/50s（负重）/57s（转山粗筛），每周日对照。</span>';
+      + '<br><span class="sub">节奏纪律：前半程透支=后程崩，全程"能正常聊天"的配速；毕业线 47s（土路）/50s（负重）/57s（转山粗筛），每 4 周周日对照。</span>';
+  }
+  const doneCnt = weekDoneCount();
+  if (wk >= 1 && wk <= 36 && doneCnt < 2 && schedShiftWeeks() < 2) {
+    prompt = '<div class="sub" style="margin-top:6px;padding:8px;border-radius:8px;background:color-mix(in srgb, var(--orange) 10%, transparent)">最近 7 天只完成 ' + doneCnt + ' 练——断档不扣分，计划可以整体让路。'
+      + '<button class="btn-mini" style="margin-left:6px" onclick="shiftCycleWeek()">顺延 1 周</button></div>';
+  } else if (schedShiftWeeks() >= 2) {
+    prompt = '<div class="sub" style="margin-top:6px">顺延缓冲已用尽（≤2 周）：行程按能力档重新评估，行前判定会如实给档。</div>';
   }
   return '<div class="card"><div class="card-head"><div class="bubble bg-purple" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 20l6-11 4 7 3-5 5 9z"/></svg></div>'
-    + '<div style="flex:1"><div class="card-title" style="margin:0">' + head + '</div><div class="sub">目标：12 周后冈仁波齐 52km/5630m/3 天</div></div></div>'
-    + '<div class="sub" style="margin-top:6px">' + body + '</div>'
+    + '<div style="flex:1"><div class="card-title" style="margin:0">' + head + '</div><div class="sub">目标：2027 转山窗口冈仁波齐 52km/5630m/3 天</div></div></div>'
+    + '<div class="sub" style="margin-top:6px">' + body + '</div>' + prompt
     + '<button class="ci-btn" style="margin-top:10px" onclick="openPreTrip()">🧭 行前选线判定：想走哪条，先对一遍</button></div>';
+}
+function weekDoneCount() { // FR-B1 触发条件：滑动 7 天完成笔数（口径与 weekTrainNo 一致=type 在训练类型内）
+  const from = U.todayStr(new Date(Date.now() - 6 * 86400000));
+  return (D.daily || []).filter((d) => d.date >= from && CONFIG.trainTypes.indexOf(d.type) >= 0).length;
+}
+function shiftCycleWeek() { // FR-B1 顺延 1 周：手动触发绝不自动改计划；上限 2 周；整体后移窗口不补量
+  const ss = D.state.schedShift || { weeks: 0, log: [] };
+  if (ss.weeks >= 2) { toast('顺延缓冲已用尽（≤2 周）'); return; }
+  ss.weeks += 1;
+  ss.log = (ss.log || []).concat([{ date: U.todayStr(), weeks: ss.weeks }]);
+  D.state.schedShift = ss;
+  persist();
+  renderToday();
+  toast('已顺延 1 周（累计 ' + ss.weeks + '/2）：全周期整体后移，不是补量');
 }
 function ankleGateLine() { // 踝门：右踝<47s → 土路/越野/下坡建议劝退（毕业线 47/50/57；只加户外提示，不改力量档位）
   const t = M.latestTest();
@@ -1706,12 +1769,12 @@ function retestRow(g, cur) { // 三线进度条：当前/目标+还差多少
     + '<span class="sub" style="color:' + (pass ? 'var(--green)' : 'var(--orange)') + '">' + (pass ? '✓ 过线' : (cur != null ? '还差 ' + (g.s - cur).toFixed(0) + 's' : '未测')) + '</span></div>'
     + '<div style="height:6px;background:var(--line);border-radius:3px;margin-top:3px"><div style="height:6px;width:' + pct + '%;background:' + (pass ? 'var(--green)' : 'var(--accent)') + ';border-radius:3px"></div></div></div>';
 }
-function nextRetestLine() { // 下次周日复测点：MOUNTAIN12 的 W4/W6/W8/W12 周日（W1 周一=2026-09-28，周日=Wn 起始日+6 天）
-  const wk = mountainWeekOf(U.todayStr());
-  const marks = [4, 6, 8, 12].filter((n) => n >= wk);
-  if (!marks.length) return '12 周倒排已满：按检阅结果定高原节奏';
+function nextRetestLine() { // 下次周日复测点（v4.1）：冬训 W4/8/12/16/20/24 + 专项 W4/8/12（绝对周 28/32/36）周日，锚=anchorDate() 可顺延
+  const wk = cycleWeekOf(U.todayStr());
+  const marks = [4, 8, 12, 16, 20, 24, 28, 32, 36].filter((n) => n >= wk);
+  if (!marks.length) return '周期计划已满：按检阅结果定高原节奏';
   const n = marks[0];
-  const d = U.fmtShort(U.todayStr(new Date(new Date('2026-09-28').getTime() + (n - 1) * 7 * 86400000 + 6 * 86400000)));
+  const d = U.fmtShort(U.todayStr(new Date(new Date(anchorDate()).getTime() + (n - 1) * 7 * 86400000 + 6 * 86400000)));
   return '下次周日复测：' + d + '（第 ' + n + ' 周末）';
 }
 function zoneLockHtml() { // 禁区解锁进度：条件全部来自 K1/K21/K23/footStages，体力可验证的自动判，评审/医生类标"待确认"
@@ -1726,7 +1789,7 @@ function zoneLockHtml() { // 禁区解锁进度：条件全部来自 K1/K21/K23/
     { name: '越野跑 R1（K23：两把闸门缺一不可）', conds: [
       ['踝毕业评审通过', null],
       ['医生放行', null]] },
-    { name: '转山粗筛（W12 检阅线 2026-12-20）', conds: [
+    { name: '转山粗筛（专项期检阅线）', conds: [
       ['闭眼站 57s', stand != null ? g57 : null],
       ['8kg 负重走（W11 峰值到位后）', null]] }
   ];
@@ -1743,8 +1806,7 @@ function rehabWorkbenchHtml() { // 复测可视化+禁区解锁（康复师折�
   if (stand == null) h += '<div class="sub" style="color:var(--orange)">还没录入闭眼单腿站测试——先在体测页录一次，三线进度才有起点。</div>';
   else h += '<div class="sub">最新右脚闭眼单腿站：<b>' + stand + 's</b>（' + U.esc(t.date || '') + '）</div>';
   GATE_LINES.forEach((g) => { h += retestRow(g, stand); });
-  const daysTo = Math.ceil((new Date('2026-12-20').getTime() - new Date(U.todayStr()).getTime()) / 86400000);
-  h += '<div class="sub" style="margin-top:4px">' + nextRetestLine() + ' · 距 12/20 检阅周还有 ' + Math.max(0, daysTo) + ' 天</div>';
+  h += '<div class="sub" style="margin-top:4px">' + nextRetestLine() + '</div>';
   h += zoneLockHtml();
   h += '</div></details>';
   return h;
@@ -1785,8 +1847,8 @@ function preTripEval(r) { // 三档判定：go 能走 / cond 有条件能走 / n
     if (aeroLv == null) lines.push('有氧底盘未评（能力雷达缺数据）——补录有氧日记录后判定更准');
     else if (aeroLv < r.aeroNeed) gaps.push('有氧底盘 L' + aeroLv + '，这条线建议 L' + r.aeroNeed + '+——有氧日把 Zone2 单次拉到 ' + (r.aeroNeed >= 3 ? '60 分钟以上' : '40 分钟以上'));
   }
-  const wk = mountainWeekOf(U.todayStr());
-  if (r.grade === 'L3' && wk < 12) lines.push('12 周倒排当前第 ' + (wk >= 1 ? wk : 0) + '/12 周——L3 线按检阅周（12/20）过了再定行程');
+  const wk = cycleWeekOf(U.todayStr());
+  if (r.grade === 'L3' && wk < 36) lines.push('周期计划当前第 ' + (wk >= 1 ? wk : 0) + '/36 周——L3 线按专项期检阅周过了再定行程');
   if (r.plateau) lines.push('高原线节奏条件（K20/K22）：到达后缓冲 1-2 天再起转、全程谈话测试、高走低睡——平原练不到的血氧适应，靠节奏补。');
   if (gaps.length) {
     const rx = r.standNeed != null && sg.v != null && sg.v < r.standNeed
@@ -1896,11 +1958,11 @@ function tripSubmit() { // 行后复盘提交：写 daily[today].trip + 联动�
   if (tripSel.pit === '下坡吃力/慢') setTimeout(() => openStopCard('行后复盘：下坡吃力——下楼禁区未解锁前不排下坡专项，康复进度在今日页「康复师工作台」'), 400);
   tripSel = { res: '', pit: '' };
 }
-function youAreHere(kId) { // 晋升标记（批2⑧）：K21/K23 卡头动态"你在这里"——数据源=mountainWeekOf+踝门，与全产品同一口径
+function youAreHere(kId) { // 晋升标记（批2⑧）：K21/K23 卡头动态"你在这里"——数据源=cycleWeekOf+踝门，与全产品同一口径
   if (kId === 'K21') {
-    const wk = mountainWeekOf(U.todayStr());
+    const wk = cycleWeekOf(U.todayStr());
     return '<div style="margin:0 0 8px;padding:8px;border-radius:8px;background:color-mix(in srgb, var(--purple) 12%, transparent)">'
-      + '<b>📍 你在这里：阶段 3（高原环线）</b>——武功山客栈型已过（阶段 2），12 周转山倒排' + (wk >= 1 ? '进行中：第 ' + wk + '/12 周' : '9/28 开营（现在是准备周）') + '。晋升四件里"过夜能力/导航冗余"仍未验证（K21 原文）。</div>';
+      + '<b>📍 你在这里：阶段 3（高原环线）</b>——武功山客栈型已过（阶段 2），两段周期' + (wk >= 1 ? '进行中：总第 ' + wk + '/36 周' : '10/5 开营（现在是准备周）') + '。晋升四件里"过夜能力/导航冗余"仍未验证（K21 原文）。</div>';
   }
   if (kId === 'K23') {
     const sg = standGateNow();
@@ -2021,6 +2083,7 @@ function weightLedgerLine() { // 体重账：吃有没有效果的唯一秤（we
 }
 const NOTE_SIGNALS = [ // 备注信号引擎（批9）：关键词规则，不是语义理解——只抓明确信号并给反馈，抓不到的明说
   { re: /夜间痛|夜间疼|肿胀|无法承重|畸形|绞锁/, modal: true, msg: '' },
+  { re: /酱油色尿|横纹肌/, modal: true, msg: '' }, // K14 横纹肌红旗词（v4.1 M2 批）：备注命中直接弹停训卡
   { re: /抽筋|痉挛/, msg: '抽筋记下了：K20——前 1 小时控速+出发就带咸味补给，预防在行前不在行中' },
   { re: /很累|太累|累垮|透支|好虚/, msg: '收到"累"：今晚锚点提前 30 分钟；明天晨检如实勾状态，引擎会自动降档' },
   { re: /喘|心率高|心率快|心率太高/, msg: '强度信号：Zone2 口径=能完整说整句话（K3）——下次放慢，成效看复测不看今天的汗' }
@@ -2208,7 +2271,7 @@ function renderToday() {
       + CONFIG.k12.map((x) => '<div class="sub">· ' + U.esc(x) + '</div>').join('')
       + '</div>';
   }
-  h += mountainGoalHtml(); // v3.5 M6 目标层：12 周转山倒排卡（今天页常显）
+  h += mountainGoalHtml(); // v4.1 M6 周期进度卡（冬训/专项两段+FR-B1 顺延按钮；今天页常显）
   h += weekReviewHtml(); // 最终版批3⑨：私教周复盘卡（仅周日出现）
   h += tour7CardHtml(); // 最终版批3⑪：新手7天引导（可跳过，7天自动关）
   // 周体重横幅（不变灯色）
@@ -3403,7 +3466,7 @@ CONFIG.knowledge = [
   { id: 'K11', group: '生活', title: 'K11 营养与体重', body: '偏瘦者(176/60, BMI 19.4)加量期原则：<br>· 不节食；训练日适当增加蛋白质与碳水(鸡蛋/奶/米饭多一口)<br>· 热量带：2400-2600 kcal/天（notes/08 §四 owner 裁决已核）——增重期"吃够"是硬指标不是可选项，热量缺口下练=掉瘦体重（Nedeltcheva 2010 实证：睡眠不足+热量限制组多丢 60% 瘦体重）<br>· 蛋白怎么落（食物版）：每日两个蛋+一盒奶打底、每餐一掌心肉/鱼/豆、练后一顿别跳——总日量优先于"练后 30 分钟窗口"（主流综述口径，标待核；g/kg 公式 1.6-2.2 同标待核，不进引擎）<br>· 每周晨起空腹称重一次(可空)；较前值降&gt;2kg→系统横幅提醒加餐；周复盘卡"体重账"按 0.5%/周带自动判读<br>· 增重节奏带子：每周涨幅不超过体重的 0.5%（59.6kg≈0.15-0.3kg/周）——这是上限不是承诺，不按月数倒推；睡眠不修，练得再狠也涨不动（Iraki 2019 ✅原文核对 0.25-0.5%/周，健美者非赛季口径→向普通训练者迁移=检索级）<br>· 目标不是减重，是让体重稳定或缓升(肌肉增长)' },
   { id: 'K12', group: '生活', title: 'K12 9/23 国民体测备战卡', body: CONFIG.k12.map((x) => '· ' + U.esc(x)).join('<br>') + '<br><span class="sub">本卡在目标页顶部 9/23 前显示、之后自动隐藏；「体测页-外部检测」折叠区常驻，不随日期关闭。</span>' },
   { id: 'K13', group: '理念', title: 'K13 高海拔行程前检查清单', body: '你有 5000 米未登顶史。任何高海拔行程（&gt;3500m）出发前必须完成：<br>· 心肺体检（心电图+血压）<br>· 阶梯适应日程（每上升 1000m 住一晚适应）<br>· 血氧仪+应急药品清单<br>· 下撤预案（什么症状必须下撤，写下来）<br><span class="sub">阶段3前仅展示、不可勾选。系统不提供"高原准备度"分数——高原适应无法在家训练，任何分数都是假的。</span>' },
-  { id: 'K14', group: '康复', title: 'K14 红旗自查卡：命中立即就医/下撤', body: '看训练建议之前先过这一关。命中任意一条 → 立即就医或下撤，不要再问练不练：<br>· <b>外伤后无法承重 4 步 / 骨性压痛 / 畸形 / 关节绞锁 / 伤后 1-2h 迅速肿胀</b> → 影像就医；户外=固定+撤离<br>· <b>夜间静息痛（与活动无关）/ 发热伴红肿热痛 / 不明原因消瘦</b> → 就医评估（不是训练问题）<br>· <b>高原：共济失调或意识改变（HACE）/ 静息呼吸困难（HAPE）</b> → 立即下撤，不等评分<br>· <b>寒战停止+嗜睡（中度失温）</b> → 复温+撤离；禁酒禁搓轻搬<br>· <b>突发胸闷气促胸痛</b> → 立即停止活动+急救呼叫<br><span class="sub">出处：三角色知识包·分诊红线卡（2026-09-27 对抗审查通过版）。今日状态卡检测到红灯词会直接引用本卡。</span>' },
+  { id: 'K14', group: '康复', title: 'K14 红旗自查卡：命中立即就医/下撤', body: '看训练建议之前先过这一关。命中任意一条 → 立即就医或下撤，不要再问练不练：<br>· <b>外伤后无法承重 4 步 / 骨性压痛 / 畸形 / 关节绞锁 / 伤后 1-2h 迅速肿胀</b> → 影像就医；户外=固定+撤离<br>· <b>剧烈运动后全身肌痛加重 + 酱油色尿/尿色深如浓茶</b> → 警惕横纹肌溶解，立即就医查肌酸激酶，训练全停<br>· <b>夜间静息痛（与活动无关）/ 发热伴红肿热痛 / 不明原因消瘦</b> → 就医评估（不是训练问题）<br>· <b>高原：共济失调或意识改变（HACE）/ 静息呼吸困难（HAPE）</b> → 立即下撤，不等评分<br>· <b>寒战停止+嗜睡（中度失温）</b> → 复温+撤离；禁酒禁搓轻搬<br>· <b>突发胸闷气促胸痛</b> → 立即停止活动+急救呼叫<br><span class="sub">出处：三角色知识包·分诊红线卡（2026-09-27 对抗审查通过版；横纹肌红旗词 v4.1 M2 批补入）。今日状态卡检测到红灯词会直接引用本卡。</span>' },
   { id: 'K15', group: '训练', title: 'K15 体测报告通用建议 vs 个人红线', body: '9/23 报告"运动建议"原文三条，逐条对红线：<br>· 跳绳 <b style="color:var(--orange)">⚠️ 右脚伤愈毕业前不适用（既定康复红线）</b><br>· 跑步 <b style="color:var(--orange)">⚠️ 右脚伤愈毕业前不适用（既定康复红线）</b><br>· 深蹲跳 <b style="color:var(--orange)">⚠️ 右脚伤愈毕业前不适用（既定康复红线）</b><br>替代方案：Zone2 快走/椭圆机/游泳（足底无痛为前提）；弹跳类等阶段机放行后再说。<br><span class="sub">报告建议是给普通人的通用模板，不覆盖个人红线——这是既定原则，不是报告写错。</span>' },
   /* ---- v3.5 单元5 指南页完整版（开工单单元5；素材=notes/07/10/11 代理A起草+主会话守门通过版；检索级条目就地标注） ---- */
   { id: 'K16', group: '户外', title: 'K16 保命树①：雷电 / 雨天 / 冰雪', body: '<b>★1 高山雷电</b><br>· 判断：闪电→雷声秒数÷3=距离（公里）；≤30 秒≈10km 内=已在危险区，听到雷就开始防<br>· 动作：立即离开山脊/山口/孤树/水体/湿岩壁，往低处均匀坡或密林走；队伍拉开数米、互相看得见；雷停后再等 30 分钟才继续<br>· 禁止：躲洞口岩檐下（电弧通道）、最高点打伞竖杖、贴孤树、躺平、全队抱团<br><br><b>★2 雨天行进（看人不看雨）</b><br>· 判断：持续寒战停不下来/说话含糊/手指扣不上扣子=失温边缘；绊脚、口齿不清、拿不住东西任一=判断力在下降<br>· 动作：行进微热就减层防汗湿，一停立刻加层；贴身层湿透→避风处换干底层+热糖水；换干加餐后寒战不退→停止行进，扎营或下撤<br>· 禁止：棉质贴身（湿后失温）、硬撑到抖起来才处理、雨中久停吹风<br><br><b>★3 下雪/结冰</b><br>· 判断：脚踢测试——打滑硬响=玻璃冰不可过，能踩出印=可通过；坡上方滑倒会滑向断崖/石堆=绕行<br>· 动作：陡坡排一日最暖时段过；三点稳定、小步、重心低前倾、一次一人其他人在固定点看<br>· 要"冲一下才敢过"=改绕、改期或折返——山永远在<br><span class="sub">出处：scenarios v2 ★1-★3（NOAA/NWS、NOLS、REI 口径；2026-09-27 检索级+指南级）。</span>' },
@@ -4352,7 +4415,7 @@ function reduceTarget(base, unit) { // REH-2 黄灯减量30%：次数向上取�
   if (String(unit).indexOf('秒') >= 0) return Math.max(5, Math.ceil((base * 0.7) / 5) * 5);
   return Math.max(1, Math.ceil(base * 0.7));
 }
-function buildCourse(reduced) { // 课单：热身 + 各动作N组（组数走课表 effSets，每组前预备3s、组后休息60s）+ 放松
+function buildCourse(reduced) { // 课单：热身 + 各动作N组（组数走课表 effSets，每组前预备3s、组后休息按动作类型 45-90s）+ 放松
   const c = [{ kind: 'warm' }];
   CONFIG.actions.forEach((a, i) => {
     const base = D.state.strengthReps[a.repsKey] || 10;
@@ -4363,15 +4426,19 @@ function buildCourse(reduced) { // 课单：热身 + 各动作N组（组数走�
       c.push({ kind: 'pre', actionIdx: i, set: s, name: a.name });
       c.push({ kind: 'set', actionIdx: i, set: s, name: a.name, unit: a.unit, target: target, timed: timed, secs: timed ? target : 0 });
       const last = (i === CONFIG.actions.length - 1 && s === st);
-      if (!last) c.push({ kind: 'rest', nextName: (s < st ? a.name : CONFIG.actions[i + 1].name), nextSet: (s < st ? s + 1 : 1) });
+      if (!last) c.push({ kind: 'rest', sec: restSecOf(a), nextName: (s < st ? a.name : CONFIG.actions[i + 1].name), nextSet: (s < st ? s + 1 : 1) });
     }
   });
   c.push({ kind: 'cooldown' });
   return c;
 }
-function estimateMin(course) { // 预计时长（估算值：次数类按40秒/组，热身/放松各按5分钟）
-  let s = 300 + 300 + course.filter((p) => p.kind === 'pre').length * 3 + course.filter((p) => p.kind === 'rest').length * 60;
-  course.forEach((p) => { if (p.kind === 'set') s += p.timed ? p.secs : 40; });
+function restSecOf(a) { // FR-4 组间休息差异化（v4.1）：大肌群力量 90s、其余 60s、计时类 45s——不再固定 60s
+  if (a.unit.indexOf('秒') >= 0) return 45;
+  return (a.part === '下肢推' || a.part === '上肢推' || a.part === '后链' || a.part === '后链/核心稳定') ? 90 : 60;
+}
+function estimateMin(course) { // 预计时长（估算值：次数类按40秒/组，热身/放松各按5分钟，rest 按各自 sec）
+  let s = 300 + 300 + course.filter((p) => p.kind === 'pre').length * 3;
+  course.forEach((p) => { if (p.kind === 'rest') s += (p.sec || 60); else if (p.kind === 'set') s += p.timed ? p.secs : 40; });
   return Math.max(1, Math.round(s / 60));
 }
 function lastPerfTxt() { // N3 上次成绩：最近一条（不含今天）含勾选的力量记录
@@ -4445,7 +4512,7 @@ function enterPhase(i) { // 进入课单第 i 项：重置计时三件套与播�
   wk.spoken10 = false; wk.spoken30 = false; wk.lastSpokenNum = -1;
   const now = Date.now();
   if (p.kind === 'pre') { wk.phaseDur = 3; wk.left = 3; wk.phaseStartTs = now; SPEAK('预备'); }
-  else if (p.kind === 'rest') { wk.phaseDur = 60; wk.left = 60; wk.phaseStartTs = now; SPEAK('休息一下，下一个：' + p.nextName); }
+  else if (p.kind === 'rest') { wk.phaseDur = p.sec || 60; wk.left = p.sec || 60; wk.phaseStartTs = now; SPEAK('休息一下，下一个：' + p.nextName); }
   else if (p.kind === 'set') { wk.phaseDur = p.timed ? p.secs : 0; wk.left = wk.phaseDur; wk.phaseStartTs = now; SPEAK(p.name + '，第' + p.set + '组，目标' + p.target + p.unit); }
   else if (p.kind === 'warm') { wk.phaseDur = 0; wk.left = 0; wk.phaseStartTs = now; }
   else { wk.phaseDur = 0; wk.left = 0; wk.phaseStartTs = now; SPEAK('最后，放松拉伸'); }
@@ -4664,7 +4731,7 @@ function renderWorkout() {
           return '<div class="wk-tip" style="color:var(--text2)">之后：' + (nx ? U.esc(nx.name) + ' 第 ' + nx.set + ' 组' : '放松拉伸，就收工') + '</div>';
         })();
   } else if (p.kind === 'rest') {
-    const frac = Math.max(0, Math.min(1, wk.left / 60));
+    const frac = Math.max(0, Math.min(1, wk.left / (wk.phaseDur || 60)));
     const C = 2 * Math.PI * 96;
     h = bar + '<div class="wk-name">休息</div><div class="wk-set">下一个：' + U.esc(p.nextName) + ' · 第 ' + p.nextSet + ' 组</div>'
       + '<div class="wk-ring"><svg viewBox="0 0 220 220"><circle cx="110" cy="110" r="96" fill="none" style="stroke:var(--line)" stroke-width="10"/>'

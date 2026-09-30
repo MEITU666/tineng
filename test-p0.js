@@ -289,20 +289,46 @@ check('⑨ 踝门：右脚<47s → 户外劝退行；≥47s → 无', () => {
   if (h.indexOf('47s 未到') >= 0) throw new Error('50s 不应劝退');
   return '踝门两分支正确';
 });
-check('⑨ M6 周次边界：9/28=W1、12/20=W12、12/27=满、9/27=未开营', () => {
-  const v = (d) => w.eval('mountainWeekOf("' + d + '")');
-  if (v('2026-09-28') !== 1 || v('2026-12-20') !== 12 || v('2026-12-27') !== 13 || v('2026-09-27') !== 0) throw new Error('周次边界错');
-  return '4 个边界全对';
+check('⑨ 周期边界（v4.1 两段）：10/5=冬训W1、10/9=未开营、冬训末24、专项25起、36=末周、37=满', () => {
+  const v = (d) => w.eval('cycleWeekOf("' + d + '")');
+  if (v('2026-10-05') !== 1) throw new Error('开营日应 W1');
+  if (v('2026-10-04') !== 0) throw new Error('开营前应 0');
+  if (v('2027-03-15') !== 24) throw new Error('2027-03-15 应冬训 W24');
+  if (v('2027-03-22') !== 25) throw new Error('2027-03-22 应专项 W1（总 25）');
+  if (v('2027-06-07') !== 36) throw new Error('2027-06-07 应专项 W12（总 36）');
+  if (v('2027-06-14') !== 37) throw new Error('周期满应 37');
+  return '6 个边界全对';
 });
-check('⑨ M6 卡：W11 峰值 8kg / W12 检阅周减量 / 毕业线提示在位', () => {
+check('⑨ 顺延联动（v4.1 FR-B1）：schedShift.weeks=1 → anchorDate+7d，cycleWeekOf 整体右移；钳位 2', () => {
+  if (w.eval('anchorDate()') !== '2026-10-05') throw new Error('默认锚应 2026-10-05');
+  w.eval('D.state.schedShift = { weeks: 1, log: [{ date: "2026-10-01", weeks: 1 }] };');
+  if (w.eval('anchorDate()') !== '2026-10-12') throw new Error('顺延 1 周后锚应 2026-10-12');
+  if (w.eval('cycleWeekOf("2026-10-05")') !== 0) throw new Error('原 W1 日顺延后应未开营');
+  if (w.eval('cycleWeekOf("2026-10-12")') !== 1) throw new Error('新锚日应 W1');
+  if (w.eval('schedShiftWeeks()') !== 1) throw new Error('读数应 1');
+  w.eval('D.state.schedShift = { weeks: 5, log: [] };');
+  if (w.eval('schedShiftWeeks()') !== 2) throw new Error('超限应钳位 2');
+  w.eval('D.state.schedShift = null;');
+  if (w.eval('schedShiftWeeks()') !== 0) throw new Error('null 应回 0');
+  return '顺延联动+钳位全对';
+});
+check('⑨ 周期进度卡（v4.1）：冬训/专项卡头+峰值/检阅在位+顺延标注+中断按钮', () => {
   const card = w.eval('mountainGoalHtml()');
-  if (card.indexOf('转山倒排') < 0) throw new Error('缺倒排卡头');
-  const cardW1 = w.eval('mountainGoalHtml("2026-09-28")'); // W1 周一：走 W1-12 分支
-  if (cardW1.indexOf('第 1/12 周') < 0 || cardW1.indexOf('毕业线') < 0) throw new Error('W1 分支缺周次或毕业线');
-  if (w.eval('MOUNTAIN12[10].load') !== 8) throw new Error('W11 峰值应 8kg');
-  const w12 = w.eval('MOUNTAIN12[11]');
-  if (w12.climb !== 350 || w12.note.indexOf('检阅周') < 0) throw new Error('W12 应减量检阅');
-  return '倒排卡要素齐全';
+  if (card.indexOf('周期进度') < 0) throw new Error('缺周期卡头');
+  const cardW1 = w.eval('mountainGoalHtml("2026-10-05")'); // 冬训 W1：走冬训分支
+  if (cardW1.indexOf('冬训期 · 第 1/24 周') < 0 || cardW1.indexOf('毕业线') < 0) throw new Error('W1 分支缺周次或毕业线');
+  const cardS12 = w.eval('mountainGoalHtml("2027-06-07")'); // 专项 W12：检阅分支
+  if (cardS12.indexOf('专项期 · 第 12/12 周') < 0) throw new Error('专项 W12 分支缺失');
+  if (w.eval('SPECIAL12[10].load') !== 8) throw new Error('专项 W11 峰值应 8kg');
+  const w12 = w.eval('SPECIAL12[11]');
+  if (w12.climb !== 350 || w12.note.indexOf('检阅周') < 0) throw new Error('专项 W12 应减量检阅');
+  if (w.eval('WINTER24.length') !== 24 || w.eval('SPECIAL12.length') !== 12) throw new Error('两段表行数 24+12');
+  w.eval('D.state.schedShift = { weeks: 2, log: [] };');
+  if (w.eval('mountainGoalHtml("2026-10-05")').indexOf('（顺延 2 周）') < 0) throw new Error('顺延标注缺失');
+  w.eval('D.state.schedShift = null;');
+  const cardIdle = w.eval('mountainGoalHtml("2026-10-05")'); // 冬训 W1+空记录（doneCnt=0<2）：应出顺延按钮
+  if (cardIdle.indexOf('顺延 1 周') < 0) throw new Error('中断顺延按钮缺失');
+  return '周期卡要素齐全';
 });
 
 /* ---------- ⑦ 训练感受弹窗（跟练结束 → 三键定 RPE + 疼痛点选） ---------- */
@@ -627,7 +653,7 @@ check('⑮ 行前判定：踝门 30s 走冈仁波齐→no+差 27s+链回每日�
   if (j.indexOf('每日包') < 0 || j.indexOf('不加新动作') < 0) throw new Error('缺练哪几项链接：' + j);
   return 'no+处方 ✓';
 });
-check('⑮ 行前判定：结斯沟踝门 50s（过 47 线）→有条件能走（12 周未满）', () => {
+check('⑮ 行前判定：结斯沟踝门 50s（过 47 线）→有条件能走（周期未满）', () => {
   if (loadErr) throw loadErr;
   w.eval('upsertByDate(D.tests, recStamp({ date: "2026-09-27", standR: 50 }))');
   const r = w.eval('preTripEval(TRIP_ROUTES.find(x=>x.id==="jiesigou"))');
@@ -1137,6 +1163,49 @@ check('㉓ 问教练三态 UI：未配置给引导+预埋 8 问可用；配置�
   if (m.indexOf('qaInput') < 0) throw new Error('live 态缺输入区');
   if (m.indexOf('AI 生成，可能有误') < 0) throw new Error('缺免责 footer');
   return '引导+预埋 ✓ 实时+免责 ✓';
+});
+
+/* ---------- ㉔ v4.1 M2 修订批：K14 横纹肌红旗词 + 组间休息差异化 + FR-G 动机层红线 + schedShift 缺键防线 ---------- */
+check('㉔ K14 横纹肌红旗词：卡内条目在+备注引擎酱油色尿/横纹肌弹停训卡', () => {
+  if (loadErr) throw loadErr;
+  const k14 = w.eval('CONFIG.knowledge.find(k=>k.id==="K14").body');
+  if (k14.indexOf('横纹肌') < 0 || k14.indexOf('酱油色尿') < 0 || k14.indexOf('肌酸激酶') < 0) throw new Error('K14 缺横纹肌红旗条目');
+  const hit = w.eval('NOTE_SIGNALS.filter(s=>s.modal && /酱油色尿|横纹肌/.test(s.re.source)).length');
+  if (hit !== 1) throw new Error('备注引擎缺横纹肌 modal 规则');
+  return 'K14 卡+备注引擎双落点 ✓';
+});
+check('㉔ 组间休息差异化（FR-4）：rest 项带 sec——下肢推 90s/秒类 45s/其余 60s，estimateMin 同口径', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData();');
+  const course = w.eval('JSON.stringify(buildCourse())');
+  const rest = JSON.parse(course).filter((p) => p.kind === 'rest');
+  if (!rest.length) throw new Error('力量课应含 rest 项');
+  if (rest.some((p) => p.sec == null)) throw new Error('rest 项缺 sec 字段');
+  if (w.eval('restSecOf(CONFIG.actions.find(a=>a.part==="下肢推"))') !== 90) throw new Error('下肢推 rest 应 90s');
+  const timed = w.eval('restSecOf(CONFIG.actions.find(a=>a.unit.indexOf("秒")>=0))');
+  if (timed !== 45) throw new Error('秒类 rest 应 45s，实际 ' + timed);
+  const est = w.eval('estimateMin(buildCourse())');
+  if (!est || est < 10 || est > 90) throw new Error('estimateMin 出界：' + est);
+  return 'rest 差异化 ✓（90/60/45 三档+时长估算不出界）';
+});
+check('㉔ FR-G 动机层红线：首页渲染无问责信号（打卡率/完成率/断 N 天/还差）', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); renderToday();');
+  const h = w.eval("document.getElementById('todayBody').innerHTML");
+  for (const k of ['打卡率', '完成率', '你已断', '还差', '落后']) if (h.indexOf(k) >= 0) throw new Error('首页出现问责词「' + k + '」');
+  const coach = w.eval('weekReviewHtml()');
+  if (coach && coach.indexOf('训练打卡') < 0) throw new Error('周复盘卡应含教练视角打卡数据');
+  return '首页零问责词 ✓（周复盘卡=教练视角白名单容器）';
+});
+check('㉔ schedShift 缺键防线：老数据 normalize/merge 补 null，不炸周期函数', () => {
+  if (loadErr) throw loadErr;
+  w.eval('window.__oldD = JSON.parse(JSON.stringify(defaultData())); delete window.__oldD.state.schedShift; D = normalizeData(window.__oldD);');
+  if (w.eval('D.state.schedShift') !== null) throw new Error('normalize 应补 schedShift=null');
+  if (w.eval('schedShiftWeeks()') !== 0) throw new Error('缺键时顺延读数应 0');
+  w.eval('D = mergeData(defaultData(), window.__oldD);');
+  const j = w.eval('JSON.stringify(D.state.schedShift)');
+  if (j !== 'null') throw new Error('merge 应补 schedShift=null，实际 ' + j);
+  return 'normalize/merge 双路径补键 ✓';
 });
 
 /* ---------- 输出 ---------- */
