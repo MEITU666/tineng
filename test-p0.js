@@ -616,17 +616,20 @@ check('⑭ 老数据兼容：线上备份（daily 无 chk 字段）normalize 后
 });
 
 /* ---------- ⑮ 户外指导员席（最终版批2）：行前判定+行中模式+行后复盘+晋升标记 ---------- */
-check('⑮ 线路库：12 条预埋在位（6 已核+6 待核），鳌太带 riskLine，新线路全标待核', () => {
+check('⑮ 线路库（v4.1 字段升级）：12 条在位（10 已核+2 待核），鳌太/博格达双永拒，南太行实历升 L2', () => {
   if (loadErr) throw loadErr;
   const n = w.eval('TRIP_ROUTES.length');
   if (n !== 12) throw new Error('线路数=' + n);
   const names = w.eval('TRIP_ROUTES.map(r=>r.id).join(",")');
   if (names !== 'gangrenboqi,lianbaoyeze,jiesigou,wugongshan,nantaihang,aotai,tengger,nanjiluo,yading,meili,genie,bogeda') throw new Error(names);
   if (w.eval('TRIP_ROUTES.find(r=>r.id==="aotai").riskLine') !== true) throw new Error('鳌太缺 riskLine');
+  if (w.eval('TRIP_ROUTES.find(r=>r.id==="bogeda").riskLine') !== true) throw new Error('博格达缺 riskLine（v4.1 升永拒）');
   const unvetted = w.eval('TRIP_ROUTES.filter(r=>r.grade==="待核").length');
-  if (unvetted !== 7) throw new Error('待核线数=' + unvetted + '（南太行+6 条新靶场线）');
-  if (String(w.eval('TRIP_ROUTES.find(r=>r.id==="nantaihang").src')).indexOf('待核') < 0) throw new Error('南太行未标待核');
-  return '12 线路（6 已核+6 待核全标注）✓';
+  if (unvetted !== 2) throw new Error('待核线数=' + unvetted + '（应只剩腾格里/梅里）');
+  const g = (id) => w.eval('TRIP_ROUTES.find(r=>r.id==="' + id + '").grade');
+  if (g('nantaihang') !== 'L2' || g('nanjiluo') !== 'L1' || g('yading') !== 'L3' || g('genie') !== 'L3') throw new Error('v4.1 四条升级字段错');
+  if (String(w.eval('TRIP_ROUTES.find(r=>r.id==="nantaihang").src')).indexOf('实历完走') < 0) throw new Error('南太行应标实历完走');
+  return '12 线路（10 已核+2 待核）双永拒 ✓';
 });
 check('⑮ 行前判定：鳌太→no+明令禁止穿越，永不给能走', () => {
   if (loadErr) throw loadErr;
@@ -1206,6 +1209,72 @@ check('㉔ schedShift 缺键防线：老数据 normalize/merge 补 null，不炸
   const j = w.eval('JSON.stringify(D.state.schedShift)');
   if (j !== 'null') throw new Error('merge 应补 schedShift=null，实际 ' + j);
   return 'normalize/merge 双路径补键 ✓';
+});
+
+/* ---------- ㉕ v4.1 M2 修订批二：线路字段升级 + Keep 两小件 + FR-A1 粘贴解析 ---------- */
+check('㉕ 博格达永拒生效：preTripEval 直接 no，与鳌太同口径', () => {
+  if (loadErr) throw loadErr;
+  const out = w.eval('JSON.stringify(preTripEval(TRIP_ROUTES.find(x=>x.id==="bogeda")))');
+  if (out.indexOf('"out":"no"') < 0) throw new Error('博格达应 no：' + out);
+  const lines = w.eval('preTripEval(TRIP_ROUTES.find(x=>x.id==="bogeda")).lines.join("")');
+  if (lines.indexOf('永不') < 0 && lines.indexOf('不在讨论') < 0) throw new Error('永拒文案缺失');
+  return '博格达永拒 ✓';
+});
+check('㉕ K27 食物热量速查：生活组在位+20 行表+只查询口径', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); renderGuideTab();');
+  const h = w.eval("document.getElementById('guideTabBody').innerHTML");
+  if (h.indexOf('kc_K27') < 0) throw new Error('K27 卡缺失');
+  const body = w.eval('CONFIG.knowledge.find(k=>k.id==="K27").body');
+  const rows = (body.match(/<tr>/g) || []).length;
+  if (rows !== 21) throw new Error('表行数应 21（表头+20 食物），实际 ' + rows);
+  if (body.indexOf('不打卡') < 0 || body.indexOf('约值') < 0) throw new Error('缺只查询/约值标注');
+  return 'K27 在位（20 食物+约值标注）✓';
+});
+check('㉕ 围度记录（Keep 小件）：girth 缺键补 null+空态折叠+已录态渲染三值', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData();');
+  if (w.eval('D.state.girth') !== null) throw new Error('出厂 girth 应 null');
+  w.eval('renderGoal();');
+  let gh = w.eval("document.getElementById('goalBody').innerHTML");
+  if (gh.indexOf('围度记录') < 0) throw new Error('目标页缺围度折叠');
+  if (gh.indexOf('最近围度') >= 0) throw new Error('空态不应显示已录值');
+  w.eval('D.state.girth = { chest: 92, arm: 28, leg: 52, date: U.todayStr() }; renderGoal();');
+  gh = w.eval("document.getElementById('goalBody').innerHTML");
+  if (gh.indexOf('胸 92 / 臂 28 / 腿 52') < 0) throw new Error('已录态缺三值');
+  return 'girth 双态渲染 ✓（写入函数与渲染同源字段）';
+});
+check('㉕ FR-A1 解析器：快捷指令文本/CSV/JSON 三格式+失败人话+分钟换算', () => {
+  if (loadErr) throw loadErr;
+  const p1 = w.eval('JSON.stringify(parseHealthPaste("睡眠 7.5" + String.fromCharCode(10) + "静息心率 62" + String.fromCharCode(10) + "HRV 45"))');
+  if (p1.indexOf('"sleepH":7.5') < 0 || p1.indexOf('"rhr":62') < 0 || p1.indexOf('"hrv":45') < 0) throw new Error('逐行文本解析错：' + p1);
+  const p2 = w.eval('JSON.stringify(parseHealthPaste("7.5,62,45"))');
+  if (p2.indexOf('"sleepH":7.5') < 0) throw new Error('CSV 解析错：' + p2);
+  const p3 = w.eval('JSON.stringify(parseHealthPaste(\'{"sleepH":7.5,"rhr":62,"hrv":45}\'))');
+  if (p3.indexOf('"rhr":62') < 0) throw new Error('JSON 解析错：' + p3);
+  const p4 = w.eval('JSON.stringify(parseHealthPaste("睡眠 450"))');
+  if (p4.indexOf('"sleepH":7.5') < 0) throw new Error('分钟换算错：' + p4);
+  w.eval('D = defaultData(); renderToday(); document.getElementById("pasteHealth").value = "乱七八糟"; previewPasteHealth();');
+  const pv = w.eval("document.getElementById('pastePreview').innerHTML");
+  if (pv.indexOf('三种格式都没认出来') < 0) throw new Error('失败应给人话：' + pv);
+  return '三格式+换算+人话失败 ✓';
+});
+check('㉕ FR-A1 入口条件渲染：缺睡眠显示/有睡眠隐藏+确认后 metrics 当日有值', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); renderToday();');
+  let h = w.eval("document.getElementById('todayBody').innerHTML");
+  if (h.indexOf('pasteHealth') < 0) throw new Error('缺睡眠时应显示粘贴入口');
+  w.eval('D.metrics.push(recStamp({ date: U.todayStr(), sleepH: 7, rhr: null, hrv: null })); renderToday();');
+  h = w.eval("document.getElementById('todayBody').innerHTML");
+  if (h.indexOf('pasteHealth') >= 0) throw new Error('有睡眠后入口应隐藏');
+  w.eval('D.metrics = []; renderToday();');
+  w.eval('document.getElementById("pasteHealth").value = "睡眠 7.5"; previewPasteHealth();');
+  const pv = w.eval("document.getElementById('pastePreview').innerHTML");
+  if (pv.indexOf('解析成功') < 0) throw new Error('预览失败：' + pv);
+  w.eval('savePasteHealth();');
+  const met = w.eval('JSON.stringify((M.metricOn(U.todayStr()) || {}).sleepH)');
+  if (met.indexOf('7.5') < 0) throw new Error('入账失败：' + met);
+  return '条件渲染+预览+入账全链 ✓';
 });
 
 /* ---------- 输出 ---------- */

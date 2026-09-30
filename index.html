@@ -673,7 +673,7 @@ function defaultData() {
       lastSyncAt: 0, pendingSync: false, strengthFails: 0, theme: 'auto', lastForm: null,
       strengthReps: { '深蹲': 12, '俯卧撑': 8, '下斜俯卧撑': 10, '平板': 30, '侧桥': 20, '箭步蹲': 8, '臀桥': 15, '俯卧YW': 8, '俯卧超人': 10 },
       backfillDone: false, profileDone: false, downgradedAt: null, progressionLog: [], scheduleText: null,
-      preTrip: null, tour7: null, weekRev: null, weather: null, aiCfg: null, schedShift: null, // 最终版增量（可选键）：行前判定缓存/新手7天引导/周复盘去重/今晨实况天气/AI问答供应商配置/FR-B1顺延状态——normalize/merge 补默认
+      preTrip: null, tour7: null, weekRev: null, weather: null, aiCfg: null, schedShift: null, girth: null, // 最终版增量（可选键）：行前判定缓存/新手7天引导/周复盘去重/今晨实况天气/AI问答供应商配置/FR-B1顺延状态——normalize/merge 补默认
       updatedAt: 0
     }
   };
@@ -799,7 +799,7 @@ function mergeData(local, remote) {
   out.state.strengthReps = out.state.strengthReps || {};
   CONFIG.actions.forEach((a) => { if (out.state.strengthReps[a.repsKey] == null) out.state.strengthReps[a.repsKey] = 10; }); // Codex 复核 P1-1 修复：合并后补缺键，防 undefined/NaN 污染
   // 最终版增量键缺键防线（与 4f52b7f 同套路）：老远端备份无这些键时补默认
-  ['preTrip', 'tour7', 'weekRev', 'weather', 'aiCfg', 'schedShift'].forEach((k) => { if (out.state[k] === undefined) out.state[k] = null; }); // aiCfg=问答外挂供应商配置（不含 key，key 只在本机 localStorage）；schedShift=FR-B1 顺延状态
+  ['preTrip', 'tour7', 'weekRev', 'weather', 'aiCfg', 'schedShift', 'girth'].forEach((k) => { if (out.state[k] === undefined) out.state[k] = null; }); // aiCfg=问答外挂供应商配置（不含 key，key 只在本机 localStorage）；schedShift=FR-B1 顺延状态
   out.daily = mergeByKey(local.daily, remote.daily, 'date');
   out.metrics = mergeByKey(local.metrics, remote.metrics, 'date');
   out.tests = mergeByKey(local.tests, remote.tests, 'date');
@@ -1638,6 +1638,88 @@ function shiftCycleWeek() { // FR-B1 顺延 1 周：手动触发绝不自动改�
   renderToday();
   toast('已顺延 1 周（累计 ' + ss.weeks + '/2）：全周期整体后移，不是补量');
 }
+function girthHtml() { // Keep 抄单小件（v4.1 FR-I）：围度月量一次——体重秤看不出长的是肌肉还是饭
+  const g = D.state.girth || {};
+  const has = g.chest != null || g.arm != null || g.leg != null;
+  const sum = has ? '<div class="sub" style="margin-top:4px">最近围度（' + U.fmtShort(g.date) + '）：胸 ' + g.chest + ' / 臂 ' + g.arm + ' / 腿 ' + g.leg + ' cm——对照体重账看"长的是肌肉还是饭"。</div>' : '';
+  return sum + '<details class="fold" style="margin-top:4px"><summary class="sub">围度记录（月量一次）：胸围/臂围/腿围</summary><div class="fold-body">'
+    + '<div style="display:flex;gap:6px;margin-top:6px">'
+    + '<input id="gChest" type="number" inputmode="decimal" placeholder="胸围 cm" style="flex:1">'
+    + '<input id="gArm" type="number" inputmode="decimal" placeholder="臂围 cm" style="flex:1">'
+    + '<input id="gLeg" type="number" inputmode="decimal" placeholder="腿围 cm" style="flex:1"></div>'
+    + '<button class="btn-mini" style="margin-top:6px" onclick="saveGirth()">保存围度</button></div></details>';
+}
+function saveGirth() { // 围度三行写入 state.girth（可选键，normalize/merge 补 null）
+  const c = U.num((document.getElementById('gChest') || {}).value);
+  const a = U.num((document.getElementById('gArm') || {}).value);
+  const l = U.num((document.getElementById('gLeg') || {}).value);
+  if (c == null && a == null && l == null) { toast('三个都空着，没什么可存'); return; }
+  D.state.girth = { chest: c, arm: a, leg: l, date: U.todayStr() };
+  persist(); renderGoal();
+  toast('围度已记录');
+}
+function parseHealthPaste(text) { // FR-A1：粘贴健康数据解析（宽容三格式：JSON/CSV/快捷指令逐行文本）→ {sleepH,rhr,hrv}，失败 throw {msg}
+  const t = String(text || '').trim();
+  if (!t) throw { msg: '先粘贴内容再解析' };
+  const num = (x) => { const n = parseFloat(String(x).replace(/[^\d.]/g, '')); return isNaN(n) ? null : n; };
+  if (t[0] === '{') {
+    try {
+      const o = JSON.parse(t);
+      const r = { sleepH: num(o.sleepH != null ? o.sleepH : (o.sleep != null ? o.sleep : o['睡眠'])), rhr: num(o.rhr != null ? o.rhr : o['静息心率'] != null ? o['静息心率'] : o['心率']), hrv: num(o.hrv != null ? o.hrv : o.HRV) };
+      if (r.sleepH == null && r.rhr == null && r.hrv == null) throw 0;
+      return fin(r);
+    } catch (e) { throw { msg: 'JSON 没认出来——键名要 sleepH/rhr/hrv 或 睡眠/静息心率/HRV' }; }
+  }
+  const lines = t.split(/\n+/).map((x) => x.trim()).filter(Boolean);
+  if (lines.length === 1 && /[,.\t，]/.test(lines[0]) && !/[:：]/.test(lines[0])) { // 单行 CSV（可选中文逗号）
+    const parts = lines[0].split(/[,，\t]/).map(num);
+    if (parts.slice(0, 3).some((x) => x != null)) return fin({ sleepH: parts[0] != null ? parts[0] : null, rhr: parts[1] != null ? parts[1] : null, hrv: parts[2] != null ? parts[2] : null });
+  }
+  if (/sleepH/i.test(lines[0]) && lines.length >= 2 && /[,\t]/.test(lines[0])) { // 带表头 CSV
+    const head = lines[0].split(/[,\t]/).map((x) => x.trim().toLowerCase());
+    const val = (lines[1] || '').split(/[,\t]/);
+    const pick = (names) => { const i = head.findIndex((h) => names.some((n) => h.indexOf(n) >= 0)); return i >= 0 ? num(val[i]) : null; };
+    return fin({ sleepH: pick(['sleep']), rhr: pick(['rhr', 'resting', '心率']), hrv: pick(['hrv']) });
+  }
+  const out = { sleepH: null, rhr: null, hrv: null };
+  const KM = [[/睡/, 'sleepH'], [/sleep/i, 'sleepH'], [/静息|resting|rhr/i, 'rhr'], [/^心率/, 'rhr'], [/hrv|变异/i, 'hrv']];
+  lines.forEach((ln) => {
+    const m = ln.match(/^([^:：\d]+)[:：\s]+(.+)$/);
+    if (!m) return;
+    const v = num(m[2]);
+    if (v == null) return;
+    for (const kv of KM) { if (kv[0].test(m[1].trim())) { if (out[kv[1]] == null) out[kv[1]] = v; break; } }
+  });
+  if (out.sleepH == null && out.rhr == null && out.hrv == null) throw { msg: '三种格式都没认出来——支持逐行"睡眠 7.5"、CSV、JSON，点下方示例看格式' };
+  return fin(out);
+  function fin(r) { // 睡眠单位宽容：>24 视为分钟换算成小时
+    if (r.sleepH != null && r.sleepH > 24) r.sleepH = Math.round(r.sleepH / 60 * 10) / 10;
+    return r;
+  }
+}
+function previewPasteHealth() { // FR-A1 两步交互：先解析预览（不落库）
+  const box = document.getElementById('pastePreview');
+  try {
+    const v = parseHealthPaste(document.getElementById('pasteHealth').value);
+    const txt = [v.sleepH != null ? '睡眠 ' + v.sleepH + 'h' : '', v.rhr != null ? '静息心率 ' + v.rhr : '', v.hrv != null ? 'HRV ' + v.hrv : ''].filter(Boolean).join(' / ');
+    box.innerHTML = '<div class="sub">解析成功：<b>' + U.esc(txt) + '</b></div><button class="btn-mini" style="margin-top:4px" onclick="savePasteHealth()">确认入账</button>';
+  } catch (e) {
+    box.innerHTML = '<div class="sub" style="color:var(--orange)">' + U.esc((e && e.msg) || '解析失败') + '</div>';
+  }
+}
+function savePasteHealth() { // FR-A1：确认后入当日 metrics（原位合并，不覆盖已有值）
+  try {
+    const v = parseHealthPaste(document.getElementById('pasteHealth').value);
+    const met = Object.assign({}, M.metricOn(U.todayStr()) || {}, { date: U.todayStr() });
+    if (v.sleepH != null) met.sleepH = v.sleepH;
+    if (v.rhr != null) met.rhr = v.rhr;
+    if (v.hrv != null) met.hrv = v.hrv;
+    if (met.sleepH == null && met.rhr == null && met.hrv == null) { toast('三项全空，不落空记录'); return; }
+    upsertByDate(D.metrics, recStamp(met));
+    persist(); renderToday();
+    toast('已入账：' + [v.sleepH != null ? '睡眠 ' + v.sleepH + 'h' : '', v.rhr != null ? '静息心率 ' + v.rhr : '', v.hrv != null ? 'HRV ' + v.hrv : ''].filter(Boolean).join(' / '));
+  } catch (e) { toast((e && e.msg) || '解析失败——检查格式'); }
+}
 function ankleGateLine() { // 踝门：右踝<47s → 土路/越野/下坡建议劝退（毕业线 47/50/57；只加户外提示，不改力量档位）
   const t = M.latestTest();
   if (!t || t.standR == null || t.standR >= 47) return '';
@@ -1820,15 +1902,15 @@ const TRIP_ROUTES = [
   { id: 'lianbaoyeze', name: '莲宝叶则', grade: 'L1', days: '1 天', alt: '4000-4500m', standNeed: null, aeroNeed: 2, plateau: true, src: 'K22 详档：检阅/适应线；行前必查当季官方公告' },
   { id: 'jiesigou', name: '结斯沟穿山洞', grade: 'L3', days: '1 天往返 12km/爬升 1100m', alt: '顶 4880m', standNeed: 47, aeroNeed: 3, plateau: false, src: 'K22 详档：实历未登顶，卡点=体力分配（先看节奏纪律再谈加体能）' },
   { id: 'wugongshan', name: '武功山', grade: 'L2', days: '2-4 天', alt: '1900m 级', standNeed: null, aeroNeed: 2, plateau: false, src: 'K21/K22：实历客栈型已过' },
-  { id: 'nantaihang', name: '南太行', grade: '待核', days: '—', alt: '—', standNeed: null, aeroNeed: null, plateau: false, custom: true, src: 'K22 无详档（待核，不拍板）；实历短板=碎石下坡慢' },
+  { id: 'nantaihang', name: '南太行', grade: 'L2', days: '2 天 1 夜', alt: '—', standNeed: null, aeroNeed: 2, plateau: false, custom: true, src: '实历完走（2 天 1 夜）；短板=碎石下坡慢——下坡控速是策略不是能力缺陷；K22 无详档' },
   { id: 'aotai', name: '鳌太', grade: 'L5', days: '—', alt: '3000m+ 石海', standNeed: null, aeroNeed: null, plateau: false, riskLine: true, src: 'K22 风险教育卡：2018 年起明令禁止穿越，永不种草' },
   // 批9 实测反馈扩充：产出C 靶场候选线入库——全部"未守门待核"（难度档未经 notes 守门，不判能不能走，只给自查要素）
   { id: 'tengger', name: '腾格里（徒步）', grade: '待核', days: '—', alt: '—', standNeed: null, aeroNeed: null, plateau: false, src: '待核（未守门）：沙漠要素=水源/温差，不在本判定范围' },
-  { id: 'nanjiluo', name: '南极洛', grade: '待核', days: '—', alt: '—', standNeed: null, aeroNeed: null, plateau: true, src: '待核（未守门）：行前必查当季预约与开放公告' },
-  { id: 'yading', name: '亚丁大转', grade: '待核', days: '—', alt: '—', standNeed: null, aeroNeed: null, plateau: true, src: '待核（未守门）：高原线按 K20 节奏条件执行' },
+  { id: 'nanjiluo', name: '南极洛', grade: 'L1', days: '常规 5-8km 环线/天眼线 20km+', alt: '—', standNeed: null, aeroNeed: 2, plateau: true, src: '景区化限流预约制（提前约 5 日/门票含景区车，产出C 检索 2026-09-28）；定位=检阅/风景线+预约纪律' },
+  { id: 'yading', name: '亚丁大转', grade: 'L3', days: '—', alt: '—', standNeed: null, aeroNeed: 3, plateau: true, src: '高原长线：按 K20 节奏条件执行，行前必查当季开放公告' },
   { id: 'meili', name: '梅里外转', grade: '待核', days: '—', alt: '—', standNeed: null, aeroNeed: null, plateau: true, src: '待核（未守门）：高原线按 K20 节奏条件执行' },
-  { id: 'genie', name: '格聂C线', grade: '待核', days: '—', alt: '—', standNeed: null, aeroNeed: null, plateau: true, src: '待核（未守门）：高原线按 K20 节奏条件执行' },
-  { id: 'bogeda', name: '博格达', grade: '待核', days: '—', alt: '—', standNeed: null, aeroNeed: null, plateau: true, src: '待核（未守门）：技术性存疑，风险自查优先' }
+  { id: 'genie', name: '格聂C线', grade: 'L3', days: '—', alt: '—', standNeed: null, aeroNeed: 3, plateau: true, src: '高原长线：按 K20 节奏条件执行，行前必查当季开放公告' },
+  { id: 'bogeda', name: '博格达', grade: 'L5', days: '—', alt: '—', standNeed: null, aeroNeed: null, plateau: true, riskLine: true, src: '风险教育卡：技术探险线，与鳌太同口径永不给"能走"，永不种草' }
 ];
 function standGateNow() { // 踝门现状（联动康复师席同一数据源）
   const t = M.latestTest();
@@ -2455,6 +2537,17 @@ function planHtml() {
       h += '<div style="margin-top:10px"><button class="btn-primary" id="btnQuick2" onclick="tfQuickSave()">' + quickBtnText() + '</button>'
         + '<div class="sub" id="quickSub2" style="margin-top:6px">' + quickSubText() + '</div></div>'; // 批12a：练完顺手存（第二入口，副行同源实时）
     }
+  }
+  const tMetP = M.metricOn(U.todayStr()) || {};
+  if (tMetP.sleepH == null) { // FR-A1 条件渲染：当天 metrics 缺睡眠值才出现（不增常驻卡，§6.1 少滚动）
+    h += '<div class="sub" style="margin-top:10px;padding:8px;border-radius:8px;background:color-mix(in srgb, var(--blue) 8%, transparent)"><b>引擎缺燃料：</b>今天还没有睡眠数据——从健康 App 粘贴一次，10 秒搞定。'
+      + '<details style="margin-top:6px"><summary class="sub">展开粘贴导入</summary><div class="fold-body">'
+      + '<textarea id="pasteHealth" rows="3" style="width:100%;margin-top:6px" placeholder="睡眠 7.5 / 静息心率 62 / HRV 45"></textarea>'
+      + '<div style="margin-top:6px"><button class="btn-mini" onclick="previewPasteHealth()">解析预览</button></div>'
+      + '<div id="pastePreview" class="sub" style="margin-top:6px"></div>'
+      + '<details style="margin-top:6px"><summary class="sub">也支持 CSV / JSON：7.5,62,45 或 {"sleepH":7.5,"rhr":62,"hrv":45}</summary></div>'
+      + '<details style="margin-top:6px"><summary class="sub">快捷指令怎么搭？（一次配置永久生效）</summary><div class="sub" style="margin-top:4px">iPhone「快捷指令」App → 自动化 → 特定时间（早晨 7:30）→ 添加动作：查找健康样本（睡眠时长）+ 查找健康样本（静息心率）+ 查找健康样本（心率变异）→ 文本动作把三个值拼成三行 → 拷贝到剪贴板。之后每天开本页点「解析预览」即可。</div></details>'
+      + '</div></details></div>';
   }
   return h;
 }
@@ -3438,7 +3531,7 @@ function renderGoal() {
   });
   h += '</div></details></div>';
   h += '<div class="card"><div class="card-head"><div class="bubble bg-orange" aria-hidden="true"><svg viewBox="0 0 24 24"><ellipse cx="10" cy="14" rx="4" ry="6"/><circle cx="16.5" cy="7.5" r="1.4"/><circle cx="18.5" cy="11" r="1.4"/><circle cx="18.5" cy="15" r="1.4"/></svg></div>'
-    + '<div style="flex:1"><div class="card-title" style="margin:0">体重账 · 吃有没有效果的秤</div></div></div>' + weightLedgerLine() + '</div>'; // 批11：体重账接入目标页
+    + '<div style="flex:1"><div class="card-title" style="margin:0">体重账 · 吃有没有效果的秤</div></div></div>' + weightLedgerLine() + '</div>' + girthHtml(); // 批11：体重账接入目标页（v4.1 加 Keep 抄单围度折叠）
   h += rehabWorkbenchHtml(); // 批11：康复进度/12周复测点接入目标页（与今日页同源同口径）
   box.innerHTML = h;
   runAnims(box);
@@ -3478,6 +3571,9 @@ CONFIG.knowledge = [
   { id: 'K22', group: '路线', title: 'K22 线路难度谱系与三条你的线', body: '<b>先看八个维度再看档位</b>：最高海拔 / 睡眠海拔（权重更高）/ 天数 / 日均里程 / 日均爬升 / 负重 / 技术性 / 补给撤离。谱系从轻到重：<br>· L1 景区观光 → L2 经典多日线（雨崩/武功山/虎跳峡高路）→ L3 高原环线（冈仁波齐/贡嘎西南坡/洛克线）→ L4 长线重装（乌孙/夏特/狼塔）→ L5 技术探险（鳌太，单列）<br>· "轻松走遍大多数"的诚实定义=稳定站上 L3+具备 L4 重装过夜能力，不是把 L4/L5 全走一遍<br><br><b>冈仁波齐（L3 · 12 周目标线）</b><br>· 外转约 52km / 卓玛拉垭口 5630m / 3 天为主流；塔钦约 4670m 起，每晚都睡在 4670m 量级以上<br>· 技术性低——难度不在走路，在"连续 3 天睡 4670m+ 还要翻 5630m 垭口"；到达后缓冲 1-2 天再起转<br><br><b>莲宝叶则（L1 · 高海拔检阅线）</b><br>· 观光车+栈道+石坡，游览区 4000-4500m；唯一难点=当天快速暴露在 4000m+，高反风险不低<br>· 年保玉则侧已永久关闭（多源），穿越线可行性存疑；定位=冈仁波齐前后的适应/检阅线，行前查当季官方公告<br><br><b>结斯沟穿山洞雪山（L3 · 入门雪山线 · 你走过）</b><br>· 3700m 起步、山顶 4880m、往返约 12km、累计爬升约 1100m；你未登顶、自归因体力分配不均——再走前先看节奏纪律执行没执行，而不是先加体能<br><br><b>鳌太（L5 · 风险教育卡，永不种草）</b><br>· 约 120-170km（两源口径打架，待核）、多在 3000m+ 石海路段；媒体口径"国内死亡率最高的徒步线"，2018 年起明令禁止穿越<br>· 本卡唯一用途=风险认知；不进谱系推荐、不进"轻松走遍大多数"话术<br><span class="sub">出处：notes/10（2026-09-27 检索级多源；打架数字按纪律标"待核"不拍板；开放状态带检索日，行前必查官方公告）。</span>' },
   { id: 'K23', group: '路线', title: 'K23 越野跑解锁阶梯（展示页，不是课表）', body: '<b>红线前置（先说清再展示）</b><br>· 越野跑本质=跑步，跑步在你的禁区清单上（右脚伤愈毕业评审前）。这份阶梯是给你看清全貌的，不是现在开跑——"提前跑一点点试试"是红线<br>· 两把闸门缺一不可：①踝毕业评审通过 ②医生放行。任一不过=R1 不启动<br><br><b>R1 · 路跑基础（闸门全开后）</b><br>· 每周 2-3 次隔天跑，20-30 分钟轻松跑起步→渐进 40-60 分钟；全程"能边跑边交谈"的配速；平地/操场，不进山<br>· 预期管理：徒步耐力换不成跑步耐力（肌肉模式不同，不是退步）——能走一天的人，跑步可能只能维持一两个小时<br><br><b>R2 · 跑走结合进山</b><br>· 平整步道起步，跑走结合，走不丢人；越野脚感养成需 4-6 周<br>· 忘掉公路配速：越野明显更慢，用心率和体感评强度<br>· 力量配套与 R1 同步开练：保加利亚分腿蹲、单脚硬拉（下坡专项等禁区解锁，见下）<br><br><b>R3 · 技术期</b><br>· 上坡 Power Hike：手撑膝/杖前撑、重心前倾、步幅收小——陡坡上快走比跑更快更省<br>· 下坡三态：看前方不看脚、小步快频、重心微前倾提前选线；雨后湿滑/碎石段降级为走<br><br><b>下坡诚实区（对你最重要的段落）</b><br>· 下坡是越野跑核心技能，而你的下楼禁区+膝前痛史+三次实历"下山特别慢"都指向同一处——越野跑成不成，卡点大概率在下坡<br>· 下坡能力重建是全阶梯最慢一环：毕业评审解锁前，一切下坡/下楼离心专项不排；解锁后渐进离心起步，隔 48h、酸痛期内不加第二次<br><span class="sub">本卡=解锁阶梯展示页，不是课表；课表正文等两把闸门过了按当时测试数据另出。出处：notes/11（2026-09-27 检索级；R1 起步参数保守表述）。</span>' },
   { id: 'K24', group: '理念', title: 'K24 术语→人话对照表', body: '<table class="cmp"><tr><td style="width:38%;font-weight:600">本体感觉</td><td>脚踝自己知道"踩没踩稳"的能力</td></tr><tr><td style="font-weight:600">渐进超负荷</td><td>每次只加一点点，身体才来得及变强</td></tr><tr><td style="font-weight:600">RIR（储备次数）</td><td>做完这组还剩几次力气</td></tr><tr><td style="font-weight:600">离心/慢放</td><td>动作里"慢慢放下"的那半程</td></tr><tr><td style="font-weight:600">DOMS 延迟性酸痛</td><td>练完第二天才来的酸，24-72 小时到顶</td></tr><tr><td style="font-weight:600">LSI 患健比</td><td>伤腿成绩是健康腿的百分之几</td></tr><tr><td style="font-weight:600">Zone 2</td><td>能说整句话、不能唱歌的强度</td></tr><tr><td style="font-weight:600">VO2max 最大摄氧量</td><td>身体用氧的发动机排量</td></tr><tr><td style="font-weight:600">AMS 急性高山病</td><td>上高原后头疼乏力那套反应</td></tr><tr><td style="font-weight:600">HACE 脑水肿</td><td>高原病最危险的脑部形态，走路走不直就要命</td></tr><tr><td style="font-weight:600">HAPE 肺水肿</td><td>高原病肺部形态，不动也喘就要命</td></tr><tr><td style="font-weight:600">Tandem gait</td><td>直线脚跟接脚尖走——测脑子稳不稳的现场检查</td></tr><tr><td style="font-weight:600">PEACE&amp;LOVE</td><td>伤后 48 小时的保护规矩+之后的科学动起来</td></tr><tr><td style="font-weight:600">静息心率基线</td><td>你睡醒时心跳的"平时水平"</td></tr><tr><td style="font-weight:600">HRV 心率变异性</td><td>身体恢复度的电表，低了就是没缓过来</td></tr><tr><td style="font-weight:600">超补偿</td><td>练→吃→睡→变强的循环</td></tr><tr><td style="font-weight:600">中枢敏化</td><td>神经把疼痛音量调太大，病好了还疼</td></tr><tr><td style="font-weight:600">恐惧回避</td><td>因为怕疼不敢动，越不动越废</td></tr><tr><td style="font-weight:600">等长收缩</td><td>顶住不动但肌肉发力的静力练习</td></tr><tr><td style="font-weight:600">代偿</td><td>该发力的肌肉偷懒，别的部位替它挨打</td></tr></table><span class="sub" style="margin-top:8px">出处：SKILL.md v2 术语人话表（2026-09-27 对抗审查通过版），照搬。</span>' }
+  ,{ id: 'K27', group: '生活', title: 'K27 食物热量速查：20 个常见食物（只查询不打卡）', body: 'Keep 抄单小件（v4.1）：增重吃账的查询工具——不打卡、不记录，想知道吃什么对照一眼。<br><table class="cmp"><tr><td style="font-weight:600">食物（每 100g 可食部）</td><td>热量 kcal</td><td>蛋白 g</td></tr>'
+    + '<tr><td>米饭（熟）</td><td>116</td><td>2.6</td></tr><tr><td>馒头</td><td>223</td><td>7.0</td></tr><tr><td>面条（煮）</td><td>110</td><td>3.6</td></tr><tr><td>全麦面包</td><td>246</td><td>9.0</td></tr><tr><td>燕麦片（干）</td><td>367</td><td>15</td></tr><tr><td>红薯</td><td>86</td><td>1.6</td></tr><tr><td>土豆</td><td>77</td><td>2.0</td></tr><tr><td>鸡蛋（整）</td><td>144</td><td>13.3</td></tr><tr><td>鸡胸肉</td><td>133</td><td>24</td></tr><tr><td>鸡腿肉（去皮）</td><td>146</td><td>20</td></tr><tr><td>瘦猪肉</td><td>143</td><td>20</td></tr><tr><td>牛腱子</td><td>115</td><td>20</td></tr><tr><td>三文鱼</td><td>139</td><td>18</td></tr><tr><td>虾</td><td>93</td><td>18.6</td></tr><tr><td>豆腐</td><td>81</td><td>8.1</td></tr><tr><td>牛奶</td><td>54</td><td>3.0</td></tr><tr><td>无糖酸奶</td><td>72</td><td>2.8</td></tr><tr><td>花生</td><td>574</td><td>24.8</td></tr><tr><td>西兰花</td><td>34</td><td>2.8</td></tr><tr><td>香蕉</td><td>93</td><td>1.4</td></tr></table>'
+    + '<span class="sub" style="margin-top:8px">约值，供估算对照；精确值看包装营养表。增重口径（FR-8）：盈余靠三餐+练后一顿加起来，不是猛灌零食——脾虚湿盛肠胃差，少食多餐比一顿硬塞强。</span>' }
 ];
 const K_GROUPS = ['理念', '训练', '康复', '生活', '户外', '路线'];
 
