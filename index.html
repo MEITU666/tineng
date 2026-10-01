@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <!--
-  体能系统 v3.2 · 个人户外体能 PWA（单文件全内联，零外部依赖）
+  体能系统 v4.1 · 个人户外体能 PWA（单文件全内联，零外部依赖）
   网络白名单仅两处：① https://api.github.com ② CONFIG.GIST_RAW_URL
   运行要求：http(s) 访问（GitHub Pages 或本地 python -m http.server），file:// 直开无 Web Crypto/SW。
 -->
@@ -895,6 +895,17 @@ function toast(msg) {
   el.textContent = msg; el.hidden = false;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.hidden = true; }, 3200);
+}
+window.APP_VER = '4.1.0'; // v4.1：版本常量（此前"关于"卡硬编码 v3.2 失真，M1-M3 无版本管理）
+async function checkAppUpdate() { // v4.1：一键清 SW/缓存并重载——根治"PWA 更新后吃旧缓存"（原需手动强刷）
+  try {
+    const regs = await navigator.serviceWorker.getRegistrations();
+    for (const r of regs) await r.unregister();
+    const keys = await caches.keys();
+    for (const k of keys) await caches.delete(k);
+  } catch (e) {}
+  toast('更新完成，正在刷新…');
+  setTimeout(() => location.reload(), 800);
 }
 function showModal(html) {
   document.getElementById('modalBox').innerHTML = html;
@@ -4311,7 +4322,8 @@ function renderProfile() {
     + '<button class="ci-btn" onclick="openAnnualReport()">查看</button></div></div>';
   // 关于
   h += '<div class="card"><div class="card-title" style="margin-bottom:6px">关于</div>'
-    + '<div class="set-row"><span class="sr-k">版本</span><span class="sr-v">v3.2</span></div>'
+    + '<div class="set-row"><span class="sr-k">版本</span><span class="sr-v">' + APP_VER + '</span></div>'
+    + '<div class="set-row"><span class="sr-k">更新</span><button class="btn-mini" onclick="checkAppUpdate()">检查并安装更新</button></div>'
     + '<div class="sub" style="margin-top:8px">本应用为个人训练记录工具，非医疗设备；疼痛持续或加重请就医。</div></div>';
   document.getElementById('profileBody').innerHTML = h;
 }
