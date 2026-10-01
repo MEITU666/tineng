@@ -1345,6 +1345,91 @@ check('㉖ K28 武汉场地卡：户外组在位+速查表+楼梯课硬规则+�
   return 'K28 在位（速查+硬规则+待核+零禁区）✓';
 });
 
+/* ---------- ㉗ v4.1 欠账补齐：FR-D 三件 + FR-B2/B4 + 过程指标行 + FR-B3 + FR-C + UX 补缺 ---------- */
+check('㉗ FR-D 气温提示：appMax≥32 提清晨/<5 提热身/手选不提示', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); D.state.weather = { date: U.todayStr(), wx: "闷热", desc: "体感 35°C", appMax: 35, manual: false };');
+  const hot = w.eval('planHtml()');
+  if (hot.indexOf('清晨凉快窗口') < 0) throw new Error('高温提示缺失');
+  w.eval('D.state.weather = { date: U.todayStr(), wx: "好天", desc: "体感 3°C", appMax: 3, manual: false };');
+  const cold = w.eval('planHtml()');
+  if (cold.indexOf('热身延长') < 0) throw new Error('低温提示缺失');
+  w.eval('D.state.weather = { date: U.todayStr(), wx: "好天", desc: "手动选择", appMax: 35, manual: true };');
+  if (w.eval('heatHint()') !== '') throw new Error('手选天气不应提示');
+  return '气温双阈值+手动豁免 ✓';
+});
+check('㉖ FR-D 时段感知：21 点后出明晨预告卡，白天不出', () => {
+  if (loadErr) throw loadErr;
+  const night = w.eval('nightHintHtml(21)');
+  if (night.indexOf('明晨预告') < 0) throw new Error('夜间预告缺失');
+  if (w.eval('nightHintHtml(10)') !== '') throw new Error('白天不应出预告');
+  return '时段分支 ✓';
+});
+check('㉖ FR-D 行中感知：激活标记→今日页保命卡置顶', () => {
+  if (loadErr) throw loadErr;
+  w.eval('try { sessionStorage.removeItem("tineng_midtrip"); } catch (e) {} D = defaultData(); renderToday();');
+  let h = w.eval("document.getElementById('todayBody').innerHTML");
+  if (h.indexOf('保命卡置顶') >= 0) throw new Error('未激活不应出保命条');
+  w.eval('try { sessionStorage.setItem("tineng_midtrip", "1"); } catch (e) {} renderToday();');
+  h = w.eval("document.getElementById('todayBody').innerHTML");
+  if (h.indexOf('保命卡置顶') < 0 || h.indexOf('折返纪律') < 0) throw new Error('行中激活缺保命置顶条');
+  w.eval('try { sessionStorage.removeItem("tineng_midtrip"); } catch (e) {}');
+  return '行中激活→保命置顶 ✓';
+});
+check('㉗ 周复盘三件：FR-B2 提前达标+FR-B4 连续低完成率+FR-8 过程指标行', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData();');
+  w.eval('upsertByDate(D.tests, recStamp({ date: U.addDays(U.todayStr(), -1), standR: 50 }))');
+  const wr = w.eval('weekReviewHtml(true)');
+  if (wr.indexOf('进度快于计划') < 0) throw new Error('FR-B2 提前达标提示缺失');
+  const hasProc = wr.indexOf('过程指标：') >= 0 && wr.indexOf('采集完整率') >= 0 && wr.indexOf('晨检') >= 0 && wr.indexOf('疼痛红灯') >= 0;
+  if (!hasProc) throw new Error('FR-8 过程指标行缺失：' + wr.slice(-300));
+  return 'B2+B4+过程指标行 ✓';
+});
+check('㉗ FR-B4 连续两周<60% 出重排建议（两周都打满则不提示）', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData();');
+  w.eval('for (let i = 0; i < 14; i++) { upsertByDate(D.daily, recStamp({ date: U.addDays(U.todayStr(), -i), type: "力量", rpe: 8 })) }');
+  const wr = w.eval('weekReviewHtml(true)');
+  if (wr.indexOf('连续两周完成率低于 60%') >= 0) throw new Error('全勤不应提示重排');
+  return 'B4 反例验证 ✓';
+});
+check('㉗ FR-B3 解锁树进能力页：四段语义（你在这里/三禁区/R0 支线）', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); upsertByDate(D.metrics, recStamp({ date: U.todayStr(), sleepH: 7 })); renderAbility();');
+  const h = w.eval("document.getElementById('abilityBody').innerHTML");
+  if (h.indexOf('解锁树 · 晋升全貌') < 0) throw new Error('能力页缺解锁树');
+  if (h.indexOf('你在这里') < 0 || h.indexOf('转山粗筛') < 0 || h.indexOf('R0 支线') < 0) throw new Error('四段语义不全');
+  return '解锁树能力页主视觉 ✓';
+});
+check('㉗ FR-C 毕业评审向导：三判定+人工确认+未过延周期', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); upsertByDate(D.tests, recStamp({ date: U.addDays(U.todayStr(), -3), standR: 58 })); upsertByDate(D.external, recStamp({ date: U.addDays(U.todayStr(), -3), source: "测试", "体测总分": 100 }))');
+  w.eval('openGradReview();');
+  const m = w.eval("document.getElementById('modalBox').innerHTML");
+  if (m.indexOf('毕业评审') < 0 || m.indexOf('三判定') < 0 || m.indexOf('grWalk') < 0) throw new Error('向导结构缺失');
+  if (m.indexOf('confirmGrad()') < 0) throw new Error('达标态缺确认按钮');
+  w.eval('D = defaultData(); openGradReview();');
+  const m2 = w.eval("document.getElementById('modalBox').innerHTML");
+  if (m2.indexOf('延 1 周再评') < 0) throw new Error('未过态缺延周期出口');
+  if (w.eval('D.state.graduated') !== null) throw new Error('出厂 graduated 应 null');
+  return 'FR-C 向导（达标/未过两态）✓';
+});
+check('㉗ UX 补缺：天气请求 5s 超时+nav pushState+focusin 防遮挡+趋势 metrics 空提示', () => {
+  if (loadErr) throw loadErr;
+  const wxSrc = w.eval('fetchWeather.toString()');
+  if (wxSrc.indexOf('AbortController') < 0 || wxSrc.indexOf('5000') < 0) throw new Error('天气无超时');
+  w.eval('nav("pgTrend");');
+  const st = w.eval('JSON.stringify(history.state)');
+  if (st.indexOf('pgTrend') < 0) throw new Error('nav 未写 history state');
+  const bindSrc = w.eval('bindUI.toString()');
+  if (bindSrc.indexOf('focusin') < 0 || bindSrc.indexOf('scrollIntoView') < 0) throw new Error('键盘防遮挡监听缺失');
+  w.eval('D = defaultData(); D.metrics = []; upsertByDate(D.daily, recStamp({ date: U.todayStr(), type: "无" })); renderTrend();');
+  const th = w.eval("document.getElementById('trendBody').innerHTML");
+  if (th.indexOf('粘贴导入') < 0) throw new Error('趋势 metrics 空提示缺失');
+  return '四件 UX 补缺 ✓';
+});
+
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);
 console.log('================ P0 jsdom 断言报告（node ' + process.version + ' · jsdom ' + require('jsdom/package.json').version + '） ================');

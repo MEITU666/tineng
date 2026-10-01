@@ -687,7 +687,7 @@ function defaultData() {
       lastSyncAt: 0, pendingSync: false, strengthFails: 0, theme: 'auto', lastForm: null,
       strengthReps: { '深蹲': 12, '俯卧撑': 8, '下斜俯卧撑': 10, '平板': 30, '侧桥': 20, '箭步蹲': 8, '臀桥': 15, '俯卧YW': 8, '俯卧超人': 10 },
       backfillDone: false, profileDone: false, downgradedAt: null, progressionLog: [], scheduleText: null,
-      preTrip: null, tour7: null, weekRev: null, weather: null, aiCfg: null, schedShift: null, girth: null, returnMark: null, rehab: null, // 最终版增量（可选键）：行前判定缓存/新手7天引导/周复盘去重/今晨实况天气/AI问答供应商配置/FR-B1顺延状态——normalize/merge 补默认
+      preTrip: null, tour7: null, weekRev: null, weather: null, aiCfg: null, schedShift: null, girth: null, returnMark: null, rehab: null, graduated: null, // 最终版增量（可选键）：行前判定缓存/新手7天引导/周复盘去重/今晨实况天气/AI问答供应商配置/FR-B1顺延状态——normalize/merge 补默认
       updatedAt: 0
     }
   };
@@ -813,7 +813,7 @@ function mergeData(local, remote) {
   out.state.strengthReps = out.state.strengthReps || {};
   CONFIG.actions.forEach((a) => { if (out.state.strengthReps[a.repsKey] == null) out.state.strengthReps[a.repsKey] = 10; }); // Codex 复核 P1-1 修复：合并后补缺键，防 undefined/NaN 污染
   // 最终版增量键缺键防线（与 4f52b7f 同套路）：老远端备份无这些键时补默认
-  ['preTrip', 'tour7', 'weekRev', 'weather', 'aiCfg', 'schedShift', 'girth', 'returnMark', 'rehab'].forEach((k) => { if (out.state[k] === undefined) out.state[k] = null; }); // aiCfg=问答外挂供应商配置（不含 key，key 只在本机 localStorage）；schedShift=FR-B1 顺延状态
+  ['preTrip', 'tour7', 'weekRev', 'weather', 'aiCfg', 'schedShift', 'girth', 'returnMark', 'rehab', 'graduated'].forEach((k) => { if (out.state[k] === undefined) out.state[k] = null; }); // aiCfg=问答外挂供应商配置（不含 key，key 只在本机 localStorage）；schedShift=FR-B1 顺延状态
   out.daily = mergeByKey(local.daily, remote.daily, 'date');
   out.metrics = mergeByKey(local.metrics, remote.metrics, 'date');
   out.tests = mergeByKey(local.tests, remote.tests, 'date');
@@ -902,6 +902,7 @@ function showModal(html) {
 function closeModal() { document.getElementById('modalWrap').hidden = true; }
 function nav(pg) {
   PAGES.forEach((p) => { document.getElementById(p).hidden = (p !== pg); });
+  try { if (!history.state || history.state.pg !== pg) history.pushState({ pg: pg }, ''); } catch (e) {} // v4.1 UX 补缺：iOS 右滑返回
   document.querySelectorAll('#tabbar .tab').forEach((b) => b.classList.toggle('on', b.getAttribute('data-pg') === pg));
   document.getElementById('btnProfile').hidden = (pg === 'pgProfile' || pg === 'pgTest');
   document.getElementById('topTitle').textContent = PAGE_TITLES[pg] || '体能系统';
@@ -1478,6 +1479,60 @@ function streakCells(kind) {
 }
 
 /* B-1 睡眠锚点主动干预（K9）：昨日睡眠不足给警示，20:00 后给今晚锚点倒计时，超锚点催睡 */
+function heatHint() { // FR-D 气温提示（v4.1）：>32℃ 长走提前清晨/<5℃ 热身延长；数据源=今晨实况 appMax（手选天气无实测温不提示）
+  const w = D.state.weather;
+  if (!w || w.date !== U.todayStr() || w.manual || w.appMax == null) return '';
+  if (w.appMax >= 32) return '<div class="sub" style="color:var(--orange)">今天体感 ' + w.appMax + '°C：长走安排到清晨凉快窗口（7-9 点），全程能说话配速，每 30 分钟补水。</div>';
+  if (w.appMax <= 5) return '<div class="sub" style="color:var(--blue)">今天体感 ' + w.appMax + '°C：热身延长到 10 分钟（关节激活再出门），手指耳朵防护戴好。</div>';
+  return '';
+}
+function nightHintHtml(hr) { // FR-D 时段感知（v4.1）：21 点后打开→明晨晨检预告（顶部预告卡，不替代今日安排）
+  if (hr == null) hr = new Date().getHours();
+  if (hr < 21) return '';
+  return '<div class="card"><div class="card-head"><div class="bubble bg-blue" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M17 12a5 5 0 1 1-7-4.6M21 12.8A9 9 0 1 1 11.2 3"/></svg></div><div style="flex:1"><div class="card-title" style="margin:0">今晚收操 · 明晨预告</div></div></div>'
+    + '<div class="body-tx">今天的事翻篇了。明早醒来第一件事：60 秒晨检（哪里不舒服→什么感觉→出判定）——明天的安排让引擎用新鲜数据重算，别拖到晚上。</div></div>';
+}
+function midTripBannerHtml() { // FR-D 行中感知（v4.1）：行中模式激活当天，状态卡前保命卡置顶条
+  return '<div class="card" style="border:2px solid var(--red)"><div class="card-title" style="margin:0 0 6px">⛰️ 行中模式 · 保命卡置顶</div>'
+    + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
+    + ['K16', 'K17', 'K18', 'K20'].map(function (id) { return '<button class="btn-mini" onclick="showK(\' + id + \')">' + id + '</button>'; }).join('')
+    + '</div><div class="sub" style="margin-top:4px">折返纪律：预定折返时间一到就回头，天气突变即撤——山一直在，人得回来。</div></div>';
+}
+function unlockTreeGuard() { // 防御性兜底：FR-B3 卡依赖 youAreHere/zoneLockHtml，函数缺失时不白屏
+  try { return '<div class="card"><div class="card-title" style="margin:0 0 8px">解锁树 · 晋升全貌（FR-B3）</div>' + youAreHere('K21') + zoneLockHtml() + '<div class="sub" style="margin-top:6px">越野跑 R0 支线：两把闸门（踝毕业+医生放行）全开后，按 K23 阶梯 R1→R2→R3 走——阶梯是展示，不是课表。</div></div>'; } catch (e) { return ''; }
+}
+function openGradReview() { // FR-C 毕业评审向导（一次性）：三判定自动对照+两项人工确认→毕业标记；未过给延周期
+  const lt = M.latestTest();
+  const stand = (lt && lt.standR != null) ? lt.standR : null;
+  let total = null;
+  (D.external || []).forEach((e) => { if (e['体测总分'] != null) total = e['体测总分']; });
+  let weight = null;
+  (D.weekly || []).forEach((w) => { if (w.weightKg != null) weight = w.weightKg; });
+  const j1 = stand == null ? '待录入（体测页）' : (stand >= 57 ? '✓ ' + stand + 's 过 57s 转山粗筛' : '✗ ' + stand + 's，未到 57s');
+  const j2 = total == null ? '待录入（外部检测页）' : (total >= 100 ? '✓ 总分 ' + total : '✗ 总分 ' + total + '，未到 100');
+  const j3 = weight == null ? '待录入（档案页周体重）' : ((weight >= 60.5 && weight <= 62.5) ? '✓ 体重 ' + weight + 'kg（61-62 分档带）' : '△ 体重 ' + weight + 'kg（分档带 61-62，±0.5 容差外）');
+  const pass3 = stand != null && stand >= 57 && total != null && total >= 100;
+  showModal('<div class="card-title" style="margin-bottom:10px">🎓 毕业评审（专项期→转山）</div>'
+    + '<div class="body-tx">三判定（自动对照最新录入）：</div>'
+    + '<div class="sub">· 右脚闭眼站：' + j1 + '</div>'
+    + '<div class="sub">· 体测总分：' + j2 + '</div>'
+    + '<div class="sub">· 体重分档：' + j3 + '</div>'
+    + '<div class="body-tx" style="margin-top:8px">人工确认（医学/实况类产品不代判）：</div>'
+    + '<div class="sub"><label><input type="checkbox" id="grWalk"> 30 分钟不平路面测试通过</label></div>'
+    + '<div class="sub"><label><input type="checkbox" id="grNext"> 次日无异常</label></div>'
+    + '<div class="sub" style="margin-top:6px">判定依据：内部经验值 57s/100 分（§12.2 Q6 专项期前补真人专业复核）。</div>'
+    + '<div class="m-actions">'
+    + (pass3 ? '<button class="btn-primary" onclick="confirmGrad()">三判定已过，确认毕业</button>' : '<button class="btn-ghost" onclick="shiftCycleWeek(); closeModal()">未过：延 1 周再评</button>')
+    + '<button class="link-btn" onclick="closeModal()">关闭</button></div>'
+    + (pass3 ? '' : '<div class="sub" style="margin-top:6px">三判定未全过：别硬上。延周期继续磨，或按能力档降级选线（行前判定会如实给档）——康复师席工作台看差哪几项。</div>'));
+}
+function confirmGrad() { // FR-C：两项人工确认勾选后写毕业标记
+  const w1 = document.getElementById('grWalk'), w2 = document.getElementById('grNext');
+  if (!w1 || !w1.checked || !w2 || !w2.checked) { toast('两项人工确认都勾上才能毕业'); return; }
+  D.state.graduated = { date: U.todayStr() };
+  persist(); closeModal(); renderToday();
+  toast('🎓 毕业：专项期就绪，转山窗口内按行前判定定行程');
+}
 function sleepDebtLine() { // 睡眠保持一行（v4.1 口径改名，原措辞作废）：近 7 天均值 vs 6.5h 底线（K9 口径）；样本 <3 天不硬算（数据不足明说）
   const days = [];
   for (let i = 1; i <= 7; i++) { const m = M.metricOn(U.addDays(U.todayStr(), -i)); if (m && m.sleepH != null) days.push(m.sleepH); }
@@ -1632,7 +1687,7 @@ function mountainGoalHtml(dateStr) { // 今日页"周期进度"卡（M6 目标�
   const shiftTag = shifted ? '（顺延 ' + shifted + ' 周）' : '';
   let head, body, prompt = '';
   if (wk < 1) { head = '周期进度' + shiftTag + '：10/5 开营'; body = '冬训从下周一（10/5）起跑，本周是准备周：睡够、把每日包做起来。'; }
-  else if (wk > 36) { head = '周期进度' + shiftTag + '：已满'; body = '两段周期已结束——按专项检阅结果定高原行程节奏（到达后缓冲 1-2 天+慢升），别顶着未达标硬上。'; }
+  else if (wk > 36) { const g = D.state.graduated; head = '周期进度' + shiftTag + (g ? '：已毕业 🎓' : '：已满'); body = g ? '两段周期完成，毕业标记 ' + U.esc(g.date) + '——转山窗口内按行前判定定行程（到达后缓冲 1-2 天+慢升）。' : '两段周期已结束——按专项检阅结果定高原行程节奏（到达后缓冲 1-2 天+慢升），别顶着未达标硬上。'; }
   else {
     const ph = cyclePhaseOf(wk);
     const g = ph.row;
@@ -1640,6 +1695,9 @@ function mountainGoalHtml(dateStr) { // 今日页"周期进度"卡（M6 目标�
     body = '本周：爬升 ' + g.climb + 'm≈' + Math.round(g.climb / 3) + ' 层楼梯（分散到有氧日）｜' + (g.load ? '负重 ' + g.load + 'kg 短走每周 2 次' : '暂不引入负重') + '｜长走 ' + g.walkH + 'h'
       + (g.note ? '<br><b>' + U.esc(g.note) + '</b>' : '')
       + '<br><span class="sub">节奏纪律：前半程透支=后程崩，全程"能正常聊天"的配速；毕业线 47s（土路）/50s（负重）/57s（转山粗筛），每 4 周周日对照。</span>';
+  }
+  if (wk === 36) { // FR-C 毕业评审：专项检阅周（总第 36 周）出一次性向导入口
+    prompt += '<button class="ci-btn" style="margin-top:8px" onclick="openGradReview()">🎓 开始毕业评审（三判定+人工确认）</button>';
   }
   const doneCnt = weekDoneCount();
   if (wk >= 1 && wk <= 36 && doneCnt < 2 && schedShiftWeeks() < 2) {
@@ -2042,6 +2100,7 @@ function preTripCard(id) { // 选中线路的要素卡+判定
     + '<button class="btn-primary" onclick="closeModal();openMidTrip()">出发当天 → 行中模式</button>';
 }
 function preTripPick(id) { // 选线：写缓存 → 重渲 modal
+  try { sessionStorage.setItem('tineng_midtrip', '1'); } catch (e) {} // FR-D：行中激活标记（会话级，当天有效）
   if (!D.state.preTrip) D.state.preTrip = { routeId: id, t: Date.now() };
   else { D.state.preTrip.routeId = id; D.state.preTrip.t = Date.now(); }
   D.state.updatedAt = Date.now();
@@ -2121,8 +2180,8 @@ function youAreHere(kId) { // 晋升标记（批2⑧）：K21/K23 卡头动态"�
 }
 
 /* ============ 最终版·私教席（2026-09-27 深夜批3）：周复盘卡+新手7天引导 ============ */
-function weekReviewHtml() { // 周复盘卡（仅周日出现）：打卡率/档位变化/睡眠保持+一句人话结论带理由；数据全来自现有 D 字段
-  if (new Date().getDay() !== 0) return '';
+function weekReviewHtml(force) { // 周复盘卡（仅周日出现；force=测试/预览强制渲染）：打卡率/档位变化/睡眠保持+一句人话结论带理由；数据全来自现有 D 字段
+  if (new Date().getDay() !== 0 && !force) return '';
   let trained = 0, sleepArr = [], typeCnt = {};
   for (let i = 0; i < 7; i++) {
     const d = M.dailyOn(U.addDays(U.todayStr(), -i)), m = M.metricOn(U.addDays(U.todayStr(), -i));
@@ -2142,10 +2201,18 @@ function weekReviewHtml() { // 周复盘卡（仅周日出现）：打卡率/档
   else { concl = '这周丢了不少，下周先找回习惯——每天 12 分钟每日包也算赢'; why.push('训练打卡只 ' + trained + '/7 次'); }
   if (upN && !downN) why.push('力量档位在涨（本周 ' + upN + ' 项上调）');
   else if (downN) why.push('本周有 ' + downN + ' 项降档（原因在渐进记录里，别对抗黄灯）');
+  const ltB2 = M.latestTest(); // FR-B2 提前达标（只提示不跳档）
+  if (ltB2 && ltB2.standR != null && ltB2.standR >= 47) why.push('进度快于计划：右脚已过土路线 47s——下一步负重线 50s，课表按原计划走（提前达标只提示，不自动跳档）');
+  let trainedPrev = 0; // FR-B4 重排评估：本周+上周完成率都 <60% 才提示
+  for (let i = 7; i < 14; i++) { const dp = M.dailyOn(U.addDays(U.todayStr(), -i)); if (dp && CONFIG.trainTypes.indexOf(dp.type) >= 0) trainedPrev++; }
+  const ratePrev = Math.round(trainedPrev / 7 * 100);
+  if (rate < 60 && ratePrev < 60) why.push('连续两周完成率低于 60%：二选一——接下来一周全部按降档练，或去今日页点「顺延 1 周」整体后移。计划为你的真实生活让路，不是你为计划硬扛。');
   return '<div class="card"><div class="card-head"><div class="bubble bg-blue" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 19V5M4 19h16M8 15v-4M12 15V8M16 15v-6"/></svg></div>'
     + '<div style="flex:1"><div class="card-title" style="margin:0">周复盘 · 私教</div><div class="sub">只在周日出现，看完就收</div></div></div>'
     + '<div class="body-tx" style="margin-top:6px;font-weight:600">' + concl + '</div>'
     + why.map((w) => '<div class="sub">· ' + U.esc(w) + '</div>').join('')
+    + '<div class="sub" style="margin-top:8px"><b>过程指标：</b>完成率 ' + rate + '%（预警线 60%）｜采集完整率 ' + Math.round(sleepArr.length / 7 * 100) + '%（预警线 70%'
+    + (sleepArr.length < 5 ? '，引擎缺燃料' : '') + '）｜晨检 ' + (function () { let c = 0; for (let i = 0; i < 7; i++) { const d = M.dailyOn(U.addDays(U.todayStr(), -i)); if (d && d.chk) c++; } return c; })() + '/7 天｜疼痛红灯 ' + (function () { let r = 0; for (let i = 0; i < 7; i++) { const d = M.dailyOn(U.addDays(U.todayStr(), -i)); if (d && d.chk && d.chk.out === 'stop') r++; } return r; })() + ' 次</div>'
     + weightLedgerLine()
     + '<div class="sub" style="margin-top:4px">训练分布：' + (Object.keys(typeCnt).length ? Object.keys(typeCnt).map((k) => k + ' ' + typeCnt[k] + ' 次').join('、') : '本周无训练记录') + '</div>'
     + '<div style="margin-top:8px"><button class="ci-btn" onclick="showCoachQA()">💬 问教练：为什么这么练 / 吃什么 / 什么时候能跑</button></div></div>';
@@ -2405,6 +2472,8 @@ function renderToday() {
     + '<div class="field" style="margin-top:10px"><label>今天的你（点一下立即重判）</label><div class="chips" id="feelChips">' + feelChips() + '</div></div>'
     + '<div style="margin-top:8px"><button class="ci-btn" onclick="showCoachQA()">💬 问教练：为什么这么练 / 疼了怎么办 / 吃什么</button></div>'
     + rehabWorkbenchHtml() + '</div>';
+  h += nightHintHtml(); // FR-D 时段感知：21 点后打开→明晨晨检预告
+  try { if (sessionStorage.getItem('tineng_midtrip') === '1') h += midTripBannerHtml(); } catch (e) {} // FR-D 行中激活：保命卡置顶
   // N7 年报入口卡（12/20-次年1/10 期间显示）
   const nw = new Date();
   const rptYear = (nw.getMonth() === 0 && nw.getDate() <= 10) ? nw.getFullYear() - 1 : nw.getFullYear();
@@ -2556,7 +2625,8 @@ function planHtml() {
   const eff = CONFIG.trainTypes.indexOf(tf.type) >= 0 ? tf.type : dayType;
   let h = '<div class="card-head"><div class="bubble bg-blue" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="3"/><path d="M8 3v4M16 3v4M4 10h16"/></svg></div>'
     + '<div style="flex:1"><div class="card-title" style="margin:0">今日安排 · ' + dayType + '</div><div class="sub">按周模板自动生成</div></div></div>'
-    + '<div class="field" style="margin-top:8px"><label>' + weatherLabel() + '</label><div class="chips">'
+    h += heatHint()
+      + '<div class="field" style="margin-top:8px"><label>' + weatherLabel() + '</label><div class="chips">'
     + ['好天', '雨雪', '闷热', '大风降温'].map((x) => '<button class="chip' + (curWx() === x ? ' on' : '') + '" onclick="setWeather(\'' + x + '\')">' + x + '</button>').join('') + '</div></div>';
   if (eff === '有氧') {
     if (curWx() && curWx() !== '好天') h += '<div class="callout-warn" style="margin-bottom:8px">' + U.esc(CONFIG.weatherAlt) + '</div>'; // 天气联动替代方案（K4）——实况自动或手选
@@ -2667,13 +2737,14 @@ async function fetchWeather() { // 批10：接入 Open-Meteo 实况（免费无 
   if (readOnly || !navigator.onLine) return;
   const c = CONFIG.CITY_COORDS[D.profile.city] || CONFIG.CITY_COORDS['武汉'];
   try {
-    const r = await fetch('https://api.open-meteo.com/v1/forecast?latitude=' + c[0] + '&longitude=' + c[1] + '&daily=weather_code,apparent_temperature_max,wind_speed_10m_max&timezone=auto&forecast_days=1', { cache: 'no-store' });
+    const acWx = new AbortController(); const toWx = setTimeout(() => acWx.abort(), 5000); // v4.1 UX 补缺：天气请求 5s 超时取消
+    const r = await fetch('https://api.open-meteo.com/v1/forecast?latitude=' + c[0] + '&longitude=' + c[1] + '&daily=weather_code,apparent_temperature_max,wind_speed_10m_max&timezone=auto&forecast_days=1', { cache: 'no-store', signal: acWx.signal });
     if (!r.ok) return;
     const j = await r.json();
     const d = j.daily || {};
     const wx = wxFromCode((d.weather_code || [])[0], (d.apparent_temperature_max || [])[0], (d.wind_speed_10m_max || [])[0]);
     if (D.state.weather && D.state.weather.date === U.todayStr() && D.state.weather.manual) return; // 手改过的当天不覆盖
-    D.state.weather = { date: U.todayStr(), wx: wx[0], desc: wx[1] + '·' + Math.round((d.apparent_temperature_max || [])[0]) + '°C', t: Date.now() };
+    D.state.weather = { date: U.todayStr(), wx: wx[0], desc: wx[1] + '·' + Math.round((d.apparent_temperature_max || [])[0]) + '°C', appMax: (d.apparent_temperature_max && d.apparent_temperature_max[0] != null) ? Math.round(d.apparent_temperature_max[0]) : null, t: Date.now() }; // v4.1 FR-D：appMax 数字键供气温提示
     D.state.updatedAt = Date.now();
     persist();
     renderToday();
@@ -3136,6 +3207,7 @@ function renderTrend() {
   const box = document.getElementById('trendBody');
   if (allEmpty()) { box.innerHTML = emptyCard('<path d="M4 19h16M4 15l5-6 4 3 6-8"/>', '趋势从这里开始'); return; }
   const t = U.todayStr();
+  let hintPre = (!D.metrics.length) ? '<div class="card"><div class="body-tx">还没有睡眠/心率数据——今日页粘贴导入一次，曲线从明天开始长。</div></div>' : ''; // v4.1 UX 补缺：metrics 空提示（随末尾统一渲染，不被覆盖）
   const sl7 = M.sleepAvg7(), rhr7 = M.rhrAvg7(), hrv7 = M.hrvAvg7(), ld7 = M.load7();
   let h = '';
   // 睡眠
@@ -3169,7 +3241,7 @@ function renderTrend() {
     + '<div id="heatEmpty"' + (D.daily.some((r) => r.date.slice(0, 4) === String(heatYear)) ? ' hidden' : '') + '><div class="sub" style="text-align:center;padding:20px 0">' + U.esc(CONFIG.copy.na) + '</div></div>'
     + '<div id="heatBox" onclick="heatTap(event)">' + yearHeatSvg(heatYear) + '</div>'
     + '</div>';
-  box.innerHTML = h;
+  box.innerHTML = hintPre + h;
   // 图表异步渲染
   const tasks = [
     ['chSleep', () => {
@@ -3459,7 +3531,7 @@ function renderAbility() {
     h += '<div class="body-tx">' + nr + (left < 0 ? '（已过期 ' + (-left) + ' 天）' : '（还有 ' + left + ' 天）') + '</div>';
   }
   h += '</div>';
-  box.innerHTML = banner + h + rehabWorkbenchHtml(); // 批11：踝门三线+禁区进度接入能力页（与今日页同源同口径）
+  box.innerHTML = banner + h + unlockTreeGuard() + rehabWorkbenchHtml(); // 批11：踝门三线+禁区进度接入能力页（与今日页同源同口径）
 }
 function showAnchor(key) {
   const a = ANCHORS[key];
@@ -4932,6 +5004,8 @@ function bindUI() {
   document.getElementById('bfSkip').onclick = () => skipBackfill();
   document.getElementById('bfBackBtn').onclick = () => closeBackfill();
   document.querySelectorAll('#tabbar .tab').forEach((b) => { b.onclick = () => nav(b.getAttribute('data-pg')); });
+  document.addEventListener('focusin', (e) => { const t = e.target; if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') && t.type !== 'range') { setTimeout(() => { try { t.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (err) {} }, 280); } }); // v4.1 UX 补缺：键盘弹出防遮挡
+  window.addEventListener('popstate', (e) => { if (e.state && e.state.pg) nav(e.state.pg); }); // v4.1：右滑返回切回上一 tab
   document.getElementById('modalWrap').onclick = (e) => { if (e.target.id === 'modalWrap') closeModal(); };
   // 同步时机=切回前台（不做后台定时同步）
   document.addEventListener('visibilitychange', () => {
