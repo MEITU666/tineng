@@ -737,18 +737,18 @@ check('⑯ 睡眠债：样本<3 天→不硬算（空串）', () => {
   if (w.eval('sleepDebtLine()') !== '') throw new Error('无样本应返回空串');
   return '诚实边界 ✓';
 });
-check('⑯ 睡眠债：近 7 天均 5.4h → 显示"离 6.5h 还差 1.1h/天"', () => {
+check('⑯ 睡眠保持：近 7 天均 5.4h → 显示"低于 6.5h 底线 1.1h/天"', () => {
   if (loadErr) throw loadErr;
   w.eval('for (let i = 1; i <= 7; i++) upsertByDate(D.metrics, recStamp({ date: U.addDays(U.todayStr(), -i), sleepH: 5.4 }))');
   const s = w.eval('sleepDebtLine()');
-  if (s.indexOf('均 5.4h') < 0 || s.indexOf('差 1.1h') < 0 || s.indexOf('K9 第一优先') < 0) throw new Error('文案不对：' + s);
+  if (s.indexOf('均 5.4h') < 0 || s.indexOf('底线 1.1h') < 0 || s.indexOf('睡眠保持') < 0) throw new Error('文案不对：' + s);
   return '5.4→6.5 缺口 ✓';
 });
-check('⑯ 睡眠债：达标 6.5h+ → 绿色正向反馈', () => {
+check('⑯ 睡眠保持：达标 6.5h+ → 绿色正向反馈', () => {
   if (loadErr) throw loadErr;
   w.eval('for (let i = 1; i <= 7; i++) upsertByDate(D.metrics, recStamp({ date: U.addDays(U.todayStr(), -i), sleepH: 6.8 }))');
   const s = w.eval('sleepDebtLine()');
-  if (s.indexOf('达标 6.5h') < 0) throw new Error('缺达标反馈：' + s);
+  if (s.indexOf('守住 6.5h 底线') < 0 || s.indexOf('睡眠保持') < 0) throw new Error('缺达标反馈：' + s);
   return '达标态 ✓';
 });
 check('⑯ 周复盘：调用安全返回 string；若今天是周日则卡内容含结论+分布', () => {

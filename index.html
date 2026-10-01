@@ -274,7 +274,7 @@ table.cmp{width:100%;border-collapse:collapse;font-size:13px}
       <path d="M14 22 L22 12 L28 19" fill="none" stroke="url(#mtg)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
     <div class="gate-title">体能系统</div>
-    <div class="gate-sub">数据存放在你自己的 GitHub 私有仓库，用密钥解锁访问令牌。也可以先用离线只读模式查看本机缓存（数据可能不是最新）。</div>
+    <div class="gate-sub">数据存放在你自己的 GitHub 私有仓库，用密钥解锁访问令牌。断网时直接点「解锁进入」会用本机缓存进入离线模式；也可以先用离线只读模式查看。</div>
     <div class="field">
       <label for="gateKey">访问密钥</label>
       <input id="gateKey" type="password" autocomplete="off" placeholder="输入密钥解锁">
@@ -952,9 +952,13 @@ async function tryUnlock() {
         toast('断网且解锁配置不可达：已进入离线模式（本机缓存，数据可能不是最新），联网后重新解锁即可恢复同步。');
         return;
       }
-      gateMsg(m === 'GIST_HTTP_404'
-        ? '无法获取加密配置：Gist 地址不存在（HTTP 404）。可先用下方离线只读模式。'
-        : '无法获取加密配置：网络不可达或超时。可先用下方离线只读模式。');
+      if (m === 'GIST_HTTP_404') { // v4.1 实测修复：404=云端还没数据（新设备/首次使用）——给新建出口，不再死路
+        gateMsg('');
+        document.getElementById('gateMsg').innerHTML = '云端还没有你的数据仓（HTTP 404）——第一次使用？<button class="btn-mini" style="margin:4px 0" onclick="startFresh()">以此密钥开始新数据</button><div class="sub">已有数据的老用户：检查密钥拼写，或先用下方离线只读模式。</div>';
+        btn.disabled = false;
+        return;
+      }
+      gateMsg('无法获取加密配置：网络不可达或超时。可先用下方离线只读模式。');
       return;
     }
   }
@@ -965,7 +969,18 @@ async function tryUnlock() {
   TOKEN = token; // 仅内存
   try { sessionStorage.setItem('tineng_key', pass); } catch (e) {} // 密钥仅 sessionStorage
   if (pass.length < 12) toast('已解锁。提示：密钥不足 12 位，建议更换更强口令（口令是唯一防线，密文在公开 Gist 可被离线爆破）'); // Codex 复核 P1-4：不强锁已用口令（防自锁），只提示
+  try { if (!localStorage.getItem('tineng_pwaHint')) { localStorage.setItem('tineng_pwaHint', '1'); setTimeout(() => toast('建议加到主屏幕：Safari 分享 → 添加到主屏幕（通知/启动/离线体验都靠它）'), 2500); } } catch (e) {}
   enterApp();
+}
+function startFresh() { // v4.1 实测修复：404 时以当前密钥新建空数据进入（老设备数据仍在旧机，联网解锁后 mergeData 合并不冲突）
+  const pass = document.getElementById('gateKey').value;
+  D = defaultData();
+  TOKEN = '';
+  try { sessionStorage.setItem('tineng_key', pass); } catch (e) {}
+  document.getElementById('gate').hidden = true;
+  document.getElementById('app').hidden = false;
+  nav('pgToday');
+  toast('新数据已就绪：晨检、记录从今天开始积累');
 }
 function enterOffline() {
   if (!D) D = defaultData(); // 兜底
@@ -1463,14 +1478,14 @@ function streakCells(kind) {
 }
 
 /* B-1 睡眠锚点主动干预（K9）：昨日睡眠不足给警示，20:00 后给今晚锚点倒计时，超锚点催睡 */
-function sleepDebtLine() { // 睡眠债一行（最终版批3⑫）：近 7 天均值 vs 6.5h 目标（K9 口径）；样本 <3 天不硬算（数据不足明说）
+function sleepDebtLine() { // 睡眠保持一行（v4.1 口径改名，原措辞作废）：近 7 天均值 vs 6.5h 底线（K9 口径）；样本 <3 天不硬算（数据不足明说）
   const days = [];
   for (let i = 1; i <= 7; i++) { const m = M.metricOn(U.addDays(U.todayStr(), -i)); if (m && m.sleepH != null) days.push(m.sleepH); }
   if (days.length < 3) return '';
   const avg = days.reduce((a, b) => a + b, 0) / days.length;
   const gap = 6.5 - avg;
-  if (gap <= 0) return '<div class="sub" style="color:var(--green)">睡眠债：近 ' + days.length + ' 天均 ' + avg.toFixed(1) + 'h，达标 6.5h——这是本周最值钱的资产。</div>';
-  return '<div class="sub" style="color:var(--orange)">睡眠债：近 ' + days.length + ' 天均 ' + avg.toFixed(1) + 'h，离 6.5h 还差 ' + gap.toFixed(1) + 'h/天——先补睡眠，再谈加量（K9 第一优先）。</div>';
+  if (gap <= 0) return '<div class="sub" style="color:var(--green)">睡眠保持：近 ' + days.length + ' 天均 ' + avg.toFixed(1) + 'h，守住 6.5h 底线——这是本周最值钱的资产。</div>';
+  return '<div class="sub" style="color:var(--orange)">睡眠保持：近 ' + days.length + ' 天均 ' + avg.toFixed(1) + 'h，低于 6.5h 底线 ' + gap.toFixed(1) + 'h/天——先睡够再谈加量（K9 第一优先；连续低于底线才提示，日常不打扰）。</div>';
 }
 function sleepCardHtml() {
   const ym = M.metricOn(U.addDays(U.todayStr(), -1));
@@ -2106,7 +2121,7 @@ function youAreHere(kId) { // 晋升标记（批2⑧）：K21/K23 卡头动态"�
 }
 
 /* ============ 最终版·私教席（2026-09-27 深夜批3）：周复盘卡+新手7天引导 ============ */
-function weekReviewHtml() { // 周复盘卡（仅周日出现）：打卡率/档位变化/睡眠债+一句人话结论带理由；数据全来自现有 D 字段
+function weekReviewHtml() { // 周复盘卡（仅周日出现）：打卡率/档位变化/睡眠保持+一句人话结论带理由；数据全来自现有 D 字段
   if (new Date().getDay() !== 0) return '';
   let trained = 0, sleepArr = [], typeCnt = {};
   for (let i = 0; i < 7; i++) {
@@ -3630,7 +3645,7 @@ CONFIG.knowledge = [
   ,{ id: 'K27', group: '生活', title: 'K27 食物热量速查：20 个常见食物（只查询不打卡）', body: 'Keep 抄单小件（v4.1）：增重吃账的查询工具——不打卡、不记录，想知道吃什么对照一眼。<br><table class="cmp"><tr><td style="font-weight:600">食物（每 100g 可食部）</td><td>热量 kcal</td><td>蛋白 g</td></tr>'
     + '<tr><td>米饭（熟）</td><td>116</td><td>2.6</td></tr><tr><td>馒头</td><td>223</td><td>7.0</td></tr><tr><td>面条（煮）</td><td>110</td><td>3.6</td></tr><tr><td>全麦面包</td><td>246</td><td>9.0</td></tr><tr><td>燕麦片（干）</td><td>367</td><td>15</td></tr><tr><td>红薯</td><td>86</td><td>1.6</td></tr><tr><td>土豆</td><td>77</td><td>2.0</td></tr><tr><td>鸡蛋（整）</td><td>144</td><td>13.3</td></tr><tr><td>鸡胸肉</td><td>133</td><td>24</td></tr><tr><td>鸡腿肉（去皮）</td><td>146</td><td>20</td></tr><tr><td>瘦猪肉</td><td>143</td><td>20</td></tr><tr><td>牛腱子</td><td>115</td><td>20</td></tr><tr><td>三文鱼</td><td>139</td><td>18</td></tr><tr><td>虾</td><td>93</td><td>18.6</td></tr><tr><td>豆腐</td><td>81</td><td>8.1</td></tr><tr><td>牛奶</td><td>54</td><td>3.0</td></tr><tr><td>无糖酸奶</td><td>72</td><td>2.8</td></tr><tr><td>花生</td><td>574</td><td>24.8</td></tr><tr><td>西兰花</td><td>34</td><td>2.8</td></tr><tr><td>香蕉</td><td>93</td><td>1.4</td></tr></table>'
     + '<span class="sub" style="margin-top:8px">约值，供估算对照；精确值看包装营养表。增重口径（FR-8）：盈余靠三餐+练后一顿加起来，不是猛灌零食——脾虚湿盛肠胃差，少食多餐比一顿硬塞强。</span>' }
-  ,{ id: 'K28', group: '户外', title: 'K28 武汉训练场地与室内替代（冬训主场指南）', body: '冬训期（2026-10~2027-03）去哪练、什么天气换什么课、负重怎么背不出事。检索级口径（2026-09-30），数字打架处保留待核。<br><b>一、户外场地速查</b><br><table class="cmp"><tr><td style="font-weight:600">今天什么情况</td><td>去哪</td><td>练什么</td></tr><tr><td>天气好</td><td>汉口/青山江滩、东湖绿道</td><td>Zone2 长走+负重适应（青山江滩 7.5km 两来源一致；汉口江滩约 8km 含四期，一二期 3.4km 为官方旧口径）</td></tr><tr><td>想加爬升</td><td>喻家山 149.5m / 珞珈山 118.5m / 磨山 116.3m / 八分山 272.3m / 马鞍山约 136m</td><td>一山上一下×N 组，组数堆爬升不硬撑单次</td></tr><tr><td>小雨</td><td>青山江滩（透水铺装）或绿道</td><td>平路课，减速防滑</td></tr><tr><td>大雨大雪冰冻</td><td>室内三件套</td><td>楼梯爬层课 / 跟练加长 / 每日包加量</td></tr></table>'
+  ,{ id: 'K28', group: '户外', title: 'K28 武汉训练场地与室内替代（冬训主场指南）', body: '冬训期（2026-10~2027-03）去哪练、什么天气换什么课、负重怎么背不出事。检索级口径（2026-09-30），数字打架处保留待核。<br><b>一、户外场地速查</b><br><table class="cmp"><tr><td style="font-weight:600;white-space:nowrap">情况</td><td>去哪</td><td>练什么</td></tr><tr><td>天气好</td><td>汉口/青山江滩、东湖绿道</td><td>Zone2 长走+负重适应（青山江滩 7.5km 两来源一致；汉口江滩约 8km 含四期，一二期 3.4km 为官方旧口径）</td></tr><tr><td>想加爬升</td><td>喻家山 149.5m / 珞珈山 118.5m / 磨山 116.3m / 八分山 272.3m / 马鞍山约 136m</td><td>一山上一下×N 组，组数堆爬升不硬撑单次</td></tr><tr><td>小雨</td><td>青山江滩（透水铺装）或绿道</td><td>平路课，减速防滑</td></tr><tr><td>大雨大雪冰冻</td><td>室内三件套</td><td>楼梯爬层课 / 跟练加长 / 每日包加量</td></tr></table>'
     + '<br><b>二、爬升换算与场地</b>：产品口径 1 层≈3m，堆 300m 爬升≈100 层楼梯，分 3-5 组别一口气。绿道主线=平路里程机（总长 105km，2024 政府口径成环；101.98km 系 2017 旧值），爬升要拐进磨山景区/马鞍山或山体公园；喻家山/珞珈山进校预约政策待核（出行前查校方公众号）。<br>'
     + '<b>三、雨雪天楼梯课硬规则（逐条是规则不是建议）</b>：只上不下，下楼乘电梯——下楼冲击+楼道湿滑=伤膝和摔倒双重风险；全程一手扶扶手；组间在平台站稳不坐台阶；鞋底湿先进楼擦底或换干鞋；楼道灯不亮/地面反潮发亮→当天取消改跟练加长；中途胸闷头晕腿软→立刻停，扶扶手走到电梯层乘电梯下楼。<br>'
     + '<b>四、负重长走铁律</b>：起步 2kg（两瓶水/米袋塞包底，重心贴背中上部），第一次从江滩平路开始不上台阶；每周 2 次负重课其余空包；<b>加重量就不加路程，加路程就不加重量，不同时加</b>；出发前 30 秒查腰带传导（重量落髋，肩带贴合不勒胸）——转山当天就是这个背法。碎石/下坡一律减速，步幅缩短一半，踩实再移重心；本卡不排下坡专项，下坡变快的唯一合法路径=低负重多次安全通过。<br>'
