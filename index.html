@@ -510,6 +510,20 @@ const CONFIG = {
       fix: '抬到不疼的高度就够，重点是「拉长」不是「抬高」；配合呼吸左右交替',
       link: 'https://search.bilibili.com/all?keyword=俯卧超人式 标准动作' }
   ],
+  videoLinks: { // FR-I VIDEO_LINKS 轻表（v4.1 M3）：动作名→具体视频。AI 检索 2026-09-30 主人终审；链接失效走教练问答反馈，换表不碰代码；离线降级文字五件套
+    '自重深蹲': { u: 'https://www.bilibili.com/video/BV1838X66E3f/', note: '细讲+0受伤经验（较长）' },
+    '俯卧撑': { u: 'https://www.bilibili.com/video/BV1Qh411s7Sv/', note: '卓叔新手向十分钟学会' },
+    '下斜俯卧撑': { u: 'https://www.bilibili.com/video/BV1bT421X7ux/', note: '专讲下斜要领' },
+    '箭步蹲': { u: 'https://www.bilibili.com/video/BV1rd4y1p7Zi/', note: '示范+护膝要点' },
+    '臀桥': { u: 'https://www.bilibili.com/video/BV17m4y1r7mW/', note: '超详细，避开腰膝代偿' },
+    '平板支撑': { u: 'https://www.bilibili.com/video/BV1kk4y1R7Sd/', note: '顺口溜好记，防塌腰' },
+    '侧桥': { u: 'https://www.bilibili.com/video/BV1fEqEBkEVJ/', note: '标准侧桥示范（较短）' },
+    '俯卧YW伸展': { u: 'https://www.bilibili.com/video/BV1xr4y1T7aw/', note: '俯卧 YTW 激活，治圆肩' },
+    '俯卧超人式': { u: 'https://www.bilibili.com/video/BV1yt411Z75Y/', note: '技术要点，护下背' },
+    '快走': { u: 'https://www.bilibili.com/video/BV1rE411n7uA/', note: 'SIKANA 系统教程' },
+    '单车': { u: 'https://www.bilibili.com/video/BV13z4y197z1/', note: '1星入门，先学骑行姿势' },
+    '爬楼梯': { u: 'https://www.bilibili.com/video/BV1bY411c7aq/', note: '保姆级，兼顾护膝' }
+  },
   progressionCopy: '渐进规则：全部动作标准完成且 RPE≤7 → 下次各动作 +1次（平板/侧桥 +5秒）；RPE=8 → 持平；RPE≥9 或 连续2次未完成全部动作 → 各动作 -10%。每次只加一个变量，最困难组保留1-2次余力。',
 
   /* K6 有氧选项库 */
@@ -673,7 +687,7 @@ function defaultData() {
       lastSyncAt: 0, pendingSync: false, strengthFails: 0, theme: 'auto', lastForm: null,
       strengthReps: { '深蹲': 12, '俯卧撑': 8, '下斜俯卧撑': 10, '平板': 30, '侧桥': 20, '箭步蹲': 8, '臀桥': 15, '俯卧YW': 8, '俯卧超人': 10 },
       backfillDone: false, profileDone: false, downgradedAt: null, progressionLog: [], scheduleText: null,
-      preTrip: null, tour7: null, weekRev: null, weather: null, aiCfg: null, schedShift: null, girth: null, // 最终版增量（可选键）：行前判定缓存/新手7天引导/周复盘去重/今晨实况天气/AI问答供应商配置/FR-B1顺延状态——normalize/merge 补默认
+      preTrip: null, tour7: null, weekRev: null, weather: null, aiCfg: null, schedShift: null, girth: null, returnMark: null, rehab: null, // 最终版增量（可选键）：行前判定缓存/新手7天引导/周复盘去重/今晨实况天气/AI问答供应商配置/FR-B1顺延状态——normalize/merge 补默认
       updatedAt: 0
     }
   };
@@ -799,7 +813,7 @@ function mergeData(local, remote) {
   out.state.strengthReps = out.state.strengthReps || {};
   CONFIG.actions.forEach((a) => { if (out.state.strengthReps[a.repsKey] == null) out.state.strengthReps[a.repsKey] = 10; }); // Codex 复核 P1-1 修复：合并后补缺键，防 undefined/NaN 污染
   // 最终版增量键缺键防线（与 4f52b7f 同套路）：老远端备份无这些键时补默认
-  ['preTrip', 'tour7', 'weekRev', 'weather', 'aiCfg', 'schedShift', 'girth'].forEach((k) => { if (out.state[k] === undefined) out.state[k] = null; }); // aiCfg=问答外挂供应商配置（不含 key，key 只在本机 localStorage）；schedShift=FR-B1 顺延状态
+  ['preTrip', 'tour7', 'weekRev', 'weather', 'aiCfg', 'schedShift', 'girth', 'returnMark', 'rehab'].forEach((k) => { if (out.state[k] === undefined) out.state[k] = null; }); // aiCfg=问答外挂供应商配置（不含 key，key 只在本机 localStorage）；schedShift=FR-B1 顺延状态
   out.daily = mergeByKey(local.daily, remote.daily, 'date');
   out.metrics = mergeByKey(local.metrics, remote.metrics, 'date');
   out.tests = mergeByKey(local.tests, remote.tests, 'date');
@@ -1634,6 +1648,7 @@ function shiftCycleWeek() { // FR-B1 顺延 1 周：手动触发绝不自动改�
   ss.weeks += 1;
   ss.log = (ss.log || []).concat([{ date: U.todayStr(), weeks: ss.weeks }]);
   D.state.schedShift = ss;
+  D.state.returnMark = { date: U.todayStr() }; // FR-G：当天首页首句降为回归课
   persist();
   renderToday();
   toast('已顺延 1 周（累计 ' + ss.weeks + '/2）：全周期整体后移，不是补量');
@@ -1720,6 +1735,39 @@ function savePasteHealth() { // FR-A1：确认后入当日 metrics（原位合�
     toast('已入账：' + [v.sleepH != null ? '睡眠 ' + v.sleepH + 'h' : '', v.rhr != null ? '静息心率 ' + v.rhr : '', v.hrv != null ? 'HRV ' + v.hrv : ''].filter(Boolean).join(' / '));
   } catch (e) { toast((e && e.msg) || '解析失败——检查格式'); }
 }
+let _videoUrl = '';
+function openVideo() { if (_videoUrl) window.open(_videoUrl); }
+function videoBtnHtml(name) { // FR-I 视频按钮（v4.1 M3）：VIDEO_LINKS 具体视频优先；离线降级=文字五件套照用；链接失效走教练问答
+  const v = CONFIG.videoLinks && CONFIG.videoLinks[name];
+  if (navigator.onLine === false) return '<div class="sub" style="margin-top:6px;color:var(--text2)">📺 视频要联网看——离线时上面五件套文字版照用。</div>';
+  if (v) { _videoUrl = v.u; return '<button class="btn-ghost" onclick="openVideo()">📺 看教学视频：' + U.esc(v.note) + '</button>'
+    + '<div class="sub" style="margin-top:4px">链接失效？在教练问答里说一声——换链接是改一张表的事。</div>'; }
+  _videoUrl = '';
+  return '<button class="btn-ghost" onclick="window.open(' + q2('https://search.bilibili.com/all?keyword=' + encodeURIComponent(name + ' 标准动作')) + ')">📺 看教学视频</button>';
+}
+function q2(u) { return "'" + u + "'"; }
+function rehabEntryHtml() { // FR-J 复训阶梯入口：停训卡内的医生放行确认（人工确认，产品不代判；阶梯 50/75/100 为内部经验值，按医嘱校准）
+  const r = D.state.rehab;
+  if (r && r.released) {
+    const ph = rehabPhase(r);
+    return '<div class="body-tx" style="margin-top:8px"><b>复训阶梯进行中：</b>第 ' + ph + '/3 阶（负荷 ' + [50, 75, 100][ph - 1] + '%）。第 1-7 天 50%、第 2 周 75%、第 3 周回 100%；晨检红灯=疼痛复发，自动回第 1 阶重计。阶梯比例是内部经验值，首次复训按医嘱校准（§12.2 Q6）。</div>';
+  }
+  return '<div class="body-tx" style="margin-top:8px"><b>就医回来后怎么练？（FR-J）</b>医生放行后点下面按钮开 3 周复训阶梯：50% → 75% → 100%，与顺延窗口联动不占顺延额度。<button class="btn-mini" style="margin-left:6px" onclick="startRehab()">我已获医生放行，开始复训</button><div class="sub" style="margin-top:4px">没放行就先别点——阶梯不越过禁区清单，医生放行必须真实发生。</div></div>';
+}
+function startRehab() { // FR-J：放行确认写入 state.rehab（可选键）
+  D.state.rehab = { phase: 1, released: U.todayStr() };
+  closeModal(); persist(); renderToday();
+  toast('复训阶梯已开启：本周负荷 50%，疼痛复发自动回退');
+}
+function rehabPhase(r) { // 阶梯按放行日期自动推进（无额外写入）：1-7 天=1，8-14=2，15 天+=3
+  const days = Math.floor((Date.now() - new Date(r.released).getTime()) / 86400000);
+  return Math.max(1, Math.min(3, Math.floor(days / 7) + 1));
+}
+function rehabFactor() { // 负荷折扣系数：phase1=0.5 / phase2=0.75 / phase3=1
+  const r = D.state.rehab;
+  if (!r || !r.released) return 1;
+  return [0.5, 0.75, 1][rehabPhase(r) - 1];
+}
 function ankleGateLine() { // 踝门：右踝<47s → 土路/越野/下坡建议劝退（毕业线 47/50/57；只加户外提示，不改力量档位）
   const t = M.latestTest();
   if (!t || t.standR == null || t.standR >= 47) return '';
@@ -1727,6 +1775,7 @@ function ankleGateLine() { // 踝门：右踝<47s → 土路/越野/下坡建议
 }
 function todayActionLine(level) { // 引擎输出首句=今天干嘛（开工单§四输出格式），数据源=现行课表+当前档，不发明动作不越禁区
   const dayType = effTemplate()[new Date().getDay()];
+  if (level === 'return') return '回归课：今天只做每日包 12 分钟（或 15 分钟散步），做完就是赢。'; // FR-G 断档回归首练
   if (level === 'rest') return '今天按完全休息档：不练，复盘睡眠与负荷。';
   if (level === 'floor') return '今天按恢复档：只做每日包 12 分钟（10 分钟拉伸+散步亦可）。';
   if (CONFIG.trainTypes.indexOf(dayType) < 0) return '今天按正常档：休息日，可做八段锦与足底康复（不计负荷）。';
@@ -1826,6 +1875,7 @@ function chkSubmit() { // 晨检提交：写当日 daily.chk → persist → 重
   persist();
   chkSel = { parts: [], kinds: [], relief: '' };
   renderToday();
+  if (ev.out === 'stop' && D.state.rehab && D.state.rehab.released) { D.state.rehab.released = U.todayStr(); toast('疼痛复发：复训阶梯回第 1 阶（50%）重计'); } // FR-J 疼痛复发回上一阶重计
   if (ev.out === 'stop') openStopCard(ev.why);
 }
 function openStopCard(why) { // 统一停训卡：任何席位触线弹同一张（疼痛即停/不做诊断/不承诺效果）
@@ -1836,6 +1886,7 @@ function openStopCard(why) { // 统一停训卡：任何席位触线弹同一张
     + '<br>· 红线信号（夜间痛/肿胀/无法承重/压痛/畸形/关节绞锁）→ 尽快就医（运动医学科/骨科），别拖'
     + '<br>· 足/踝疼痛连续 3 天 → 运动医学科：' + U.esc(CONFIG.copy.footDoctor)
     + '<br>· 普通酸痛、24h 内不加重 → 先观察，不加重不急</div>'
+    + rehabEntryHtml()
     + '<div class="sub" style="margin-top:8px">本卡是停训提示，不是医学诊断。</div>'
     + '<div class="m-actions"><button class="btn-primary" onclick="closeModal()">知道了</button></div>');
 }
@@ -2310,6 +2361,10 @@ function renderToday() {
   const rdPrev = readinessEval(U.addDays(U.todayStr(), -1));
   let level = rdNow.level;
   if (level === 'down' && rdPrev.level === 'down') level = 'rest'; // 连续 2 天降档 → 完全休息
+  const __rm = D.state.returnMark; // FR-G：顺延确认当天首句=回归课（只说第一步，不说断了几天）
+  if (__rm && __rm.date === U.todayStr() && level !== 'rest') level = 'return';
+  const __rh = D.state.rehab; // FR-J：复训阶梯提示进理由行
+  if (__rh && __rh.released) rdNow.reasons.push('复训阶梯第 ' + rehabPhase(__rh) + ' 阶：负荷 ' + [50, 75, 100][rehabPhase(__rh) - 1] + '%');
   const __chk = todayChk(); // 康复师席联动（最终版批1）：晨检红灯压过一切改恢复课，黄灯只把 ok 升到 down
   if (__chk && __chk.out === 'stop' && level !== 'rest') { level = 'floor'; rdNow.reasons.push('晨检：' + __chk.why); }
   else if (__chk && __chk.out === 'watch' && level === 'ok') { level = 'down'; rdNow.reasons.push('晨检：' + __chk.why); }
@@ -2317,7 +2372,8 @@ function renderToday() {
     ok:   ['正常练', 'var(--green)', '身体状态够，按下方"今日安排"执行（休息日就做休息日内容）；建议放在傍晚 17-19 点。'],
     down: ['降档练', 'var(--orange)', '强度降一档：力量每组少做一点、留 2-3 次余力，有氧时长打七折。'],
     floor: ['只做每日包', 'var(--red)', '今天只做每日包 12 分钟（或 10 分钟拉伸+散步），其他全免——做完就是赢。'],
-    rest: ['完全休息', 'var(--red)', '连续两天身体报警：今天完全休息，复盘睡眠与负荷，明天再战。']
+    rest: ['完全休息', 'var(--red)', '连续两天身体报警：今天完全休息，复盘睡眠与负荷，明天再战。'],
+    return: ['回归课', 'var(--blue)', '断档后的第一步：每日包 12 分钟或 15 分钟散步，做完即闭环——不追溯，不补量。']
   }[level];
   const lastMet = M.metricOn(U.addDays(U.todayStr(), -1)) || {};
   const todayMet = M.metricOn(U.todayStr()) || {};
@@ -3574,6 +3630,12 @@ CONFIG.knowledge = [
   ,{ id: 'K27', group: '生活', title: 'K27 食物热量速查：20 个常见食物（只查询不打卡）', body: 'Keep 抄单小件（v4.1）：增重吃账的查询工具——不打卡、不记录，想知道吃什么对照一眼。<br><table class="cmp"><tr><td style="font-weight:600">食物（每 100g 可食部）</td><td>热量 kcal</td><td>蛋白 g</td></tr>'
     + '<tr><td>米饭（熟）</td><td>116</td><td>2.6</td></tr><tr><td>馒头</td><td>223</td><td>7.0</td></tr><tr><td>面条（煮）</td><td>110</td><td>3.6</td></tr><tr><td>全麦面包</td><td>246</td><td>9.0</td></tr><tr><td>燕麦片（干）</td><td>367</td><td>15</td></tr><tr><td>红薯</td><td>86</td><td>1.6</td></tr><tr><td>土豆</td><td>77</td><td>2.0</td></tr><tr><td>鸡蛋（整）</td><td>144</td><td>13.3</td></tr><tr><td>鸡胸肉</td><td>133</td><td>24</td></tr><tr><td>鸡腿肉（去皮）</td><td>146</td><td>20</td></tr><tr><td>瘦猪肉</td><td>143</td><td>20</td></tr><tr><td>牛腱子</td><td>115</td><td>20</td></tr><tr><td>三文鱼</td><td>139</td><td>18</td></tr><tr><td>虾</td><td>93</td><td>18.6</td></tr><tr><td>豆腐</td><td>81</td><td>8.1</td></tr><tr><td>牛奶</td><td>54</td><td>3.0</td></tr><tr><td>无糖酸奶</td><td>72</td><td>2.8</td></tr><tr><td>花生</td><td>574</td><td>24.8</td></tr><tr><td>西兰花</td><td>34</td><td>2.8</td></tr><tr><td>香蕉</td><td>93</td><td>1.4</td></tr></table>'
     + '<span class="sub" style="margin-top:8px">约值，供估算对照；精确值看包装营养表。增重口径（FR-8）：盈余靠三餐+练后一顿加起来，不是猛灌零食——脾虚湿盛肠胃差，少食多餐比一顿硬塞强。</span>' }
+  ,{ id: 'K28', group: '户外', title: 'K28 武汉训练场地与室内替代（冬训主场指南）', body: '冬训期（2026-10~2027-03）去哪练、什么天气换什么课、负重怎么背不出事。检索级口径（2026-09-30），数字打架处保留待核。<br><b>一、户外场地速查</b><br><table class="cmp"><tr><td style="font-weight:600">今天什么情况</td><td>去哪</td><td>练什么</td></tr><tr><td>天气好</td><td>汉口/青山江滩、东湖绿道</td><td>Zone2 长走+负重适应（青山江滩 7.5km 两来源一致；汉口江滩一二期 3.4km 官方口径、延伸约 7-8km ⚠️ 打架）</td></tr><tr><td>想加爬升</td><td>喻家山 149.5m / 珞珈山约 118m / 八分山（海拔待核）/ 马鞍山森林公园</td><td>一山上一下×N 组，组数堆爬升不硬撑单次</td></tr><tr><td>小雨</td><td>青山江滩（透水铺装）或绿道</td><td>平路课，减速防滑</td></tr><tr><td>大雨大雪冰冻</td><td>室内三件套</td><td>楼梯爬层课 / 跟练加长 / 每日包加量</td></tr></table>'
+    + '<br><b>二、爬升换算与场地</b>：产品口径 1 层≈3m，堆 300m 爬升≈100 层楼梯，分 3-5 组别一口气。绿道主线=平路里程机（总长约 105km 政府口径 ⚠️ 另有 101.98km 口径），爬升要拐进磨山景区/马鞍山或山体公园；喻家山进校可能需预约（出行前查校方公众号）。<br>'
+    + '<b>三、雨雪天楼梯课硬规则（逐条是规则不是建议）</b>：只上不下，下楼乘电梯——下楼冲击+楼道湿滑=伤膝和摔倒双重风险；全程一手扶扶手；组间在平台站稳不坐台阶；鞋底湿先进楼擦底或换干鞋；楼道灯不亮/地面反潮发亮→当天取消改跟练加长；中途胸闷头晕腿软→立刻停，扶扶手走到电梯层乘电梯下楼。<br>'
+    + '<b>四、负重长走铁律</b>：起步 2kg（两瓶水/米袋塞包底，重心贴背中上部），第一次从江滩平路开始不上台阶；每周 2 次负重课其余空包；<b>加重量就不加路程，加路程就不加重量，不同时加</b>；出发前 30 秒查腰带传导（重量落髋，肩带贴合不勒胸）——转山当天就是这个背法。碎石/下坡一律减速，步幅缩短一半，踩实再移重心；本卡不排下坡专项，下坡变快的唯一合法路径=低负重多次安全通过。<br>'
+    + '<b>五、武汉湿冷条款</b>：三层穿法（内层排汗不穿纯棉+中层抓绒+外层防风壳，江边风大防风比厚重要）；手套帽子必带；走热开拉链散热别一次脱中层，停下前拉回去；课完 10 分钟内换干衣干袜（湿袜=水泡加速器）；桥面/背阴石阶/木栈道最先结冰挂霜，路面反光发亮一律按冰面处理。<br>'
+    + '<span class="sub" style="margin-top:8px">检索级标注（2026-09-30，7 次检索）：青山江滩 7.5km/喻家山 149.5m/珞珈山约 118m 为两来源一致；汉口江滩全长/东湖绿道总长/马鞍山海拔/八分山海拔/磨山海拔 5 处数字打架或待核——已按保守口径并列，不拍板。进校预约与冬季开放时间出行前另查。</span>' }
 ];
 const K_GROUPS = ['理念', '训练', '康复', '生活', '户外', '路线'];
 
@@ -4440,7 +4502,7 @@ function showActionTips(name) {
     + repLine
     + '<div class="sub" style="margin-top:10px">以文字要领为准；动作中出现疼痛立即停止。</div>'
     + '<div class="m-actions"><button class="btn-primary" onclick="closeModal()">知道了</button>'
-    + '<button class="btn-ghost" onclick="window.open(\'https://search.bilibili.com/all?keyword=' + kw + '\')">📺 看教学视频</button></div>');
+    + videoBtnHtml(key) + '</div>');
 }
 
 function ic(name, sz) {
@@ -4515,7 +4577,7 @@ function buildCourse(reduced) { // 课单：热身 + 各动作N组（组数走�
   const c = [{ kind: 'warm' }];
   CONFIG.actions.forEach((a, i) => {
     const base = D.state.strengthReps[a.repsKey] || 10;
-    const target = reduced ? reduceTarget(base, a.unit) : base;
+    const target = Math.max(1, Math.round((reduced ? reduceTarget(base, a.unit) : base) * rehabFactor())); // FR-J 复训阶梯叠加（黄灯 30% 后再乘复训系数）
     const timed = a.unit.indexOf('秒') >= 0;
     const st = effSets(a.repsKey);
     for (let s = 1; s <= st; s++) {

@@ -1277,6 +1277,74 @@ check('㉕ FR-A1 入口条件渲染：缺睡眠显示/有睡眠隐藏+确认后 
   return '条件渲染+预览+入账全链 ✓';
 });
 
+/* ---------- ㉖ v4.1 M3 内容批：VIDEO_LINKS + FR-G 回归课 + FR-J 复训阶梯 + K28 武汉场地 ---------- */
+check('㉖ VIDEO_LINKS：12 键全有 u/note，动作要领弹窗出具体视频按钮+推荐语', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData();');
+  const keys = w.eval('Object.keys(CONFIG.videoLinks).length');
+  if (keys !== 12) throw new Error('videoLinks 键数=' + keys);
+  const bad = w.eval('Object.entries(CONFIG.videoLinks).filter(([k,v])=>!v.u||!v.note).length');
+  if (bad !== 0) throw new Error(bad + ' 条缺 u/note');
+  w.eval('showActionTips("自重深蹲");');
+  const m = w.eval("document.getElementById('modalBox').innerHTML");
+  if (m.indexOf('openVideo()') < 0 || m.indexOf('细讲+0受伤经验') < 0) throw new Error('弹窗缺视频按钮或推荐语');
+  if (m.indexOf('链接失效') < 0) throw new Error('缺失效反馈入口');
+  return '12 键+弹窗按钮+反馈入口 ✓';
+});
+check('㉖ 离线降级：navigator.onLine=false 时视频按钮变文字提示（五件套照用）', () => {
+  if (loadErr) throw loadErr;
+  w.eval('try { Object.defineProperty(navigator, "onLine", { configurable: true, value: false }); } catch (e) {}');
+  const off = w.eval('videoBtnHtml("自重深蹲")');
+  if (off.indexOf('离线时上面五件套文字版照用') < 0) throw new Error('离线降级文案缺失：' + off);
+  w.eval('try { Object.defineProperty(navigator, "onLine", { configurable: true, value: true }); } catch (e) {}');
+  return '离线降级 ✓';
+});
+check('㉖ FR-G 回归课：returnMark 缺键 null；顺延确认写入标记；当天首页首句=回归课', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData();');
+  if (w.eval('D.state.returnMark') !== null) throw new Error('出厂 returnMark 应 null');
+  if (w.eval('todayActionLine("return")').indexOf('回归课') < 0) throw new Error('return 档文案缺失');
+  w.eval('D.state.schedShift = null; D.state.returnMark = null; shiftCycleWeek();');
+  if (w.eval('D.state.schedShift.weeks') !== 1) throw new Error('顺延未写入');
+  const today = w.eval('U.todayStr()');
+  const rm = w.eval('JSON.stringify(D.state.returnMark)');
+  if (rm.indexOf(today) < 0) throw new Error('回归标记未写入：' + rm);
+  w.eval('renderToday();');
+  const h = w.eval("document.getElementById('todayBody').innerHTML");
+  if (h.indexOf('回归课') < 0) throw new Error('首页未出回归课');
+  if (h.indexOf('你已断') >= 0 || h.indexOf('打卡率') >= 0) throw new Error('回归态出现问责词');
+  return '顺延→回归标记→首页回归课全链 ✓ 零问责词';
+});
+check('㉖ FR-J 复训阶梯：rehab 缺键 null；停训卡出复训入口；startRehab 写入；rehabPhase 自动推进；buildCourse 打 5 折', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData();');
+  if (w.eval('D.state.rehab') !== null) throw new Error('出厂 rehab 应 null');
+  w.eval('openStopCard("测试");');
+  let m = w.eval("document.getElementById('modalBox').innerHTML");
+  if (m.indexOf('复训阶梯') < 0 || m.indexOf('startRehab()') < 0) throw new Error('停训卡缺复训入口');
+  w.eval('startRehab();');
+  const r1 = w.eval('JSON.stringify(D.state.rehab)');
+  if (r1.indexOf(w.eval('U.todayStr()')) < 0) throw new Error('rehab 未写入：' + r1);
+  w.eval('D.state.rehab = { phase: 1, released: U.addDays(U.todayStr(), -8) };');
+  if (w.eval('rehabPhase(D.state.rehab)') !== 2) throw new Error('8 天前应第 2 阶');
+  if (w.eval('rehabFactor()') !== 0.75) throw new Error('第 2 阶系数应 0.75');
+  w.eval('D.state.rehab = { phase: 1, released: U.todayStr() };');
+  const sq = w.eval('JSON.stringify(buildCourse().filter(p=>p.kind==="set"&&p.name==="自重深蹲")[0].target)');
+  const baseS = w.eval('D.state.strengthReps["深蹲"] || 10');
+  if (sq !== String(Math.round(baseS * 0.5))) throw new Error('复训第 1 阶深蹲 target 应 ' + Math.round(baseS * 0.5) + '（' + baseS + '×0.5），实际 ' + sq);
+  return 'rehab 全链（入口/写入/推进/折扣）✓';
+});
+check('㉖ K28 武汉场地卡：户外组在位+速查表+楼梯课硬规则+待核标注', () => {
+  if (loadErr) throw loadErr;
+  w.eval('renderGuideTab();');
+  const h = w.eval("document.getElementById('guideTabBody').innerHTML");
+  if (h.indexOf('kc_K28') < 0) throw new Error('K28 卡缺失');
+  const body = w.eval('CONFIG.knowledge.find(k=>k.id==="K28").body');
+  for (const k of ['只上不下', '下楼乘电梯', '加重量就不加路程', '待核', '青山江滩 7.5km', '149.5m']) if (body.indexOf(k) < 0) throw new Error('K28 缺「' + k + '」');
+  if (body.indexOf('越野跑') >= 0 || body.indexOf('器械') >= 0) throw new Error('K28 踩禁区词');
+  return 'K28 在位（速查+硬规则+待核+零禁区）✓';
+});
+
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);
 console.log('================ P0 jsdom 断言报告（node ' + process.version + ' · jsdom ' + require('jsdom/package.json').version + '） ================');
