@@ -865,7 +865,7 @@ check('⑲ 晨检部位扩全身（≥10 项）且 DOMS 通路成立', () => {
   if (loadErr) throw loadErr;
   if (w.eval('CHK_PARTS.length') < 10) throw new Error('部位不足');
   const doms = w.eval('chkEval(["大腿","上背"],["酸胀"],"ease")');
-  if (doms.out !== 'ok' || doms.why.indexOf('DOMS') < 0) throw new Error('DOMS 通路失效：' + JSON.stringify(doms));
+  if (doms.out !== 'ok' || doms.why.indexOf('练狠了的酸') < 0) throw new Error('DOMS 通路失效：' + JSON.stringify(doms));
   const guard = w.eval('chkEval(["右踝"],["酸胀"],"ease")');
   if (guard.out !== 'watch') throw new Error('守门区被 DOMS 误放行');
   const worse = w.eval('chkEval(["大腿"],["酸胀"],"worse")');
