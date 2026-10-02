@@ -539,7 +539,7 @@ const CONFIG = {
   /* K4 热身与放松（逐字） */
   warmup: '原地踏步1分钟→踝绕环左右各10圈→弓步走10步→髋关节绕环10次→自重深蹲5次慢速',
   cooldown: '站姿股四头肌拉伸30秒/侧→站姿大腿后侧拉伸30秒/侧→靠墙小腿拉伸30秒/侧→坐姿体前屈30秒→婴儿式30秒→网球足底滚动1分钟/侧',
-  weatherAlt: '雨雪/闷热替代：有氧日改室内原地快走/踏步，或爬楼梯（楼道闷热时缩短至15分钟并补水）',
+  weatherAlt: '雨雪/闷热替代：有氧日改室内原地快走/踏步，或爬楼梯（只上不下、下楼乘电梯；楼道闷热缩短至 15 分钟并补水）——替代课三件套细节见指南 K28',
 
   /* K7 足底康复三 Stage */
   footStages: [
@@ -1503,6 +1503,22 @@ function nightHintHtml(hr) { // FR-D 时段感知（v4.1）：21 点后打开→
   if (hr < 21) return '';
   return '<div class="card"><div class="card-head"><div class="bubble bg-blue" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M17 12a5 5 0 1 1-7-4.6M21 12.8A9 9 0 1 1 11.2 3"/></svg></div><div style="flex:1"><div class="card-title" style="margin:0">今晚收操 · 明晨预告</div></div></div>'
     + '<div class="body-tx">今天的事翻篇了。明早醒来第一件事：60 秒晨检（哪里不舒服→什么感觉→出判定）——明天的安排让引擎用新鲜数据重算，别拖到晚上。</div></div>';
+}
+function dailyPackCard(level) { // v4.1 挖掘修复 P0：每日包动线组装——恢复档/回归课/休息日时，把散落的每日练习聚成一张可执行卡
+  const rec = M.dailyOn(U.todayStr()) || {};
+  const fr = !!rec.footRehab, bd = !!rec.baduanjin;
+  const done = fr && bd;
+  const item = function (ok, name) { return '<div class="sub">' + (ok ? '✓' : '□') + ' ' + name + '</div>'; };
+  return '<div class="card"' + (done ? '' : ' style="border:2px solid var(--accent)"') + '><div class="card-title" style="margin:0 0 4px">今日每日包' + (done ? ' · 已完成 ✓' : ' · 12-15 分钟') + '</div>'
+    + item(fr, '足底康复（约 5 分钟）——下方卡片，做完打勾')
+    + item(bd, '八段锦（约 8 分钟）——下方卡片，跟练一遍')
+    + '<div class="sub" style="margin-top:4px">两样做完 = 今天完成' + (level === 'return' ? '，回归就是赢' : '') + '。</div></div>';
+}
+function chkMissLine() { // v4.1 挖掘修复：晨检连断引导（今天没做不算断，从昨天往前数）
+  let miss = 0;
+  for (let i = 1; i <= 30; i++) { const d = M.dailyOn(U.addDays(U.todayStr(), -i)); if (d && d.chk) break; miss++; }
+  if (miss < 3) return '';
+  return '<div class="sub" style="color:var(--orange)">晨检停了 ' + miss + ' 天——不追溯，现在做一次 60 秒晨检就接上了。</div>';
 }
 function midTripBannerHtml() { // FR-D 行中感知（v4.1）：行中模式激活当天，状态卡前保命卡置顶条
   return '<div class="card" style="border:2px solid var(--red)"><div class="card-title" style="margin:0 0 6px">⛰️ 行中模式 · 保命卡置顶</div>'
@@ -2477,6 +2493,7 @@ function renderToday() {
     + '<div class="body-tx" style="margin-top:6px;font-weight:600">' + todayActionLine(level) + '</div>' // v3.5 引擎输出：首句动作（开工单§四）
     + '<div class="sub" style="margin-top:4px">理由：' + (rdNow.reasons.length ? rdNow.reasons.map(U.esc).join('；') : '各项信号正常') + (level === 'rest' ? '；昨日同样触发降档' : '') + '</div>'
     + (hasSleep ? '' : '<div class="sub" style="color:var(--orange);margin-top:4px">昨夜睡眠未记录——打卡时从健康App抄一个数，判定更准。</div>')
+    + chkMissLine()
     + footRedCheck()
     + chkBarHtml()
     + ankleGateLine()
@@ -2484,6 +2501,7 @@ function renderToday() {
     + '<div class="field" style="margin-top:10px"><label>今天的你（点一下立即重判）</label><div class="chips" id="feelChips">' + feelChips() + '</div></div>'
     + '<div style="margin-top:8px"><button class="ci-btn" onclick="showCoachQA()">💬 问教练：为什么这么练 / 疼了怎么办 / 吃什么</button></div>'
     + rehabWorkbenchHtml() + '</div>';
+  if (level === 'floor' || level === 'return') h += dailyPackCard(level); // v4.1 挖掘修复：每日包动线（引擎说做每日包，页面就得有每日包）
   h += nightHintHtml(); // FR-D 时段感知：21 点后打开→明晨晨检预告
   try { if (sessionStorage.getItem('tineng_midtrip') === '1') h += midTripBannerHtml(); } catch (e) {} // FR-D 行中激活：保命卡置顶
   // N7 年报入口卡（12/20-次年1/10 期间显示）
@@ -3714,7 +3732,12 @@ CONFIG.knowledge = [
   { id: 'K6', group: '训练', title: 'K6 有氧选项库', body: CONFIG.cardio.map((c) => '<b>' + c.name + '</b>｜' + U.esc(c.dur) + '｜' + U.esc(c.tip) + ' <button class="ci-btn" style="min-height:28px;padding:2px 8px" onclick="window.open(\'' + c.link + '\')">📺教学</button><br>').join('') + '<b>足底提示：</b>' + U.esc(CONFIG.cardioFootTip) + '<br><b>长时活动(单独类型)：</b>' + U.esc(CONFIG.longCopy) },
   { id: 'K7', group: '康复', title: 'K7 足底康复与防崴模块', body: U.esc(CONFIG.footNote) + '<br><br>' + CONFIG.footStages.map((s, i) => '<b>Stage ' + i + ' ' + U.esc(s.name) + '（' + U.esc(s.mins) + '）</b><br>' + s.items.map((x) => '· ' + U.esc(x)).join('<br>') + '<br><span class="sub">' + U.esc(s.promo) + '</span><br>').join('<br>') + '<b>疼痛规则：</b>疼痛含"足"→黄灯+足底减负（Stage不变）；疼痛含"踝"→黄灯+防崴训练降一级；膝/腰/其他→红灯（停训，仅八段锦/足康复放松类）；Stage 0 不再降；连续3天足痛或踝痛打卡→就医提示。' },
   { id: 'K8', group: '训练', title: 'K8 八段锦模块', body: U.esc(CONFIG.baduanjin.note) + '<br><br>' + CONFIG.baduanjin.forms.map((f, i) => (i + 1) + ' ' + U.esc(f)).join('<br>') + '<br><br>' + U.esc(CONFIG.baduanjin.timing) + '<br><button class="ci-btn" style="margin-top:6px" onclick="window.open(\'' + CONFIG.baduanjin.teach + '\')">' + CONFIG.baduanjin.teachLabel + '</button> <button class="ci-btn" onclick="window.open(\'' + CONFIG.baduanjin.follow + '\')">' + CONFIG.baduanjin.followLabel + '</button>' },
-  { id: 'K9', group: '康复', title: 'K9 睡眠修复方案', bodyFn: function () { return '当前数据：近3月平均5.4h（基线），目标7h+<br><b>执行规则（按优先级）：</b><br>1. 固定关灯时间锚点（当前 <b>' + U.esc(D.profile.sleepAnchor) + '</b>，可在档案页修改；比几点起床更重要，先守21天）<br>2. 睡前一小时屏幕调暗、手机放远<br>3. 咖啡因午后不碰<br>4. 卧室只睡觉<br>5. 晚间中低强度训练（每日包/提踵/拉伸）不害睡眠，只避开<b>睡前 1 小时内的剧烈课</b>（Stutz 2019，23 项研究 meta：总体不支持晚间运动损害睡眠）<br><b>为什么睡眠是第一优先级：</b>睡不够的时候，身体宁可丢肌肉、保着脂肪——想涨肌肉，先把睡眠修好<span class="sub">（依据 Nedeltcheva 2010 （检索级·热量限制 14 天试验，睡 5.5h 组瘦体重丢失比睡足组多 60%——减脂期语境、样本 10 人，方向性参考，不是增肌损失率）</span><br><b>记录与反馈：</b>每天从健康App抄睡眠时长；连续2天&lt;6h系统自动黄灯减量；趋势页睡眠柱状图&lt;6h标橙、画7h虚线'; } },
+  { id: 'K9', group: '康复', title: 'K9 睡眠保持（底线 6.5h）', bodyFn: function () {
+    const arr = (D.metrics || []).filter((m) => m.sleepH != null).slice(-90).map((m) => m.sleepH);
+    const avg = arr.length ? (arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(1) : null;
+    const head = avg ? ('当前数据：近 90 天均值 ' + avg + 'h（2026-10 起为保持期：守住 6.5h 底线，冬训防反弹）') : '当前数据：还没有睡眠记录——今日页粘贴导入一次就有曲线';
+    return head + '<br><b>执行规则（按优先级）：</b><br>1. 固定关灯时间锚点（当前 <b>' + U.esc(D.profile.sleepAnchor || '未设置') + '</b>，可在档案页修改；比几点起床更重要，先守 21 天）<br>2. 睡前一小时屏幕调暗、手机放远<br>3. 咖啡因午后不碰<br>4. 卧室只睡觉<br>5. 晚间中低强度训练（每日包/提踵/拉伸）不害睡眠，只避开<b>睡前 1 小时内的剧烈课</b>（Stutz 2019，23 项研究 meta：总体不支持晚间运动损害睡眠）<br><b>为什么睡眠仍是第一优先级：</b>睡不够的时候，身体宁可丢肌肉、保着脂肪（Nedeltcheva 2010，减脂期语境）——冬训增重的成败一半在睡眠';
+  } },
   { id: 'K10', group: '理念', title: 'K10 阶段全景', body: '阶段0 习惯建立(约4周)：有氧20-30分钟+力量基础+足康复Stage0+睡眠锚点<br>阶段1 有氧容量：Zone2至60分钟+下肢肌耐力+足康复Stage1<br>阶段2 爬升负重：楼梯专项+背包负重引入(5kg起)+足康复Stage2<br>阶段3 户外转移：周末真实山地、负重15kg级、背靠背两日<br><span class="sub">各阶段解锁条件与阶段状态机一致（第七部分），当前阶段见「档案与设置」。</span>' },
   { id: 'K11', group: '生活', title: 'K11 营养与体重', body: '偏瘦者(176/60, BMI 19.4)加量期原则：<br>· 不节食；训练日适当增加蛋白质与碳水(鸡蛋/奶/米饭多一口)<br>· 热量带：2400-2600 kcal/天（notes/08 §四 owner 裁决已核）——增重期"吃够"是硬指标不是可选项，热量缺口下练=掉瘦体重（Nedeltcheva 2010 实证：睡眠不足+热量限制组多丢 60% 瘦体重）<br>· 蛋白怎么落（食物版）：每日两个蛋+一盒奶打底、每餐一掌心肉/鱼/豆、练后一顿别跳——总日量优先于"练后 30 分钟窗口"（主流综述口径，标待核；g/kg 公式 1.6-2.2 同标待核，不进引擎）<br>· 每周晨起空腹称重一次(可空)；较前值降&gt;2kg→系统横幅提醒加餐；周复盘卡"体重账"按 0.5%/周带自动判读<br>· 增重节奏带子：每周涨幅不超过体重的 0.5%（59.6kg≈0.15-0.3kg/周）——这是上限不是承诺，不按月数倒推；睡眠不修，练得再狠也涨不动（Iraki 2019 （检索级核对） 0.25-0.5%/周，健美者非赛季口径→向普通训练者迁移=检索级）<br>· 目标不是减重，是让体重稳定或缓升(肌肉增长)' },
   { id: 'K12', group: '生活', title: 'K12 9/23 国民体测备战卡', body: CONFIG.k12.map((x) => '· ' + U.esc(x)).join('<br>') + '<br><span class="sub">本卡在目标页顶部 9/23 前显示、之后自动隐藏；「体测页-外部检测」折叠区常驻，不随日期关闭。</span>' },

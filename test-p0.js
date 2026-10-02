@@ -1415,6 +1415,46 @@ check('㉗ FR-C 毕业评审向导：三判定+人工确认+未过延周期', ()
   if (w.eval('D.state.graduated') !== null) throw new Error('出厂 graduated 应 null');
   return 'FR-C 向导（达标/未过两态）✓';
 });
+
+/* ---------- ㉘ v4.1 沙盘挖掘修复：每日包动线 + K9 动态化 + 晨检连断引导 + 天气指引 ---------- */
+check('㉘ 每日包动线：floor/return 档出聚合卡（含两步+完成判定），正常档不出', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); renderToday();');
+  let h = w.eval("document.getElementById('todayBody').innerHTML");
+  if (h.indexOf('今日每日包') >= 0) throw new Error('正常档不应出每日包卡');
+  const withPack = w.eval("(function(){ const lv = 'floor'; document.getElementById('todayBody').innerHTML = dailyPackCard(lv); return document.getElementById('todayBody').innerHTML; })()");
+  if (withPack.indexOf('今日每日包') < 0 || withPack.indexOf('足底康复') < 0 || withPack.indexOf('八段锦') < 0) throw new Error('每日包卡缺两步');
+  w.eval('D.daily.push(recStamp({ date: U.todayStr(), footRehab: true, baduanjin: true }));');
+  const done = w.eval('dailyPackCard("floor")');
+  if (done.indexOf('已完成 ✓') < 0) throw new Error('完成态缺失');
+  return '每日包动线（空态/完成态/条件渲染）✓';
+});
+check('㉘ K9 动态化：读真实均值+保持口径+语境标注保留', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); for (let i = 1; i <= 7; i++) upsertByDate(D.metrics, recStamp({ date: U.addDays(U.todayStr(), -i), sleepH: 6.8 }));');
+  const k9 = w.eval('CONFIG.knowledge.find(k=>k.id==="K9").bodyFn()');
+  if (k9.indexOf('6.8h') < 0 || k9.indexOf('保持期') < 0 || k9.indexOf('6.5h 底线') < 0) throw new Error('K9 未读真实数据或口径错：' + k9.slice(0, 120));
+  if (k9.indexOf('5.4') >= 0 || k9.indexOf('7h+') >= 0) throw new Error('K9 残留旧口径');
+  if (k9.indexOf('减脂期语境') < 0) throw new Error('诚实标注丢失');
+  if (w.eval('CONFIG.knowledge.find(k=>k.id==="K9").title').indexOf('保持') < 0) throw new Error('卡名未改');
+  return 'K9 动态化 ✓';
+});
+check('㉘ 晨检连断引导：断 4 天提示接上，刚断 1 天不烦人', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData();');
+  w.eval('for (let i = 4; i <= 7; i++) upsertByDate(D.daily, recStamp({ date: U.addDays(U.todayStr(), -i), chk: { out: "ok", why: "" } }))');
+  const line = w.eval('chkMissLine()');
+  if (line.indexOf('晨检停了 3 天') < 0) throw new Error('连断提示缺失：' + line);
+  w.eval('upsertByDate(D.daily, recStamp({ date: U.addDays(U.todayStr(), -1), chk: { out: "ok", why: "" } }))');
+  if (w.eval('chkMissLine()') !== '') throw new Error('昨天做过不应提示');
+  return '连断引导 ✓';
+});
+check('㉘ 天气替代指引具体化：含安全规则+K28 指引', () => {
+  if (loadErr) throw loadErr;
+  const alt = w.eval('CONFIG.weatherAlt');
+  if (alt.indexOf('只上不下') < 0 || alt.indexOf('K28') < 0) throw new Error('替代指引不具体');
+  return '天气指引 ✓';
+});
 check('㉗ UX 补缺：天气请求 5s 超时+nav pushState+focusin 防遮挡+趋势 metrics 空提示', () => {
   if (loadErr) throw loadErr;
   const wxSrc = w.eval('fetchWeather.toString()');
