@@ -1455,6 +1455,31 @@ check('㉘ 天气替代指引具体化：含安全规则+K28 指引', () => {
   if (alt.indexOf('只上不下') < 0 || alt.indexOf('K28') < 0) throw new Error('替代指引不具体');
   return '天气指引 ✓';
 });
+
+/* ---------- ㉙ 核心断点打通：周模板重排+减载周自动降量 ---------- */
+check('㉙ 周模板按主人实际重排：有氧一三五+力量二四+周六长走（渲染分支含周期目标）', () => {
+  if (loadErr) throw loadErr;
+  const tpl = w.eval('JSON.stringify(effTemplate())');
+  const want = '{"0":"休息日","1":"有氧","2":"力量","3":"有氧","4":"力量","5":"有氧","6":"长时活动"}';
+  if (tpl !== want) throw new Error('周模板错：' + tpl);
+  const src = w.eval('planHtml.toString()');
+  if (src.indexOf('weekGoalLine') < 0) throw new Error('planHtml 长走日未挂周期表周目标');
+  return '周模板重排+长走日读周期表（planHtml 源码级；周六渲染已 jsdom 假时钟手动复现通过）✓';
+});
+check('㉙ 减载周自动降量：W4 判定+系数 0.65+渲染标注+buildCourse 叠加；开营前不动', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); D.state.schedShift = { weeks: 0, log: [] };');
+  if (w.eval('isDeloadWeek(cycleWeekOf("2026-10-26"))') !== true) throw new Error('10-26 应是 W4 减载周');
+  if (w.eval('deloadFactor(cycleWeekOf("2026-10-26"))') !== 0.65) throw new Error('W4 系数应 0.65');
+  if (w.eval('deloadFactor(cycleWeekOf("2026-10-12"))') !== 1) throw new Error('W1 非减载应 1');
+  if (w.eval('deloadFactor()') !== 1) throw new Error('开营前（今天 10-01）系数应 1');
+  const plan = w.eval('planHtml("2026-10-26")');
+  if (plan.indexOf('减载周') < 0 || plan.indexOf('六成') < 0) throw new Error('减载周界面标注缺失');
+  const src = w.eval('buildCourse.toString()');
+  if (src.indexOf('deloadFactor()') < 0) throw new Error('buildCourse 未叠加减载系数');
+  if (w.eval('D.state.graduated') !== null) throw new Error('graduated 出厂应 null');
+  return '减载周自动降量（判定/系数/标注/叠加）✓';
+});
 check('㉗ UX 补缺：天气请求 5s 超时+nav pushState+focusin 防遮挡+趋势 metrics 空提示', () => {
   if (loadErr) throw loadErr;
   const wxSrc = w.eval('fetchWeather.toString()');

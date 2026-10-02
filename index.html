@@ -432,7 +432,7 @@ const CONFIG = {
   ankleFrontStand: 20,   // 估算值：进入阶段2前 睡 单腿≥20s
 
   /* 每周训练模板（CONFIG可改）：一三五有氧/二六力量/四有氧/日休息；getDay() 0=周日 */
-  weekTemplate: { 0: '休息日', 1: '有氧', 2: '力量', 3: '有氧', 4: '有氧', 5: '有氧', 6: '力量' },
+  weekTemplate: { 0: '休息日', 1: '有氧', 2: '力量', 3: '有氧', 4: '力量', 5: '有氧', 6: '长时活动' }, // v4.1 标尺重排：有氧≥3 次/周+力量 2 次+周六=周期化长走日（读 WINTER24 周目标）+周日休（长走后恢复+周复盘）
 
   /* 文案库（第十部分，逐字禁止改写） */
   copy: {
@@ -1650,26 +1650,26 @@ const WINTER24 = [ // 冬训期约 24 周（v4.1 标尺重排 2026-10-01）：4+
   { w: 1,  climb: 150, load: 0, walkH: 1.0,  note: '停练回退期：先恢复习惯，无负重；本周长走实测爬升基线' },
   { w: 2,  climb: 180, load: 0, walkH: 1.25, note: '有氧底盘重建，全程能说话' },
   { w: 3,  climb: 210, load: 0, walkH: 1.5,  note: '长走破 90 分钟：补水带了吗' },
-  { w: 4,  climb: 120, load: 0, walkH: 1.0,  note: '减载周（约六成量）+周日复测①：右脚闭眼站对照 47s 线' },
+  { w: 4,  climb: 120, load: 0, walkH: 1.0,  note: '减载周（约六成量）+周日复测①：右脚闭眼站对照 47s 线', deload: true },
   { w: 5,  climb: 240, load: 0, walkH: 1.5,  note: '' },
   { w: 6,  climb: 270, load: 0, walkH: 1.75, note: '力量全组 12 次且留 2 次余力 → 档位上调（K5）' },
   { w: 7,  climb: 300, load: 0, walkH: 2.0,  note: '增重盈余 +200~300 kcal/天（体重目标 61-62kg）' },
-  { w: 8,  climb: 180, load: 0, walkH: 1.5,  note: '减载周+周日复测②：闭眼站+单腿提踵（参考标准 ≥25 次）' },
+  { w: 8,  climb: 180, load: 0, walkH: 1.5,  note: '减载周+周日复测②：闭眼站+单腿提踵（参考标准 ≥25 次）', deload: true },
   { w: 9,  climb: 320, load: 2, walkH: 2.0,  note: '负重短走起步（每周 2 次），确认腰带传导' },
   { w: 10, climb: 350, load: 2, walkH: 2.25, note: '' },
   { w: 11, climb: 380, load: 2, walkH: 2.5,  note: '睡眠保持：近 7 天均值守住 6.5h 底线' },
-  { w: 12, climb: 240, load: 2, walkH: 1.75, note: '减载周+周日复测③：体重账对照 61-62kg' },
+  { w: 12, climb: 240, load: 2, walkH: 1.75, note: '减载周+周日复测③：体重账对照 61-62kg', deload: true },
   { w: 13, climb: 400, load: 3, walkH: 2.5,  note: '冬训过半：力量档位上探' },
   { w: 14, climb: 430, load: 3, walkH: 2.75, note: '' },
   { w: 15, climb: 460, load: 3, walkH: 3.0,  note: '长走 3 小时：转山日节奏彩排（前半程压配速）' },
-  { w: 16, climb: 300, load: 3, walkH: 2.0,  note: '减载周+周日复测④：闭眼站 47s=土路门槛' },
+  { w: 16, climb: 300, load: 3, walkH: 2.0,  note: '减载周+周日复测④：闭眼站 47s=土路门槛', deload: true },
   { w: 17, climb: 460, load: 3.5, walkH: 3.0, note: '负重 3.5kg：加重不加程' },
   { w: 18, climb: 480, load: 3.5, walkH: 3.0, note: '' },
   { w: 19, climb: 500, load: 4, walkH: 3.0,  note: '负重 4kg 到位（顶格≈体重 6.7%；8kg 留给专项期）' },
-  { w: 20, climb: 380, load: 4, walkH: 2.25, note: '减载周+周日复测⑤：提踵耐力（≥25 次）+平板+VO2max 对照（29.5→32+ 为正轨）' },
+  { w: 20, climb: 380, load: 4, walkH: 2.25, note: '减载周+周日复测⑤：提踵耐力（≥25 次）+平板+VO2max 对照（29.5→32+ 为正轨）', deload: true },
   { w: 21, climb: 500, load: 4, walkH: 3.0,  note: '回到减载前量，节奏固定化' },
   { w: 22, climb: 520, load: 4, walkH: 3.0,  note: '雨雪替代课演练：楼梯爬层/跟练加长' },
-  { w: 23, climb: 420, load: 4, walkH: 2.25, note: '减量周：练量七成，睡够' },
+  { w: 23, climb: 420, load: 4, walkH: 2.25, note: '减量周：练量七成，睡够', deload: true },
   { w: 24, climb: 260, load: 4, walkH: 2.5,  note: '检阅周+周日复测⑥+专项入学评审：闭眼站/体测总分/体重 61-62kg' }
 ];
 const SPECIAL12 = [ // 转山专项期骨架约 12 周（v4.1 标尺重排）：起点对齐冬训末（climb 550>冬训末 540），550→700 十周 ≈+2.7%/周；负重 5→8kg 每周 +0.3；W10-W11 峰值、W12 检阅
@@ -1684,7 +1684,7 @@ const SPECIAL12 = [ // 转山专项期骨架约 12 周（v4.1 标尺重排）：
   { w: 9,  climb: 690, load: 7.5, walkH: 3.0, note: '' },
   { w: 10, climb: 700, load: 8, walkH: 3.0, note: '峰值周：负重 8kg 到位' },
   { w: 11, climb: 700, load: 8, walkH: 3.5, note: '峰值保持：加时不加负重' },
-  { w: 12, climb: 350, load: 8, walkH: 2.5, note: '检阅周：练量减半，周日复测=体测总分 100+右脚 57s+8kg 负重走' }
+  { w: 12, climb: 350, load: 8, walkH: 2.5, note: '检阅周：练量减半，周日复测=体测总分 100+右脚 57s+8kg 负重走', deload: true }
 ];
 function schedShiftWeeks() { // FR-B1 顺延读数：state.schedShift={weeks:0-2,log:[]} 可选键，钳位 0-2
   const s = D.state.schedShift;
@@ -1697,6 +1697,13 @@ function cycleWeekOf(dateStr) { // 返回 0（未开营）/1-36（冬训 1-24 + 
   if (!dateStr) return 0;
   const s = Math.floor((new Date(dateStr).getTime() - new Date(anchorDate()).getTime()) / 86400000);
   return Math.max(0, Math.min(37, Math.floor(s / 7) + 1));
+}
+function isDeloadWeek(wk) { // v4.1 核心断点打通：减载周显式标记 → 训练量自动降（此前减载只在参数表里，课表实际量不变）
+  const ph = cyclePhaseOf(wk);
+  return !!(ph && ph.row && ph.row.deload);
+}
+function deloadFactor(wk) { // 减载系数：减载周目标次数×0.65（标尺：减量 30-50% 取中）；wk 可传参便于测试
+  return isDeloadWeek(wk != null ? wk : cycleWeekOf(U.todayStr())) ? 0.65 : 1;
 }
 function cyclePhaseOf(wk) { // 周号→阶段信息（阶段名/行/总周数）；null=未开营或已满
   if (wk >= 1 && wk <= 24) return { stage: '冬训', row: WINTER24[wk - 1], total: 24 };
@@ -2649,13 +2656,14 @@ function moodChips() {
 /* 今日安排卡：按周模板（CONFIG可改），力量/有氧展开对应知识 */
 function curWx() { const w = D.state.weather; return (w && w.date === U.todayStr() && w.wx) ? w.wx : (tf.weather || ''); }
 function weatherLabel() { const w = D.state.weather; return (w && w.date === U.todayStr()) ? '今晨实况：' + U.esc(D.profile.city || '武汉') + ' ' + U.esc(w.desc || '') + ' → 按「' + U.esc(w.wx) + '」安排（可手改）' : '今天天气（联网后自动获取，或点选）'; }
-function planHtml() {
+function planHtml(dateStr) {
   const dayIdx = new Date().getDay();
   const dayType = effTemplate()[dayIdx];
   const eff = CONFIG.trainTypes.indexOf(tf.type) >= 0 ? tf.type : dayType;
   let h = '<div class="card-head"><div class="bubble bg-blue" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="3"/><path d="M8 3v4M16 3v4M4 10h16"/></svg></div>'
     + '<div style="flex:1"><div class="card-title" style="margin:0">今日安排 · ' + dayType + '</div><div class="sub">按周模板自动生成</div></div></div>'
     h += heatHint()
+      + (isDeloadWeek(cycleWeekOf(dateStr || U.todayStr())) ? '<div class="sub" style="color:var(--blue);margin-top:6px">⏸ 本周是减载周：目标次数已自动降到约六成——恢复也是训练，别偷偷加回去。</div>' : '')
       + '<div class="field" style="margin-top:8px"><label>' + weatherLabel() + '</label><div class="chips">'
     + ['好天', '雨雪', '闷热', '大风降温'].map((x) => '<button class="chip' + (curWx() === x ? ' on' : '') + '" onclick="setWeather(\'' + x + '\')">' + x + '</button>').join('') + '</div></div>';
   if (eff === '有氧') {
@@ -2693,6 +2701,7 @@ function planHtml() {
     }
   } else if (eff === '长时活动') {
     if (curWx() && curWx() !== '好天') h += '<div class="callout-warn" style="margin-bottom:8px">' + U.esc(CONFIG.weatherAlt) + '</div>';
+    if (weekGoalLine()) h += '<div class="sub" style="margin-top:6px;font-weight:600;color:var(--purple)">' + weekGoalLine() + '（分散到全程，能说话配速）</div>'; // v4.1 核心断点：长走日读周期表周目标
     h += '<div class="body-tx" style="line-height:1.9">' + U.esc(CONFIG.longCopy) + '</div>';
   } else {
     h += '<div class="body-tx">今日休息：可做八段锦与足底康复，计入连续性、不计入负荷。</div>';
@@ -4705,7 +4714,7 @@ function buildCourse(reduced) { // 课单：热身 + 各动作N组（组数走�
   const c = [{ kind: 'warm' }];
   CONFIG.actions.forEach((a, i) => {
     const base = D.state.strengthReps[a.repsKey] || 10;
-    const target = Math.max(1, Math.round((reduced ? reduceTarget(base, a.unit) : base) * rehabFactor())); // FR-J 复训阶梯叠加（黄灯 30% 后再乘复训系数）
+    const target = Math.max(1, Math.round((reduced ? reduceTarget(base, a.unit) : base) * rehabFactor() * deloadFactor())); // FR-J 复训叠加+减载周自动降量（周期驱动课表核心断点）
     const timed = a.unit.indexOf('秒') >= 0;
     const st = effSets(a.repsKey);
     for (let s = 1; s <= st; s++) {
