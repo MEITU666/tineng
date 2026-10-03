@@ -408,7 +408,7 @@ check('⑩ 离线约束：指南页无外部资源引用（img/script/iframe）'
 });
 check('⑩ 守门裁决落实：鳌太里程标"口径打架，待核"；越野速度不写 10-20% 数字', () => {
   const h = w.eval("document.getElementById('guideTabBody').innerHTML");
-  if (h.indexOf('120-170km') < 0 || h.indexOf('待核') < 0) throw new Error('鳌太待核标注缺失');
+  if (h.indexOf('120-170km') < 0 || h.indexOf('待实地核实') < 0) throw new Error('鳌太待核标注缺失');
   if (h.indexOf('10-20%') >= 0) throw new Error('越野 10-20% 单源数字不该进产品');
   if (h.indexOf('明显更慢') < 0) throw new Error('越野降级表述缺失');
   return '打架数字全部标注，未拍板';
@@ -1340,7 +1340,7 @@ check('㉖ K28 武汉场地卡：户外组在位+速查表+楼梯课硬规则+�
   const h = w.eval("document.getElementById('guideTabBody').innerHTML");
   if (h.indexOf('kc_K28') < 0) throw new Error('K28 卡缺失');
   const body = w.eval('CONFIG.knowledge.find(k=>k.id==="K28").body');
-  for (const k of ['只上不下', '下楼乘电梯', '加重量就不加路程', '待核', '青山江滩 7.5km', '149.5m']) if (body.indexOf(k) < 0) throw new Error('K28 缺「' + k + '」');
+  for (const k of ['只上不下', '下楼乘电梯', '加重量就不加路程', '待实地核实', '青山江滩 7.5km', '149.5m']) if (body.indexOf(k) < 0) throw new Error('K28 缺「' + k + '」');
   if (body.indexOf('越野跑') >= 0 || body.indexOf('器械') >= 0) throw new Error('K28 踩禁区词');
   return 'K28 在位（速查+硬规则+待核+零禁区）✓';
 });
