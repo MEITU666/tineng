@@ -810,13 +810,30 @@ check('⑯ sleepCardHtml 集成：睡眠债行已挂入卡体', () => {
 });
 
 /* ---------- ⑰ 断网降级（批5实测发现的真实缺口修复） ---------- */
-check('⑰ tryUnlock 断网降级链：密文缓存→本机数据自动离线，双路径在位', () => {
+check('⑰ 令牌制新链路（v4.1 简化安全模型）：本机存取+断网离线直进+双路径在位', () => {
   if (loadErr) throw loadErr;
-  const src = w.eval('String(tryUnlock)');
-  if (src.indexOf('gistTextCache') < 0 || src.indexOf('text = gistTextCache') < 0) throw new Error('缺密文缓存降级路径');
-  if (src.indexOf('enterOffline()') < 0 || src.indexOf('localEmpty()') < 0) throw new Error('缺本机数据自动降级路径');
-  if (src.indexOf('GIST_HTTP_404') < 0) throw new Error('404 仍应报错不降级');
-  return '降级链 ✓（网络→会话缓存→离线模式；404 不降级）';
+  w.eval('try { localStorage.removeItem("tineng_token"); } catch (e) {} D = defaultData();');
+  if (w.eval('localStorage.getItem("tineng_token")') !== null) throw new Error('清令牌失败');
+  w.eval('localStorage.setItem("tineng_token", "ghp_test_xxx");');
+  if (w.eval('localStorage.getItem("tineng_token")') !== 'ghp_test_xxx') throw new Error('令牌本机存取失败');
+  const src = w.eval('showTokenSetup.toString()');
+  if (src.indexOf('tineng_token') < 0 || src.indexOf('ghp_') < 0) throw new Error('首启引导缺失');
+  const local = w.eval('tryUnlockLocal.toString()');
+  if (local.indexOf('enterApp') < 0) throw new Error('免口令直进缺失');
+  // 真机路径级验证：贴令牌→点保存→直进+本机已存+今日页渲染（防"查源码不查调用"的假绿）
+  w.eval('showTokenSetup();');
+  const hasSetup = w.eval('!!document.getElementById("setupToken") && !!document.getElementById("btnSaveToken")');
+  if (!hasSetup) throw new Error('首启引导卡未实际渲染');
+  w.eval('document.getElementById("setupToken").value = "ghp_test_demo"; document.getElementById("btnSaveToken").click();');
+  const tok = w.eval('localStorage.getItem("tineng_token")');
+  if (tok !== 'ghp_test_demo') throw new Error('点保存后令牌未入本机：' + tok);
+  const gateHidden = w.eval('document.getElementById("gate").hidden');
+  if (!gateHidden) throw new Error('保存后未直进 App');
+  const ent = w.eval('enterApp.toString()');
+  if (ent.indexOf('ghGet') < 0) throw new Error('数据通道应走私有仓 API');
+  if (ent.indexOf('decrypt') >= 0) throw new Error('数据链不应再有密文解密');
+  w.eval('try { localStorage.removeItem("tineng_token"); } catch (e) {}');
+  return '令牌本机存取+断网直进+数据走私有仓 ✓';
 });
 
 /* ---------- ⑱ 教练开口层（批7）：课单为什么+体重账+问教练+吃账 ---------- */
@@ -1494,16 +1511,16 @@ check('㉗ UX 补缺：天气请求 5s 超时+nav pushState+focusin 防遮挡+�
   if (th.indexOf('粘贴导入') < 0) throw new Error('趋势 metrics 空提示缺失');
   return '四件 UX 补缺 ✓';
 });
-check('㉙ 安全三件套（v4.1 审查修复）：encryptToken 对称+changeAccessKey 写回+GIST 可覆盖+全局异常兜底', () => {
+check('㉙ 安全模型简化（v4.1 审查修复）：令牌本机+公开仓零密文+异常兜底+口令链全删', () => {
   if (loadErr) throw loadErr;
-  const encSrc = w.eval('encryptToken.toString()');
-  if (encSrc.indexOf('AES-GCM') < 0 || encSrc.indexOf("v1:") < 0) throw new Error('encryptToken 缺失或不对称');
-  const cap = w.eval('changeAccessKey.toString()');
-  if (cap.indexOf('gists/') < 0 || cap.indexOf('nkPass') < 0) throw new Error('changeAccessKey 缺失');
-  if (w.eval('CONFIG.GIST_RAW_URL').indexOf('gist.githubusercontent.com') < 0) throw new Error('GIST_RAW_URL 缺失');
   const src = fs.readFileSync('index.html', 'utf8');
+  if (src.indexOf('GIST_RAW_URL') >= 0 || src.indexOf('decryptToken') >= 0 || src.indexOf('encryptToken') >= 0) throw new Error('密文链残留');
+  if (src.indexOf('tineng_token') < 0 || src.indexOf('updateToken') < 0) throw new Error('令牌制缺失');
   if (src.indexOf("addEventListener('error'") < 0 || src.indexOf("addEventListener('unhandledrejection'") < 0) throw new Error('全局异常兜底缺失');
-  return '安全三件套+异常兜底 ✓';
+  if (src.indexOf('12 位以上、别处不用的口令') >= 0) throw new Error('口令概念残留');
+  const cap = w.eval('updateToken.toString()');
+  if (cap.indexOf('tineng_token') < 0) throw new Error('updateToken 未写本机');
+  return '安全模型简化 ✓（公开仓零信息/令牌本机/异常兜底）';
 });
 
 

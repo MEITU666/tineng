@@ -1,7 +1,7 @@
 /* 体能系统 v4.1 Service Worker（零外部依赖，白名单内才缓存）
    策略：
    - 页面（导航 / index.html）：network-first，失败回退缓存
-   - GitHub API（api.github.com）与 Gist（gist.githubusercontent.com）响应：network-first，失败回退缓存
+   - GitHub API（api.github.com）响应：network-first，失败回退缓存（v4.1 Gist 通道已移除）
    - icon.svg / manifest.json：cache-first
    白名单之外的请求一律不拦截、不缓存 */
 const CACHE = 'tineng-cache-v6';
@@ -28,7 +28,7 @@ self.addEventListener('fetch', (e) => {
   const sameOrigin = url.origin === self.location.origin;
   const isIconManifest = sameOrigin && /\/(icon\.svg|manifest\.json)$/.test(url.pathname);
   const isPage = sameOrigin && (req.mode === 'navigate' || url.pathname.endsWith('/index.html'));
-  const isWhitelistApi = url.hostname === 'api.github.com' || url.hostname === 'gist.githubusercontent.com';
+  const isWhitelistApi = url.hostname === 'api.github.com'; // v4.1：Gist 通道已移除（令牌直存本机）
 
   if (isIconManifest) { e.respondWith(cacheFirst(req)); return; }
   if (isPage || isWhitelistApi) { e.respondWith(networkFirst(req)); return; }

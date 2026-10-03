@@ -3,7 +3,7 @@
 <head>
 <!--
   体能系统 v4.1 · 个人户外体能 PWA（单文件全内联，零外部依赖）
-  网络白名单仅两处：① https://api.github.com ② CONFIG.GIST_RAW_URL
+  网络白名单仅一处：https://api.github.com（v4.1 简化安全模型后 Gist 通道已移除）
   运行要求：http(s) 访问（GitHub Pages 或本地 python -m http.server），file:// 直开无 Web Crypto/SW。
 -->
 <meta charset="UTF-8">
@@ -274,13 +274,9 @@ table.cmp{width:100%;border-collapse:collapse;font-size:13px}
       <path d="M6 50 L24 26 L34 38 L42 28 L58 50 Z" fill="url(#mtg)"/>
       <path d="M14 22 L22 12 L28 19" fill="none" stroke="url(#mtg)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
-    <div class="gate-title">体能系统</div>
-    <div class="gate-sub">数据存放在你自己的 GitHub 私有仓库，密钥是唯一防线——请用 12 位以上、别处不用的口令。断网时直接点「解锁进入」会用本机缓存进入离线模式；也可以先用离线只读模式查看。</div>
-    <div class="field">
-      <label for="gateKey">访问密钥</label>
-      <input id="gateKey" type="password" autocomplete="off" placeholder="输入密钥解锁">
-    </div>
-    <button type="button" class="btn-primary" id="btnUnlock">解锁进入</button>
+    <div class="gate-title" id="gateTitle">体能系统</div>
+    <div class="gate-sub">数据在你自己的 GitHub 私有仓里。第一次用：粘贴一次令牌（下方），之后打开直接进。断网也能用——本机数据照常读写，联网自动同步。</div>
+    <button type="button" class="btn-primary" id="btnUnlock" hidden>解锁进入</button>
     <button type="button" class="link-btn" id="btnOffline">离线只读模式（数据可能不是最新）</button>
     <div id="gateMsg" class="gate-msg"></div>
   </div>
@@ -391,7 +387,6 @@ const CONFIG = {
   GITHUB_USER: 'MEITU666',
   DATA_REPO: 'jianshen',
   DATA_PATH: 'data/main.json',
-  GIST_RAW_URL: (function () { try { return localStorage.getItem('tineng_gist_url') || 'https://gist.githubusercontent.com/MEITU666/6e62d8352b36ff63028c8c07c5fb19f5/raw/fedc11ae8c73203847c9e09c24a022f55768751f/token.txt'; } catch (e) { return 'https://gist.githubusercontent.com/MEITU666/6e62d8352b36ff63028c8c07c5fb19f5/raw/fedc11ae8c73203847c9e09c24a022f55768751f/token.txt'; } })(), // v4.1 审查修复 A1：URL 可被本机覆盖（换 Gist 免发版）；硬编码默认值的暴露面与处置见交付文档安全章
   PBKDF2_ITERATIONS: 250000,
   SALT_BYTES: 16,
   IV_BYTES: 12,
@@ -745,37 +740,7 @@ function persist(opts) {
 const schedulePush = U.debounce(function () { pushNow(); }, 3000);
 
 /* ============ Token 解密（第八部分，参数逐位一致） ============ */
-async function encryptToken(pass, text) { // v4.1 审查修复 P0 配套：与 decryptToken 对称（v1: 前缀 + salt16 + iv12 + ct）
-  const salt = crypto.getRandomValues(new Uint8Array(CONFIG.SALT_BYTES));
-  const iv = crypto.getRandomValues(new Uint8Array(CONFIG.IV_BYTES));
-  const baseKey = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']);
-  const key = await crypto.subtle.deriveKey(
-    { name: 'PBKDF2', hash: 'SHA-256', salt: salt, iterations: CONFIG.PBKDF2_ITERATIONS },
-    baseKey, { name: 'AES-GCM', length: 256 }, false, ['encrypt']);
-  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, new TextEncoder().encode(text));
-  const raw = new Uint8Array(salt.length + iv.length + ct.length);
-  raw.set(salt, 0); raw.set(iv, salt.length); raw.set(ct, salt.length + iv.length);
-  let bin = '';
-  raw.forEach(function (b) { bin += String.fromCharCode(b); });
-  return 'v1:' + btoa(bin);
-}
-async function decryptToken(pass, text) {
-  const t = String(text).trim();
-  if (t.indexOf('v1:') !== 0) throw new Error('bad-prefix');
-  const raw = U.bytesFromB64(t.slice(3));
-  if (raw.length <= CONFIG.SALT_BYTES + CONFIG.IV_BYTES) throw new Error('bad-length');
-  const salt = raw.slice(0, CONFIG.SALT_BYTES);
-  const iv = raw.slice(CONFIG.SALT_BYTES, CONFIG.SALT_BYTES + CONFIG.IV_BYTES);
-  const ct = raw.slice(CONFIG.SALT_BYTES + CONFIG.IV_BYTES);
-  const baseKey = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']);
-  const key = await crypto.subtle.deriveKey(
-    { name: 'PBKDF2', hash: 'SHA-256', salt: salt, iterations: CONFIG.PBKDF2_ITERATIONS },
-    baseKey, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
-  const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, key, ct);
-  return new TextDecoder().decode(pt);
-}
 
-/* ============ GitHub 云端同步（第八部分） ============ */
 function ghUrl() {
   return 'https://api.github.com/repos/' + CONFIG.GITHUB_USER + '/' + CONFIG.DATA_REPO + '/contents/' + CONFIG.DATA_PATH;
 }
@@ -923,27 +888,14 @@ async function checkAppUpdate() { // v4.1：一键清 SW/缓存并重载——�
   toast('更新完成，正在刷新…');
   setTimeout(() => location.reload(), 800);
 }
-async function changeAccessKey() { // v4.1 审查修复 P0 配套：修改访问密钥（重加密令牌写回 Gist）——此前产品只能解密不能加密，换口令需手搓工具
-  const np = (document.getElementById('nkPass') || {}).value || '';
-  const nt = (document.getElementById('nkToken') || {}).value || '';
-  if (np.length < 12) { toast('新口令至少 12 位——它是数据仓的唯一防线'); return; }
-  if (nt && nt.indexOf('ghp_') !== 0 && nt.indexOf('github_pat_') !== 0) { toast('令牌格式看着不对（应以 ghp_ 或 github_pat_ 开头），确认没多复制空格'); return; }
-  if (!TOKEN) { toast('请先解锁后再修改密钥'); return; }
-  try {
-    const body = nt || TOKEN;
-    const enc = await encryptToken(np, 'TOKEN:' + body);
-    const gid = (CONFIG.GIST_RAW_URL.match(/gist\.githubusercontent\.com\/[^/]+\/([0-9a-f]+)/) || [])[1];
-    if (!gid) { toast('无法定位 Gist ID——用离线模式，联系维护者'); return; }
-    const r = await fetch('https://api.github.com/gists/' + gid, {
-      method: 'PATCH',
-      headers: { 'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ files: { 'token.txt': { content: enc } } })
-    });
-    if (!r.ok) { toast('写回失败（HTTP ' + r.status + '）——检查令牌是否有 gist 权限'); return; }
-    try { sessionStorage.setItem('tineng_key', np); } catch (e) {}
-    toast('访问密钥已修改：旧口令作废，本次会话已用新口令');
-    renderProfile();
-  } catch (e) { toast('修改失败：' + String(e && e.message || e).slice(0, 60)); }
+function updateToken() { // v4.1 简化安全模型：令牌直接存本机（粘贴一次永久有效），公开仓零信息
+  const t = (document.getElementById('nkToken') || {}).value || '';
+  const tt = t.trim();
+  if (tt.indexOf('ghp_') !== 0 && tt.indexOf('github_pat_') !== 0) { toast('令牌应以 ghp_ 或 github_pat_ 开头——检查复制是否完整'); return; }
+  try { localStorage.setItem('tineng_token', tt); } catch (e) { toast('本机存储失败：' + e); return; }
+  TOKEN = tt;
+  toast('令牌已更新，本机永久有效');
+  renderProfile();
 }
 function showModal(html) {
   document.getElementById('modalBox').innerHTML = html;
@@ -978,51 +930,6 @@ function emptyCard(icon, text) {
 
 /* ============ S0 解锁 / S3 换机恢复 ============ */
 function gateMsg(s) { document.getElementById('gateMsg').textContent = s; }
-async function tryUnlock() {
-  if (!D) D = defaultData(); // 兜底：无论 init 是否完成，解锁路径都保证有数据对象
-  const pass = document.getElementById('gateKey').value;
-  if (!pass) { gateMsg('请输入密钥'); return; }
-  const btn = document.getElementById('btnUnlock');
-  btn.disabled = true;
-  gateMsg('正在获取加密配置…');
-  let text = gistTextCache;
-  try {
-    const r = await fetch(CONFIG.GIST_RAW_URL, { cache: 'no-store' });
-    if (!r.ok) throw new Error('GIST_HTTP_' + r.status);
-    text = await r.text();
-    gistTextCache = text;
-  } catch (e) {
-    if (gistTextCache) { // 批5实测修复①：网络不可达但本会话已有密文缓存 → 直接用缓存解密（只是读取源降级，不碰加密协议）
-      gateMsg('网络不可达，使用本次会话已缓存的加密配置…');
-      text = gistTextCache;
-    } else {
-      btn.disabled = false;
-      const m = String(e.message || '');
-      if (m !== 'GIST_HTTP_404' && !localEmpty()) { // 批5实测修复②：断网+本机有缓存数据 → 自动进离线模式（验收五条第5条：山上断网照样打开）
-        enterOffline();
-        toast('断网且解锁配置不可达：已进入离线模式（本机缓存，数据可能不是最新），联网后重新解锁即可恢复同步。');
-        return;
-      }
-      if (m === 'GIST_HTTP_404') { // v4.1 实测修复：404=云端还没数据（新设备/首次使用）——给新建出口，不再死路
-        gateMsg('');
-        document.getElementById('gateMsg').innerHTML = '云端还没有你的数据仓（HTTP 404）——第一次使用？<button class="btn-mini" style="margin:4px 0" onclick="startFresh()">以此密钥开始新数据</button><div class="sub">已有数据的老用户：检查密钥拼写，或先用下方离线只读模式。</div>';
-        btn.disabled = false;
-        return;
-      }
-      gateMsg('无法获取加密配置：网络不可达或超时。可先用下方离线只读模式。');
-      return;
-    }
-  }
-  gateMsg('正在解密…');
-  let token = '';
-  try { token = await decryptToken(pass, text); }
-  catch (e) { btn.disabled = false; gateMsg('密钥错误或数据损坏，可重试'); return; }
-  TOKEN = token; // 仅内存
-  try { sessionStorage.setItem('tineng_key', pass); } catch (e) {} // 密钥仅 sessionStorage
-  if (pass.length < 12) toast('已解锁。提示：密钥不足 12 位，建议更换更强口令（口令是唯一防线，密文在公开 Gist 可被离线爆破）'); // Codex 复核 P1-4：不强锁已用口令（防自锁），只提示
-  try { if (!localStorage.getItem('tineng_pwaHint')) { localStorage.setItem('tineng_pwaHint', '1'); setTimeout(() => toast('建议加到主屏幕：Safari 分享 → 添加到主屏幕（通知/启动/离线体验都靠它）'), 2500); } } catch (e) {}
-  enterApp();
-}
 function startFresh() { // v4.1 实测修复：404 时以当前密钥新建空数据进入（老设备数据仍在旧机，联网解锁后 mergeData 合并不冲突）
   const pass = document.getElementById('gateKey').value;
   D = defaultData();
@@ -4399,11 +4306,10 @@ function renderProfile() {
   h += '<div class="card"><div class="row-between"><div><div class="card-title" style="margin:0">训练年报</div><div class="sub">按年度回顾训练、打卡与渐进</div></div>'
     + '<button class="ci-btn" onclick="openAnnualReport()">查看</button></div></div>';
   // 关于
-  h += '<div class="card"><div class="card-title" style="margin-bottom:6px">安全（访问密钥）</div>'
-    + '<div class="sub" style="margin-bottom:6px">密钥是数据仓的唯一防线。修改后旧密钥立即作废，请用 12 位以上、别处不用的口令。</div>'
-    + '<div class="field"><label>新口令（≥12 位）</label><input id="nkPass" type="password" autocomplete="new-password" placeholder="12 位以上"></div>'
-    + '<div class="field"><label>新 GitHub 令牌（可选——换令牌时填；不填=沿用当前令牌只换口令）</label><input id="nkToken" type="password" autocomplete="off" placeholder="ghp_ 或 github_pat_ 开头"></div>'
-    + '<button class="btn-mini" onclick="changeAccessKey()">确认修改（旧密钥作废）</button></div>'
+  h += '<div class="card"><div class="card-title" style="margin-bottom:6px">数据同步令牌</div>'
+    + '<div class="sub" style="margin-bottom:6px">令牌只存在这台手机里，不在任何公开仓库。换手机时在这里重新粘贴一次即可。</div>'
+    + '<div class="field"><label>GitHub 令牌（更换/重贴时填）</label><input id="nkToken" type="password" autocomplete="off" placeholder="ghp_ 或 github_pat_ 开头"></div>'
+    + '<button class="btn-mini" onclick="updateToken()">保存令牌</button></div>'
     + '<div class="card"><div class="card-title" style="margin-bottom:6px">关于</div>'
     + '<div class="set-row"><span class="sr-k">版本</span><span class="sr-v">' + APP_VER + '</span></div>'
     + '<div class="set-row"><span class="sr-k">更新</span><button class="btn-mini" onclick="checkAppUpdate()">检查并安装更新</button></div>'
@@ -5100,8 +5006,6 @@ function renderWorkout() {
 
 /* ============ 启动 ============ */
 function bindUI() {
-  document.getElementById('btnUnlock').onclick = () => tryUnlock();
-  document.getElementById('gateKey').addEventListener('keydown', (e) => { if (e.key === 'Enter') tryUnlock(); });
   document.getElementById('btnOffline').onclick = () => enterOffline();
   document.getElementById('btnProfile').onclick = () => nav('pgProfile');
   const bs = document.getElementById('btnSave');
@@ -5134,12 +5038,38 @@ async function init() {
   rebuildSched(); // N5：恢复自定义课表生效缓存
   applyTheme();
   updateSyncBadge();
-  let savedKey = null;
-  try { savedKey = sessionStorage.getItem('tineng_key'); } catch (e) {}
-  if (savedKey) {
-    document.getElementById('gateKey').value = savedKey;
-    tryUnlock();
+  const savedToken = (function () { try { return localStorage.getItem('tineng_token') || ''; } catch (e) { return ''; } })();
+  if (savedToken) {
+    TOKEN = savedToken;
+    enterApp();
+  } else {
+    showTokenSetup(); // v4.1 简化安全模型（主人拍板删口令锁）：首次粘贴令牌一次，之后永久免输
   }
+}
+function showTokenSetup() { // v4.1：首次使用/换设备——粘贴一次 GitHub 令牌（存本机 localStorage，不进公开仓）
+  document.getElementById('gateTitle').textContent = '体能系统';
+  const box = document.getElementById('gateMsg');
+  box.innerHTML = '<div class="sub" style="margin:8px 0">第一次用？粘贴你的 GitHub 令牌（一次就好，存本机）</div>'
+    + '<div class="field"><input id="setupToken" type="password" autocomplete="off" placeholder="ghp_ 或 github_pat_ 开头"></div>'
+    + '<button type="button" class="btn-primary" id="btnSaveToken">保存并进入</button>'
+    + '<button type="button" class="link-btn" id="btnOffline2">离线只读模式</button>';
+  document.getElementById('btnUnlock').hidden = true;
+  const old = document.getElementById('btnOffline');
+  if (old) old.hidden = true;
+  document.getElementById('btnSaveToken').onclick = function () {
+    const t = (document.getElementById('setupToken').value || '').trim();
+    if (t.indexOf('ghp_') !== 0 && t.indexOf('github_pat_') !== 0) { toast('令牌应以 ghp_ 或 github_pat_ 开头——检查复制是否完整'); return; }
+    try { localStorage.setItem('tineng_token', t); } catch (e) {}
+    TOKEN = t;
+    tryUnlockLocal();
+  };
+  document.getElementById('btnOffline2').onclick = function () { enterOffline(); };
+}
+function tryUnlockLocal() { // v4.1：免口令直进（数据通道=私有仓 TOKEN 认证，公开仓零信息）
+  document.getElementById('gate').hidden = true;
+  document.getElementById('app').hidden = false;
+  try { const old = document.getElementById('btnUnlock'); if (old) old.hidden = false; const o2 = document.getElementById('btnOffline'); if (o2) o2.hidden = false; } catch (e) {}
+  enterApp();
 }
 document.addEventListener('DOMContentLoaded', init);
 
