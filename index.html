@@ -1885,7 +1885,7 @@ function todayActionLine(level) { // 引擎输出首句=今天干嘛（开工单
   const dayType = effTemplate()[new Date().getDay()];
   if (level === 'return') return '回归课：今天只做每日包 12 分钟（或 15 分钟散步），做完就是赢。'; // FR-G 断档回归首练
   if (level === 'rest') return '今天按完全休息档：不练，复盘睡眠与负荷。';
-  if (level === 'floor') return '今天按恢复档：只做每日包 12 分钟（10 分钟拉伸+散步亦可）。';
+  if (level === 'floor') return '今天按恢复档：只做每日包（足底康复+八段锦这类固定组合）12 分钟，其他全免。';
   if (CONFIG.trainTypes.indexOf(dayType) < 0) return '今天按正常档：休息日，可做八段锦与足底康复（不计负荷）。';
   if (dayType === '力量') {
     const items = CONFIG.actions.map((a) => a.name + ' ' + effSets(a.repsKey) + '×' + (D.state.strengthReps[a.repsKey] || 10) + (a.unit || ''));
@@ -2488,7 +2488,7 @@ function renderToday() {
   const RD = {
     ok:   ['正常练', 'var(--green)', '身体状态够，按下方"今日安排"执行（休息日就做休息日内容）；建议放在傍晚 17-19 点。'],
     down: ['降档练', 'var(--orange)', '强度降一档：力量每组少做一点、留 2-3 次余力，有氧时长打七折。'],
-    floor: ['只做每日包', 'var(--red)', '今天只做每日包 12 分钟（或 10 分钟拉伸+散步），其他全免——做完就是赢。'],
+    floor: ['恢复档 · 只做每日包', 'var(--red)', '每日包=足底康复+八段锦这类每日固定小组合，12-15 分钟做完就收，其他全免——做完就是赢。'],
     rest: ['完全休息', 'var(--red)', '连续两天身体报警：今天完全休息，复盘睡眠与负荷，明天再战。'],
     return: ['回归课', 'var(--blue)', '断档后的第一步：每日包 12 分钟或 15 分钟散步，做完即闭环——不追溯，不补量。']
   }[level];
