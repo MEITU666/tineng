@@ -1494,6 +1494,18 @@ check('㉗ UX 补缺：天气请求 5s 超时+nav pushState+focusin 防遮挡+�
   if (th.indexOf('粘贴导入') < 0) throw new Error('趋势 metrics 空提示缺失');
   return '四件 UX 补缺 ✓';
 });
+check('㉙ 安全三件套（v4.1 审查修复）：encryptToken 对称+changeAccessKey 写回+GIST 可覆盖+全局异常兜底', () => {
+  if (loadErr) throw loadErr;
+  const encSrc = w.eval('encryptToken.toString()');
+  if (encSrc.indexOf('AES-GCM') < 0 || encSrc.indexOf("v1:") < 0) throw new Error('encryptToken 缺失或不对称');
+  const cap = w.eval('changeAccessKey.toString()');
+  if (cap.indexOf('gists/') < 0 || cap.indexOf('nkPass') < 0) throw new Error('changeAccessKey 缺失');
+  if (w.eval('CONFIG.GIST_RAW_URL').indexOf('gist.githubusercontent.com') < 0) throw new Error('GIST_RAW_URL 缺失');
+  const src = fs.readFileSync('index.html', 'utf8');
+  if (src.indexOf("addEventListener('error'") < 0 || src.indexOf("addEventListener('unhandledrejection'") < 0) throw new Error('全局异常兜底缺失');
+  return '安全三件套+异常兜底 ✓';
+});
+
 
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);

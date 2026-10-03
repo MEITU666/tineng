@@ -745,6 +745,20 @@ function persist(opts) {
 const schedulePush = U.debounce(function () { pushNow(); }, 3000);
 
 /* ============ Token 解密（第八部分，参数逐位一致） ============ */
+async function encryptToken(pass, text) { // v4.1 审查修复 P0 配套：与 decryptToken 对称（v1: 前缀 + salt16 + iv12 + ct）
+  const salt = crypto.getRandomValues(new Uint8Array(CONFIG.SALT_BYTES));
+  const iv = crypto.getRandomValues(new Uint8Array(CONFIG.IV_BYTES));
+  const baseKey = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey(
+    { name: 'PBKDF2', hash: 'SHA-256', salt: salt, iterations: CONFIG.PBKDF2_ITERATIONS },
+    baseKey, { name: 'AES-GCM', length: 256 }, false, ['encrypt']);
+  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, new TextEncoder().encode(text));
+  const raw = new Uint8Array(salt.length + iv.length + ct.length);
+  raw.set(salt, 0); raw.set(iv, salt.length); raw.set(ct, salt.length + iv.length);
+  let bin = '';
+  raw.forEach(function (b) { bin += String.fromCharCode(b); });
+  return 'v1:' + btoa(bin);
+}
 async function decryptToken(pass, text) {
   const t = String(text).trim();
   if (t.indexOf('v1:') !== 0) throw new Error('bad-prefix');
@@ -908,6 +922,28 @@ async function checkAppUpdate() { // v4.1：一键清 SW/缓存并重载——�
   } catch (e) {}
   toast('更新完成，正在刷新…');
   setTimeout(() => location.reload(), 800);
+}
+async function changeAccessKey() { // v4.1 审查修复 P0 配套：修改访问密钥（重加密令牌写回 Gist）——此前产品只能解密不能加密，换口令需手搓工具
+  const np = (document.getElementById('nkPass') || {}).value || '';
+  const nt = (document.getElementById('nkToken') || {}).value || '';
+  if (np.length < 12) { toast('新口令至少 12 位——它是数据仓的唯一防线'); return; }
+  if (nt && nt.indexOf('ghp_') !== 0 && nt.indexOf('github_pat_') !== 0) { toast('令牌格式看着不对（应以 ghp_ 或 github_pat_ 开头），确认没多复制空格'); return; }
+  if (!TOKEN) { toast('请先解锁后再修改密钥'); return; }
+  try {
+    const body = nt || TOKEN;
+    const enc = await encryptToken(np, 'TOKEN:' + body);
+    const gid = (CONFIG.GIST_RAW_URL.match(/gist\.githubusercontent\.com\/[^/]+\/([0-9a-f]+)/) || [])[1];
+    if (!gid) { toast('无法定位 Gist ID——用离线模式，联系维护者'); return; }
+    const r = await fetch('https://api.github.com/gists/' + gid, {
+      method: 'PATCH',
+      headers: { 'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ files: { 'token.txt': { content: enc } } })
+    });
+    if (!r.ok) { toast('写回失败（HTTP ' + r.status + '）——检查令牌是否有 gist 权限'); return; }
+    try { sessionStorage.setItem('tineng_key', np); } catch (e) {}
+    toast('访问密钥已修改：旧口令作废，本次会话已用新口令');
+    renderProfile();
+  } catch (e) { toast('修改失败：' + String(e && e.message || e).slice(0, 60)); }
 }
 function showModal(html) {
   document.getElementById('modalBox').innerHTML = html;
@@ -4363,7 +4399,12 @@ function renderProfile() {
   h += '<div class="card"><div class="row-between"><div><div class="card-title" style="margin:0">训练年报</div><div class="sub">按年度回顾训练、打卡与渐进</div></div>'
     + '<button class="ci-btn" onclick="openAnnualReport()">查看</button></div></div>';
   // 关于
-  h += '<div class="card"><div class="card-title" style="margin-bottom:6px">关于</div>'
+  h += '<div class="card"><div class="card-title" style="margin-bottom:6px">安全（访问密钥）</div>'
+    + '<div class="sub" style="margin-bottom:6px">密钥是数据仓的唯一防线。修改后旧密钥立即作废，请用 12 位以上、别处不用的口令。</div>'
+    + '<div class="field"><label>新口令（≥12 位）</label><input id="nkPass" type="password" autocomplete="new-password" placeholder="12 位以上"></div>'
+    + '<div class="field"><label>新 GitHub 令牌（可选——换令牌时填；不填=沿用当前令牌只换口令）</label><input id="nkToken" type="password" autocomplete="off" placeholder="ghp_ 或 github_pat_ 开头"></div>'
+    + '<button class="btn-mini" onclick="changeAccessKey()">确认修改（旧密钥作废）</button></div>'
+    + '<div class="card"><div class="card-title" style="margin-bottom:6px">关于</div>'
     + '<div class="set-row"><span class="sr-k">版本</span><span class="sr-v">' + APP_VER + '</span></div>'
     + '<div class="set-row"><span class="sr-k">更新</span><button class="btn-mini" onclick="checkAppUpdate()">检查并安装更新</button></div>'
     + '<div class="sub" style="margin-top:8px">本应用为个人训练记录工具，非医疗设备；疼痛持续或加重请就医。</div></div>';
