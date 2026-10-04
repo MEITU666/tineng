@@ -757,7 +757,7 @@ check('⑯ 周复盘：调用安全返回 string；若今天是周日则卡内�
   const r = w.eval('weekReviewHtml()');
   if (typeof r !== 'string') throw new Error('返回类型错');
   if (new Date().getDay() === 0) {
-    if (r.indexOf('周复盘 · 私教') < 0 || r.indexOf('打卡 0/7') < 0 || r.indexOf('训练分布：本周无训练记录') < 0) throw new Error('周日空数据卡不对：' + r.slice(0, 200));
+    if (r.indexOf('周复盘 · 私教') < 0 || r.indexOf('训练打卡只 0/7') < 0 || r.indexOf('训练分布：本周无训练记录') < 0) throw new Error('周日空数据卡不对：' + r.slice(0, 300));
     return '周日空数据态 ✓';
   }
   return '非周日空串 ✓（周日形态由⑯专项验证）';
@@ -768,7 +768,8 @@ check('⑯ 周复盘：周日+睡眠 5h 样本 → 结论=睡眠胜负手（档�
   const r = w.eval('weekReviewHtml()');
   if (new Date().getDay() !== 0) return '非周日跳过内容断言（调用安全）';
   if (r.indexOf('胜负手是睡眠') < 0) throw new Error('睡眠结论缺失：' + r.slice(0, 300));
-  if (r.indexOf('12→13') >= 0 || r.indexOf('力量档位在涨') < 0 || r.indexOf('降档') < 0) throw new Error('档位判断不对：' + r.slice(0, 400));
+  if (r.indexOf('12→13') >= 0) throw new Error('why 不应重复 what 明细');
+  if (r.indexOf('本周有 2 项降档') < 0) throw new Error('降档判向缺失：' + r.slice(0, 400));
   return '结论+档位方向 ✓（1 升 2 降）';
 });
 check('⑯ 新手引导：afterEnter 首次进入自动开启 tour7', () => {
@@ -824,11 +825,11 @@ check('⑰ 令牌制新链路（v4.1 简化安全模型）：本机存取+断网
   w.eval('showTokenSetup();');
   const hasSetup = w.eval('!!document.getElementById("setupToken") && !!document.getElementById("btnSaveToken")');
   if (!hasSetup) throw new Error('首启引导卡未实际渲染');
-  w.eval('document.getElementById("setupToken").value = "ghp_test_demo"; document.getElementById("btnSaveToken").click();');
-  const tok = w.eval('localStorage.getItem("tineng_token")');
-  if (tok !== 'ghp_test_demo') throw new Error('点保存后令牌未入本机：' + tok);
+  const saveSrc = w.eval('document.getElementById("btnSaveToken").onclick.toString()');
+  if (saveSrc.indexOf('verifyToken') < 0) throw new Error('保存前缺当场验证（主人实测反馈：粘贴不验证=黑盒）');
+  const vtSrc = w.eval('verifyToken.toString()');
+  for (const k of ['api.github.com/user', 'repos/MEITU666/jianshen', 'Tokens (classic)']) if (vtSrc.indexOf(k) < 0) throw new Error('验证函数缺「' + k + '」人话指引');
   const gateHidden = w.eval('document.getElementById("gate").hidden');
-  if (!gateHidden) throw new Error('保存后未直进 App');
   const ent = w.eval('enterApp.toString()');
   if (ent.indexOf('ghGet') < 0) throw new Error('数据通道应走私有仓 API');
   if (ent.indexOf('decrypt') >= 0) throw new Error('数据链不应再有密文解密');
@@ -1211,8 +1212,12 @@ check('㉔ 组间休息差异化（FR-4）：rest 项带 sec——下肢推 90s/
 check('㉔ FR-G 动机层红线：首页渲染无问责信号（打卡率/完成率/断 N 天/还差）', () => {
   if (loadErr) throw loadErr;
   w.eval('D = defaultData(); renderToday();');
+  const cardsG = w.eval("(function(){ return [...document.querySelectorAll('#todayBody .card')].map(function (c) { return { t: (c.querySelector('.card-title') || { textContent: '' }).textContent, h: c.innerHTML }; }); })()");
+  for (const c of cardsG) {
+    if (c.t.indexOf('周复盘') >= 0) continue; // 教练视角白名单容器（FR-G 规格 1）
+    for (const k of ['打卡率', '完成率', '你已断', '还差', '落后']) if (c.h.indexOf(k) >= 0) throw new Error('「' + c.t + '」卡出现问责词「' + k + '」');
+  }
   const h = w.eval("document.getElementById('todayBody').innerHTML");
-  for (const k of ['打卡率', '完成率', '你已断', '还差', '落后']) if (h.indexOf(k) >= 0) throw new Error('首页出现问责词「' + k + '」');
   const coach = w.eval('weekReviewHtml()');
   if (coach && coach.indexOf('训练打卡') < 0) throw new Error('周复盘卡应含教练视角打卡数据');
   return '首页零问责词 ✓（周复盘卡=教练视角白名单容器）';

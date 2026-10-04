@@ -5046,21 +5046,39 @@ async function init() {
     showTokenSetup(); // v4.1 简化安全模型（主人拍板删口令锁）：首次粘贴令牌一次，之后永久免输
   }
 }
+async function verifyToken(t) { // v4.1 主人实测反馈：粘贴时不瞎存——当场问 GitHub，失败给人话原因
+  try {
+    const u = await fetch('https://api.github.com/user', { headers: { 'Authorization': 'Bearer ' + t }, cache: 'no-store' });
+    if (u.status === 401) return { ok: false, msg: 'GitHub 说这个令牌无效——大概率是没点最后的 Generate 按钮，或复制不完整。回 GitHub 重新生成一次。' };
+    if (!u.ok) return { ok: false, msg: 'GitHub 暂时连不上（HTTP ' + u.status + '），稍后再试' };
+    const repo = await fetch('https://api.github.com/repos/MEITU666/jianshen', { headers: { 'Authorization': 'Bearer ' + t }, cache: 'no-store' });
+    if (repo.status === 404) return { ok: false, msg: '令牌有效，但没勾 repo 权限（或用了 Fine-grained 没授权 jianshen 仓）——回 GitHub 重新生成：选 Tokens (classic)，勾 repo，再复制。' };
+    if (!repo.ok) return { ok: false, msg: '私有仓访问异常（HTTP ' + repo.status + '）——检查令牌权限。' };
+    let login = '';
+    try { login = (await u.json()).login || ''; } catch (e) {}
+    return { ok: true, msg: '验证通过' + (login ? '（账号 ' + login + '，私有仓可读）' : '') };
+  } catch (e) { return { ok: false, msg: '网络不通——连上 Wi-Fi 或蜂窝再试' }; }
+}
 function showTokenSetup() { // v4.1：首次使用/换设备——粘贴一次 GitHub 令牌（存本机 localStorage，不进公开仓）
   document.getElementById('gateTitle').textContent = '体能系统';
   const box = document.getElementById('gateMsg');
-  box.innerHTML = '<div class="sub" style="margin:8px 0">第一次用？粘贴你的 GitHub 令牌（一次就好，存本机）</div>'
+  box.innerHTML = '<div class="sub" style="margin:8px 0">第一次用？粘贴你的 GitHub 令牌（一次就好，存本机）。生成方法：GitHub → Settings → Developer settings → Personal access tokens → **Tokens (classic)** → 勾 repo → Generate → 复制。</div>'
     + '<div class="field"><input id="setupToken" type="password" autocomplete="off" placeholder="ghp_ 或 github_pat_ 开头"></div>'
     + '<button type="button" class="btn-primary" id="btnSaveToken">保存并进入</button>'
     + '<button type="button" class="link-btn" id="btnOffline2">离线只读模式</button>';
   document.getElementById('btnUnlock').hidden = true;
   const old = document.getElementById('btnOffline');
   if (old) old.hidden = true;
-  document.getElementById('btnSaveToken').onclick = function () {
+  document.getElementById('btnSaveToken').onclick = async function () {
     const t = (document.getElementById('setupToken').value || '').trim();
     if (t.indexOf('ghp_') !== 0 && t.indexOf('github_pat_') !== 0) { toast('令牌应以 ghp_ 或 github_pat_ 开头——检查复制是否完整'); return; }
+    const btn = this; btn.disabled = true; btn.textContent = '正在验证…';
+    const v = await verifyToken(t);
+    btn.disabled = false; btn.textContent = '保存并进入';
+    if (!v.ok) { box.innerHTML = '<div class="sub" style="color:var(--orange)">' + v.msg + '</div>' + box.innerHTML.slice(box.innerHTML.indexOf('<div class="field"')); return; }
     try { localStorage.setItem('tineng_token', t); } catch (e) {}
     TOKEN = t;
+    toast(v.msg);
     tryUnlockLocal();
   };
   document.getElementById('btnOffline2').onclick = function () { enterOffline(); };
