@@ -949,6 +949,7 @@ function enterOffline() { // v4.2 动线①：改名含义——本机模式（�
   document.getElementById('app').hidden = false;
   nav('pgToday');
   toast('已进入。数据先存本机；在【档案】页配好 GitHub 备份后会自动同步');
+  afterEnter(); // v4.2 补课（真浏览器复验抓漏）：本机模式现在是默认首开路径，天气实况/新手引导必须同样生效——此前只在带令牌 enterApp 链路里调
 }
 function localEmpty() { return ['daily', 'metrics', 'weekly', 'tests', 'external'].every((k) => !D[k].length); }
 function recCount(o) { return ['daily', 'metrics', 'weekly', 'tests', 'external'].reduce((s, k) => s + ((o[k] && o[k].length) || 0), 0); }
