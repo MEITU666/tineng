@@ -471,6 +471,27 @@ check('㊳ v4.2.1 足踝重装专项批：footStages 三级升四级（分控/�
   if (k7.indexOf('重装足踝专项') < 0) throw new Error('K7 未带出 Stage3');
   return '四级足踝体系+晋级链+K7 带出 ✓';
 });
+check('㊴ v4.2.2 四问批：髋臀进阶动作入库+COACH 10 问（RPE 校准/海拔）+增重平台期联动', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData();');
+  // 动作库：11 动作，新动作字段对齐+渐进键有初始值
+  if (w.eval('CONFIG.actions.length') !== 11) throw new Error('动作库应 11 个');
+  for (const n of ['保加利亚分腿蹲', '单腿硬拉']) {
+    if (!w.eval(`CONFIG.actions.some(a => a.name === "${n}" && a.repsKey === "${n}" && a.sets === 3 && !!WHY_MAP["${n}"])`)) throw new Error(n + ' 缺条目/WHY');
+    if (w.eval(`D.state.strengthReps["${n}"]`) == null) throw new Error(n + ' 渐进键无初始值');
+  }
+  // 课单含新动作
+  const course = w.eval('JSON.stringify(buildCourse(false))');
+  if (course.indexOf('保加利亚分腿蹲') < 0 || course.indexOf('单腿硬拉') < 0) throw new Error('力量课单未含新动作');
+  // 平台期：连续 3 周 ≤0.2kg 持平 → 上探热量带提示
+  w.eval('const ws0 = U.weekStart(U.todayStr()); D.weekly = [{weekStart: ws0, weightKg: 59.6}, {weekStart: U.addDays(ws0, -7), weightKg: 59.6}, {weekStart: U.addDays(ws0, -14), weightKg: 59.6}];');
+  const led = w.eval('weightLedgerLine()');
+  if (led.indexOf('平台期') < 0 || led.indexOf('2800') < 0) throw new Error('平台期提示缺失：' + led);
+  // 非平台期不受影响（涨 0.3 → 带内文案；平台被缓涨打破 → 不出平台期提示）
+  w.eval('D.weekly[1].weightKg = 59.3;');
+  if (w.eval('weightLedgerLine()').indexOf('平台期') >= 0) throw new Error('带内缓涨误触平台期');
+  return '动作库 11+平台期联动 ✓';
+});
 
 /* ---------- ⑦ 训练感受弹窗（跟练结束 → 三键定 RPE + 疼痛点选） ---------- */
 check('⑦ 课结报告含感受三键与疼痛点选', () => {
@@ -981,7 +1002,7 @@ check('⑰ 令牌制新链路（v4.1 简化安全模型）：本机存取+断网
 });
 
 /* ---------- ⑱ 教练开口层（批7）：课单为什么+体重账+问教练+吃账 ---------- */
-check('⑱ 课单为什么：9 动作 WHY_MAP 全覆盖且 planHtml 渲染', () => {
+check('⑱ 课单为什么：动作库 WHY_MAP 全覆盖且 planHtml 渲染', () => {
   if (loadErr) throw loadErr;
   const names = w.eval('CONFIG.actions.map(a=>a.name)');
   const missing = names.filter((n) => w.eval(`!WHY_MAP[${JSON.stringify(n)}]`));
@@ -1004,10 +1025,10 @@ check('⑱ 体重账：无记录引导称重；在带内/持平/掉秤三态判�
 });
 check('⑱ 问教练：8 问全预埋且口径词命中（鳌太/两把闸门/Nedeltcheva/2400-2600）', () => {
   if (loadErr) throw loadErr;
-  if (w.eval('COACH_QA.length') !== 8) throw new Error('应 8 问');
+  if (w.eval('COACH_QA.length') !== 10) throw new Error('应 10 问');
   w.eval('showCoachQA()');
   const h = w.eval('document.getElementById("modalBox").innerHTML');
-  for (const k of ['为什么今天练', '疼了还能练', '吃怎么安排', '睡不够', '两把闸门', '鳌太', '2400-2600', '偷肌肉', '口径：']) if (h.indexOf(k) < 0) throw new Error('缺「' + k + '」');
+  for (const k of ['为什么今天练', '疼了还能练', '吃怎么安排', '睡不够', '两把闸门', '鳌太', '2400-2600', '偷肌肉', '口径：', '心率带', '海拔模拟']) if (h.indexOf(k) < 0) throw new Error('缺「' + k + '」');
   w.eval('closeModal()');
   return '8 问直答 ✓';
 });
@@ -1263,7 +1284,8 @@ check('㉒ 一键副行逐字明示将存什么（按下去之前看得到）', 
     D.daily = [{ date: U.addDays(U.todayStr(), -1), type: '力量', rpe: 8, durationMin: 45 }];
     renderToday(); tfType('力量');`); // 课表优先预填可能给非力量类型，显式切到力量日场景
   const sub = w.eval('quickSubText()');
-  for (const k of ['力量', '45 分钟', 'RPE', '9 动作全勾']) if (sub.indexOf(k) < 0) throw new Error('副行缺「' + k + '」：' + sub);
+  const __n = w.eval('CONFIG.actions.length');
+  for (const k of ['力量', '45 分钟', 'RPE', __n + ' 动作全勾']) if (sub.indexOf(k) < 0) throw new Error('副行缺「' + k + '」：' + sub);
   const btn = w.eval('quickBtnText()');
   if (btn.indexOf('一键保存') < 0) throw new Error('按钮文案异常：' + btn);
   w.eval('tfQuickSave()');

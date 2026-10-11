@@ -481,6 +481,16 @@ const CONFIG = {
       comp: '前膝内扣 / 躯干前倾用腰发力 / 用后脚蹬地站起',
       fix: '前膝对准第二脚趾主动外推；想象头顶有线拉；前腿发力后腿轻触地',
       link: 'https://search.bilibili.com/all?keyword=箭步蹲 标准动作' },
+    { name: '保加利亚分腿蹲', part: '单侧下肢', repsKey: '保加利亚分腿蹲', unit: '次/侧', sets: 3,
+      guide: '后脚背搭椅子、前脚一大步站稳，垂直下蹲至前大腿平行——上坡推进与下坡缓冲的单腿主力',
+      comp: '前膝内扣 / 重心过度前压用腰起 / 站距太近膝盖超脚尖太多',
+      fix: '前膝对准第二脚趾；躯干微前倾但腰背挺直；起身想"前脚踩进地板"',
+      link: 'https://search.bilibili.com/all?keyword=保加利亚分腿蹲 教学' },
+    { name: '单腿硬拉', part: '后链+平衡', repsKey: '单腿硬拉', unit: '次/侧', sets: 3,
+      guide: '单腿站立、另一腿向后抬，髋铰链俯身至躯干与地面约平行，臀腘绳发力起——重装负重的后链底盘',
+      comp: '弯腰用腰起 / 站立腿晃动过大 / 俯身时旋转',
+      fix: '想象脚跟往后蹬墙；髋部像关门一样对齐前方；扶墙版先做 1 周再离墙',
+      link: 'https://search.bilibili.com/all?keyword=单腿硬拉 教学' },
     { name: '臀桥', part: '后链', repsKey: '臀桥', unit: '次', sets: 3,
       guide: '顶峰收缩1秒、髋完全伸展',
       comp: '顶峰时腰部反弓 / 脚离臀太远用大腿后侧拉',
@@ -689,7 +699,7 @@ function defaultData() {
     state: {
       phase: 0, lastTestDate: null, footStage: 0, autoCalibrateRHR: true,
       lastSyncAt: 0, pendingSync: false, strengthFails: 0, theme: 'auto', lastForm: null,
-      strengthReps: { '深蹲': 12, '俯卧撑': 8, '下斜俯卧撑': 10, '平板': 30, '侧桥': 20, '箭步蹲': 8, '臀桥': 15, '俯卧YW': 8, '俯卧超人': 10 },
+      strengthReps: { '深蹲': 12, '俯卧撑': 8, '下斜俯卧撑': 10, '平板': 30, '侧桥': 20, '箭步蹲': 8, '臀桥': 15, '俯卧YW': 8, '俯卧超人': 10, '保加利亚分腿蹲': 6, '单腿硬拉': 6 },
       backfillDone: false, profileDone: false, downgradedAt: null, progressionLog: [], scheduleText: null,
       preTrip: null, tour7: null, weekRev: null, weather: null, aiCfg: null, schedShift: null, girth: null, returnMark: null, rehab: null, graduated: null, // 最终版增量（可选键）：行前判定缓存/新手7天引导/周复盘去重/今晨实况天气/AI问答供应商配置/FR-B1顺延状态——normalize/merge 补默认
       updatedAt: 0
@@ -883,7 +893,7 @@ function toast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.hidden = true; }, 3200);
 }
-window.APP_VER = '4.2.1'; // v4.2.1：足踝重装专项批（Stage3 脚趾分控/离心提踵/抗阻/负重下台阶）。注：产品对外名以主人拍板为准（PRD :15），代码层不使用任何未经拍板的人格名
+window.APP_VER = '4.2.2'; // v4.2.2：上坡髋臀动作库扩容+COACH_QA 10 问（RPE 校准/海拔）+增重平台期联动（主人 10-11 四问全落码） // v4.2.1：足踝重装专项批（Stage3 脚趾分控/离心提踵/抗阻/负重下台阶）。注：产品对外名以主人拍板为准（PRD :15），代码层不使用任何未经拍板的人格名
 window.addEventListener('error', function (e) { try { if (e && e.message) toast('出了个小问题：' + String(e.message).slice(0, 60)); } catch (err) {} }); // v4.1 审查修复 B4：全局异常不再静默
 window.addEventListener('unhandledrejection', function (e) { try { const r = e && e.reason; toast('后台出了个小问题：' + String(r && r.message || r || '未知').slice(0, 60)); } catch (err) {} });
 async function checkAppUpdate() { // v4.1：一键清 SW/缓存并重载——根治"PWA 更新后吃旧缓存"（原需手动强刷）
@@ -2287,6 +2297,9 @@ const WHY_MAP = { // 课单"为什么练它"：键=CONFIG.actions.name，内容=
   '俯卧撑': '上肢推——背包肩带压实不晃，靠它',
   '下斜俯卧撑': '进阶推力——负重上坡撑杖的下限保障',
   '箭步蹲': '单侧下肢——碎石坡一步一踩的单侧稳定',
+  '保加利亚分腿蹲': '单侧进阶——上坡推进+下坡缓冲的主力和消化（箭步蹲稳了它接班）',
+  '单腿硬拉': '后链+平衡——背包重心压过来时，腘绳和臀是地板',
+
   '臀桥': '后链——上坡的发动机在臀，不在腰',
   '平板支撑': '核心抗伸展——负重前倾不塌腰',
   '侧桥': '核心抗侧屈——背包重心晃动压得住',
@@ -2307,10 +2320,14 @@ function weightLedgerLine() { // 体重账：吃有没有效果的唯一秤（we
   let tail;
   if (!prev) tail = '最新 ' + cur.weightKg + 'kg，下周同一晨重对比才开始记账。';
   else {
+    // v4.2.2 增重平台期联动（主人 10-11 指出"增重进度与训练量联动"）：连续 3 次称重差都 ≤0.2kg = 平台期
+    const last3 = ws.slice(-3);
+    const plateau = last3.length === 3 && last3.every((w, i) => i === 0 || Math.abs(w.weightKg - last3[i - 1].weightKg) <= 0.2);
     const delta = cur.weightKg - prev.weightKg;
-    const band = cur.weightKg * 0.005; // 0.5%/周上限=K11/Iraki 已核口径
-    if (delta > 0 && delta <= band) tail = '最新 ' + cur.weightKg + 'kg（较上次 +' + delta.toFixed(1) + '）——在带内，按这个节奏吃。';
-    else if (delta > band) tail = '最新 ' + cur.weightKg + 'kg（+' + delta.toFixed(1) + '，超 0.5%/周带）——涨太快多半在涨脂，收到带内。';
+    if (plateau && delta <= 0) tail = '最新 ' + cur.weightKg + 'kg——连续 3 周持平=平台期：热量带上探一档（2600→2800 试 2 周），训练量先不动——增重期"吃"是主项，练得再狠吃不够也不涨（K11）。睡够 7h 不松动，体重一半在睡眠里涨。';
+    else if (plateau && delta > 0) tail = '最新 ' + cur.weightKg + 'kg（+' + delta.toFixed(1) + '）——带内缓涨，平台期在破，别加码。';
+    else if (delta > 0 && delta <= cur.weightKg * 0.005) tail = '最新 ' + cur.weightKg + 'kg（较上次 +' + delta.toFixed(1) + '）——在带内，按这个节奏吃。';
+    else if (delta > cur.weightKg * 0.005) tail = '最新 ' + cur.weightKg + 'kg（+' + delta.toFixed(1) + '，超 0.5%/周带）——涨太快多半在涨脂，收到带内。';
     else if (delta === 0) tail = '最新 ' + cur.weightKg + 'kg（持平）——没涨=吃的没到位：每天加一碗饭+一个蛋，练后一顿别跳，下周再称。';
     else tail = '最新 ' + cur.weightKg + 'kg（' + delta.toFixed(1) + '）——掉了：热量缺口在偷肌肉（睡眠不足时身体优先丢瘦体重），先加餐再谈练。';
   }
@@ -2335,7 +2352,9 @@ const COACH_QA = [ // 问教练：高频追问的离线直答，全部产品既�
   { q: '什么时候能跑步？', a: '两把闸门：踝毕业评审通过+医生放行，缺一不启动 R1。K23 有全貌，"提前跑一点点试试"是红线。', src: 'K23' },
   { q: '下坡为什么不给专项？', a: '下楼禁区没解锁（踝毕业评审+医生放行前，一切下楼/下坡离心专项不排）。进度看今日页康复师工作台。', src: 'K1/K23' },
   { q: '鳌太到底能不能走？', a: '这个问题产品永远答"不做可行性判定"——技术探险线（L5），2018 年起明令禁止穿越，只做风险认知。', src: 'K22' },
-  { q: '体重就是不涨怎么办？', a: '看周复盘的体重账：持平=每天加一碗饭+一个蛋；掉了=热量缺口在偷肌肉，先加餐；涨太快超 0.5%/周带=收到带内。', src: 'K11/体重账' }
+  { q: '体重就是不涨怎么办？', a: '看周复盘的体重账：持平=每天加一碗饭+一个蛋；掉了=热量缺口在偷肌肉，先加餐；涨太快超 0.5%/周带=收到带内。', src: 'K11/体重账' },
+  { q: '没有心率带，RPE 怎么用准？', a: '三道说话测试当心率表：能聊整句=强度≤6（Zone2 安全区）；只能说短语=7-8（有氧上限附近，少待）；说不出话=9-10（别在长走用）。RPE 的价值在"同一动作跨周对比"，单次打分漂着看就行。偶尔抄一次平均心率，RPE 6-7 对应的心率记住它，以后就用自己的体感标尺。', src: 'K2/K3' },
+  { q: '武汉没山，怎么备 4600m 的海拔？', a: '先说真话：低地模拟不了高海拔睡眠，"海拔模拟面罩/低氧帐篷"证据不足别花钱。低地能练的三样：①有氧底盘（Zone2 长走=红细胞与毛细血管的账，8-12 周才见数）②腿部耐力（台阶堆爬升、喻家山/八分山重复上下）③下坡离心（Stage3 足踝专项+负重下台阶）。睡眠海拔靠行程设计解决：到达后缓冲 2-3 天、第一天只走不背、全程高走低睡——这些已写进行前判定与 K20。', src: 'K3/K20/K22' }
 ];
 /* ============ 批12a 问答实时化（设计工单1④⑤）：三态（实时/离线/未配置）+ 预埋 8 问永久底座 ============
    CORS 一手实测 2026-09-28：智谱回显 Origin、硅基流动 ACAO:*，浏览器可直连。

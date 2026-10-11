@@ -4,7 +4,7 @@
    - GitHub API（api.github.com）响应：network-first，失败回退缓存（v4.1 Gist 通道已移除）
    - icon.svg / manifest.json：cache-first
    白名单之外的请求一律不拦截、不缓存 */
-const CACHE = 'tineng-cache-v14'; // v4.2.1 足踝重装专项批：footStages 三级升四级（脚趾分控/离心提踵/抗阻/负重下台阶）
+const CACHE = 'tineng-cache-v15'; // v4.2.2 四问批：髋臀动作库+COACH 10问+增重平台期联动
 const ASSETS = ['./', './index.html', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', (e) => {
