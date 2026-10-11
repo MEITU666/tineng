@@ -410,7 +410,12 @@ check('㊱ v4.2 黑话清零（用户可见层）：K编号剥离/notes消失/�
   // 保命卡按钮：显示卡名不显示编号
   const mb = w.eval('midTripBannerHtml()');
   if (mb.indexOf('>K16<') >= 0 || mb.indexOf('>K17<') >= 0) throw new Error('保命卡按钮仍是编号');
-  return '黑话清零六处 ✓';
+  // 人格名红线：产品对外名以主人拍板为准（PRD :15），任何未经拍板的人格名不得进入文案（2026-10-11"星黎"事故锁死）
+  w.eval('showWelcome();');
+  const gsub = w.eval("document.getElementById('gateSub').textContent");
+  if (gsub.indexOf('星黎') >= 0) throw new Error('未经拍板的人格名混入欢迎语');
+  if (gsub.indexOf('不用注册') < 0 || gsub.indexOf('直接开始') < 0) throw new Error('欢迎语三要素缺失');
+  return '黑话清零六处+人格名红线 ✓';
 });
 
 /* ---------- ⑦ 训练感受弹窗（跟练结束 → 三键定 RPE + 疼痛点选） ---------- */

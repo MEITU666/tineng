@@ -275,7 +275,7 @@ table.cmp{width:100%;border-collapse:collapse;font-size:13px}
       <path d="M14 22 L22 12 L28 19" fill="none" stroke="url(#mtg)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
     <div class="gate-title" id="gateTitle">体能系统</div>
-    <div class="gate-sub" id="gateSub">你好，我是星黎。不用注册、不用配置——直接开始今天的第一次锻炼。数据先存本机；想备份到自己的 GitHub 私有仓，随时在【档案】页设置。</div>
+    <div class="gate-sub" id="gateSub">你好。不用注册、不用配置——直接开始今天的第一次锻炼。数据先存本机；想备份到自己的 GitHub 私有仓，随时在【档案】页设置。</div>
     <button type="button" class="btn-primary" id="btnStart">直接开始 · 今天的第一练</button>
     <button type="button" class="btn-primary" id="btnUnlock" hidden>解锁进入</button>
     <button type="button" class="link-btn" id="btnBackup">备份数据到 GitHub（可选，粘贴一次令牌）</button>
@@ -876,7 +876,7 @@ function toast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.hidden = true; }, 3200);
 }
-window.APP_VER = '4.2.0'; // v4.2：好用度整改（动线①欢迎态+备份延后；星黎教练化第一批）
+window.APP_VER = '4.2.0'; // v4.2：好用度整改（动线①欢迎态+备份延后；动机导向重构第一批）。注：产品对外名以主人拍板为准（PRD :15），代码层不使用任何未经拍板的人格名
 window.addEventListener('error', function (e) { try { if (e && e.message) toast('出了个小问题：' + String(e.message).slice(0, 60)); } catch (err) {} }); // v4.1 审查修复 B4：全局异常不再静默
 window.addEventListener('unhandledrejection', function (e) { try { const r = e && e.reason; toast('后台出了个小问题：' + String(r && r.message || r || '未知').slice(0, 60)); } catch (err) {} });
 async function checkAppUpdate() { // v4.1：一键清 SW/缓存并重载——根治"PWA 更新后吃旧缓存"（原需手动强刷）
@@ -5101,7 +5101,7 @@ async function init() {
 function showWelcome() { // v4.2 动线①：欢迎态（S0 默认）——先体验后配置（lazy registration）
   document.getElementById('gateTitle').textContent = '体能系统';
   const sub = document.getElementById('gateSub');
-  if (sub) sub.textContent = '你好，我是星黎。不用注册、不用配置——直接开始今天的第一次锻炼。数据先存本机；想备份到自己的 GitHub 私有仓，随时在【档案】页设置。';
+  if (sub) sub.textContent = '你好。不用注册、不用配置——直接开始今天的第一次锻炼。数据先存本机；想备份到自己的 GitHub 私有仓，随时在【档案】页设置。';
   document.getElementById('gateMsg').innerHTML = '';
   document.getElementById('btnUnlock').hidden = true;
   const st = document.getElementById('btnStart'); if (st) st.hidden = false;
