@@ -362,6 +362,23 @@ check('㉞ v4.2 做完有回应：保存反馈带累计次数（第1次/第N次/
   if (w.eval('saveCheer({ type: "病假" })').indexOf('已记录') < 0) throw new Error('病假反馈缺失');
   return '即时回应四态 ✓';
 });
+check('㉟ v4.2 断档回归自动识别：练过但停了≥5天→今日=回归课+欢迎回来（红灯用户不受影响）', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData();');
+  // 场景1：10 天前练过，之后无记录 → 回归课
+  w.eval('upsertByDate(D.daily, recStamp({ date: U.addDays(U.todayStr(), -10), type: "力量" }))');
+  w.eval('renderToday();');
+  const h1 = w.eval("document.getElementById('todayBody').innerHTML");
+  if (h1.indexOf('回归课') < 0) throw new Error('断档10天应出回归课');
+  if (h1.indexOf('欢迎回来') < 0 || h1.indexOf('不追溯') < 0) throw new Error('缺欢迎回来语境');
+  // 场景2：昨天刚练过（gap=1）→ 不触发回归课
+  w.eval('D = defaultData();');
+  w.eval('upsertByDate(D.daily, recStamp({ date: U.addDays(U.todayStr(), -1), type: "力量" }))');
+  w.eval('renderToday();');
+  const h2 = w.eval("document.getElementById('todayBody').innerHTML");
+  if (h2.indexOf('欢迎回来') >= 0) throw new Error('隔1天不应出欢迎回来');
+  return '断档识别两态 ✓';
+});
 
 /* ---------- ⑦ 训练感受弹窗（跟练结束 → 三键定 RPE + 疼痛点选） ---------- */
 check('⑦ 课结报告含感受三键与疼痛点选', () => {

@@ -2443,6 +2443,13 @@ function renderToday() {
   const __chk = todayChk(); // 康复师席联动（最终版批1）：晨检红灯压过一切改恢复课，黄灯只把 ok 升到 down
   if (__chk && __chk.out === 'stop' && level !== 'rest') { level = 'floor'; rdNow.reasons.push('晨检：' + __chk.why); }
   else if (__chk && __chk.out === 'watch' && level === 'ok') { level = 'down'; rdNow.reasons.push('晨检：' + __chk.why); }
+  // v4.2 动线④：断档回归自动识别（FR-G 补全，此前只覆盖手动顺延）——练过但停了≥5天且身体无红灯：今天=回归课。
+  // Gentler Streak 式反愧疚：欢迎回来+只给第一步（12分钟每日包），不追溯不补量；生理红灯（floor/rest）永远优先。
+  if (level === 'ok' || level === 'down') {
+    let __gap = -1;
+    for (let i = 1; i <= 60; i++) { const __d = M.dailyOn(U.addDays(U.todayStr(), -i)); if (__d && CONFIG.trainTypes.indexOf(__d.type) >= 0) { __gap = i; break; } }
+    if (__gap >= 5) { level = 'return'; rdNow.reasons.push('欢迎回来——隔了 ' + __gap + ' 天，今天从 12 分钟每日包开始，不追溯不补量'); }
+  }
   const RD = {
     ok:   ['正常练', 'var(--green)', '身体状态够，按下方"今日安排"执行（休息日就做休息日内容）；建议放在傍晚 17-19 点。'],
     down: ['降档练', 'var(--orange)', '强度降一档：力量每组少做一点、留 2-3 次余力，有氧时长打七折。'],
