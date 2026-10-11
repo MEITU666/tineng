@@ -1471,11 +1471,15 @@ function chkMissLine() { // v4.1 挖掘修复：晨检连断引导（今天没�
 function midTripBannerHtml() { // FR-D 行中感知（v4.1）：行中模式激活当天，状态卡前保命卡置顶条
   return '<div class="card" style="border:2px solid var(--red)"><div class="card-title" style="margin:0 0 6px">⛰️ 行中模式 · 保命卡置顶</div>'
     + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
-    + ['K16', 'K17', 'K18', 'K20'].map(function (id) { return '<button class="btn-mini" onclick="showK(\'\' + id + \'\')">' + id + '</button>'; }).join('')
+    // v4.2 动线⑤：按钮显示卡名而非内部编号（showK 的 id 引用不动）
+    + ['K16', 'K17', 'K18', 'K20'].map(function (id) {
+        const __k = CONFIG.knowledge.find(function (x) { return x.id === id; });
+        return '<button class="btn-mini" onclick="showK(\'\' + id + \'\')">' + U.esc(__k ? kTitle(__k.title) : id) + '</button>';
+      }).join('')
     + '</div><div class="sub" style="margin-top:4px">折返纪律：预定折返时间一到就回头，天气突变即撤——山一直在，人得回来。</div></div>';
 }
 function unlockTreeGuard() { // 防御性兜底：FR-B3 卡依赖 youAreHere/zoneLockHtml，函数缺失时不白屏
-  try { return '<div class="card"><div class="card-title" style="margin:0 0 8px">解锁树 · 晋升全貌（FR-B3）</div>' + youAreHere('K21') + zoneLockHtml() + '<div class="sub" style="margin-top:6px">越野跑 R0 支线：两把闸门（踝毕业+医生放行）全开后，按 K23 阶梯 R1→R2→R3 走——阶梯是展示，不是课表。</div></div>'; } catch (e) { return ''; }
+  try { return '<div class="card"><div class="card-title" style="margin:0 0 8px">解锁树 · 晋升全貌</div>' + youAreHere('K21') + zoneLockHtml() + '<div class="sub" style="margin-top:6px">越野跑 R0 支线：两把闸门（踝毕业+医生放行）全开后，按越野跑解锁阶梯 R1→R2→R3 走——阶梯是展示，不是课表。</div></div>'; } catch (e) { return ''; }
 }
 function openGradReview() { // FR-C 毕业评审向导（一次性）：三判定自动对照+两项人工确认→毕业标记；未过给延周期
   const lt = M.latestTest();
@@ -2014,10 +2018,10 @@ const TRIP_ROUTES = [
   { id: 'nantaihang', name: '南太行', grade: 'L2', days: '2 天 1 夜', alt: '—', standNeed: null, aeroNeed: 2, plateau: false, custom: true, src: '实历完走（2 天 1 夜）；短板=碎石下坡慢——下坡控速是策略不是能力缺陷；K22 无详档' },
   { id: 'aotai', name: '鳌太', grade: 'L5', days: '—', alt: '3000m+ 石海', standNeed: null, aeroNeed: null, plateau: false, riskLine: true, src: 'K22 风险教育卡：2018 年起明令禁止穿越，永不种草' },
   // 批9 实测反馈扩充：产出C 靶场候选线入库——全部"未守门待核"（难度档未经 notes 守门，不判能不能走，只给自查要素）
-  { id: 'tengger', name: '腾格里（徒步）', grade: '待核', days: '—', alt: '—', standNeed: null, aeroNeed: null, plateau: false, src: '待核（未守门）：沙漠要素=水源/温差，不在本判定范围' },
+  { id: 'tengger', name: '腾格里（徒步）', grade: '未定档', days: '—', alt: '—', standNeed: null, aeroNeed: null, plateau: false, src: '未核对：沙漠要素=水源/温差，不在本判定范围' },
   { id: 'nanjiluo', name: '南极洛', grade: 'L1', days: '常规 5-8km 环线/天眼线 20km+', alt: '—', standNeed: null, aeroNeed: 2, plateau: true, src: '景区化限流预约制（提前约 5 日/门票含景区车，产出C 检索 2026-09-28）；定位=检阅/风景线+预约纪律' },
   { id: 'yading', name: '亚丁大转', grade: 'L3', days: '—', alt: '—', standNeed: null, aeroNeed: 3, plateau: true, src: '高原长线：按 K20 节奏条件执行，行前必查当季开放公告' },
-  { id: 'meili', name: '梅里外转', grade: '待核', days: '—', alt: '—', standNeed: null, aeroNeed: null, plateau: true, src: '待核（未守门）：高原线按 K20 节奏条件执行' },
+  { id: 'meili', name: '梅里外转', grade: '未定档', days: '—', alt: '—', standNeed: null, aeroNeed: null, plateau: true, src: '未核对：高原线按节奏纪律条件执行' },
   { id: 'genie', name: '格聂C线', grade: 'L3', days: '—', alt: '—', standNeed: null, aeroNeed: 3, plateau: true, src: '高原长线：按 K20 节奏条件执行，行前必查当季开放公告' },
   { id: 'bogeda', name: '博格达', grade: 'L5', days: '—', alt: '—', standNeed: null, aeroNeed: null, plateau: true, riskLine: true, src: '风险教育卡：技术探险线，与鳌太同口径永不给"能走"，永不种草' }
 ];
@@ -2027,7 +2031,7 @@ function standGateNow() { // 踝门现状（联动康复师席同一数据源）
 }
 function preTripEval(r) { // 三档判定：go 能走 / cond 有条件能走 / no 还不能走——对照锚点全部来自现有数据
   if (r.riskLine) return { out: 'no', lines: ['这条线不在讨论范围：' + r.name + ' 是技术探险线（L5），2018 年起明令禁止穿越。本产品只做风险认知（K22），任何体能状态下都不给"能走"。'] };
-  if (r.grade === '待核') return { out: 'cond', lines: ['该线难度档未守门（K22 无详档）：不判"能不能走"。自查三件事——对照 K22 八维（最高海拔/睡眠海拔/天数/日均里程/日均爬升/负重/技术性/补给撤离）；行前查当季官方公告与天气；首次走按低一档预期安排。'] };
+  if (r.grade === '未定档') return { out: 'cond', lines: ['该线难度档还没核对过：不判"能不能走"。自查三件事——对照八维度详表（最高海拔/睡眠海拔/天数/日均里程/日均爬升/负重/技术性/补给撤离）；行前查当季官方公告与天气；首次走按低一档预期安排。'] };
   const sg = standGateNow(), lines = [], gaps = [];
   if (r.standNeed != null) {
     if (sg.v == null) { gaps.push('踝门未测：先在体测页录一次右脚闭眼单腿站（门槛 ' + r.standNeed + 's）'); }
@@ -2268,8 +2272,8 @@ const WHY_MAP = { // 课单"为什么练它"：键=CONFIG.actions.name，内容=
 function eatLine() { // 今日吃账一行：静态口径露出，吃4睡3练3 的"吃"在日频页有位置
   const dayType = effTemplate()[new Date().getDay()];
   const isTrain = CONFIG.trainTypes.indexOf(dayType) >= 0 || (tf.type && CONFIG.trainTypes.indexOf(tf.type) >= 0);
-  return '<div class="sub" style="margin-top:4px;color:var(--text2)">今日吃账：热量 2400-2600（notes/08 已核带）· 每餐一掌心蛋白+每日两个蛋一盒奶 · '
-    + (isTrain ? '<b style="color:var(--accent)">练后一顿别跳</b>——总日量优先于"窗口时机"（主流综述口径，标待核）' : '休息日照常吃，恢复也是练') + '。</div>';
+  return '<div class="sub" style="margin-top:4px;color:var(--text2)">今日吃账：热量 2400-2600（已核对的热量带）· 每餐一掌心蛋白+每日两个蛋一盒奶 · '
+    + (isTrain ? '<b style="color:var(--accent)">练后一顿别跳</b>——总日量优先于"窗口时机"（主流综述口径）' : '休息日照常吃，恢复也是练') + '。</div>';
 }
 function weightLedgerLine() { // 体重账：吃有没有效果的唯一秤（weekly.weightKg 既有数据，零采集）
   const ws = D.weekly.filter((w) => w && w.weightKg != null);
@@ -2284,7 +2288,7 @@ function weightLedgerLine() { // 体重账：吃有没有效果的唯一秤（we
     if (delta > 0 && delta <= band) tail = '最新 ' + cur.weightKg + 'kg（较上次 +' + delta.toFixed(1) + '）——在带内，按这个节奏吃。';
     else if (delta > band) tail = '最新 ' + cur.weightKg + 'kg（+' + delta.toFixed(1) + '，超 0.5%/周带）——涨太快多半在涨脂，收到带内。';
     else if (delta === 0) tail = '最新 ' + cur.weightKg + 'kg（持平）——没涨=吃的没到位：每天加一碗饭+一个蛋，练后一顿别跳，下周再称。';
-    else tail = '最新 ' + cur.weightKg + 'kg（' + delta.toFixed(1) + '）——掉了：热量缺口在偷肌肉（Nedeltcheva 机理），先加餐再谈练。';
+    else tail = '最新 ' + cur.weightKg + 'kg（' + delta.toFixed(1) + '）——掉了：热量缺口在偷肌肉（睡眠不足时身体优先丢瘦体重），先加餐再谈练。';
   }
   return '<div class="sub" style="margin-top:4px"><b>体重账：</b>' + tail + '</div>';
 }
@@ -2302,8 +2306,8 @@ function noteSignals(note) { // 返回第一条命中；tfSave 保存后触发
 const COACH_QA = [ // 问教练：高频追问的离线直答，全部产品既有口径，零新判据（问答外挂的离线底座）
   { q: '为什么今天练这几个动作？', a: '课单按周模板生成：力量打全身底盘、Zone2 练的是转山 8 小时慢走的心肺（K3）、长走练持续输出。每个动作旁的"为什么练它"写着它服务于两段周期（冬训 24 周+专项 12 周）的哪一环。', src: 'K1/K3/M6' },
   { q: '疼了还能练吗？', a: '先做晨检：红线信号（夜间痛/肿胀/无法承重）→停训就医；膝/腰→停训；足/踝→降档给改法。疼痛即停是硬线，不是商量。', src: 'K14/K7' },
-  { q: '吃怎么安排？', a: '热量 2400-2600/天（已核带）；每日两个蛋+一盒奶打底、每餐一掌心肉/鱼/豆；练完那一顿别跳。总吃够比纠结"练后 30 分钟黄金窗"重要——总日量优先。', src: 'notes/08+K11' },
-  { q: '睡不够硬练行吗？', a: '不行。睡眠 5.5h+热量不足的实证：瘦体重多丢 60%——睡不够时练=白练还倒贴。先守固定关灯锚点，比几点起床重要。', src: 'Nedeltcheva 2010/K9' },
+  { q: '吃怎么安排？', a: '热量 2400-2600/天（已核对）；每日两个蛋+一盒奶打底、每餐一掌心肉/鱼/豆；练完那一顿别跳。总吃够比纠结"练后 30 分钟黄金窗"重要——总日量优先。', src: '已核对的营养带' },
+  { q: '睡不够硬练行吗？', a: '不行。睡眠 5.5h+热量不足的实证：瘦体重多丢 60%——睡不够时练=白练还倒贴。先守固定关灯锚点，比几点起床重要。', src: '睡眠与减脂实证研究' },
   { q: '什么时候能跑步？', a: '两把闸门：踝毕业评审通过+医生放行，缺一不启动 R1。K23 有全貌，"提前跑一点点试试"是红线。', src: 'K23' },
   { q: '下坡为什么不给专项？', a: '下楼禁区没解锁（踝毕业评审+医生放行前，一切下楼/下坡离心专项不排）。进度看今日页康复师工作台。', src: 'K1/K23' },
   { q: '鳌太到底能不能走？', a: '这个问题产品永远答"不做可行性判定"——技术探险线（L5），2018 年起明令禁止穿越，只做风险认知。', src: 'K22' },
@@ -3541,7 +3545,7 @@ function renderAbility() {
   let h = '<div class="card"><div class="card-head"><div class="bubble bg-pink" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l8 6-3 10H7L4 9z"/></svg></div>'
     + '<div class="card-title" style="margin:0">七维能力雷达（0-5级）</div></div>'
     + '<div class="chart" style="min-height:220px">' + svg + '</div>'
-    + '<div class="sub">无数据维度置灰不绘；点维度行查看等级锚点（估算值）。</div></div>';
+    + '<div class="sub">没有数据的维度先不画；点维度行可看判定标准（经验参考值）。</div></div>';
   h += '<div class="card"><div class="card-title" style="margin-bottom:4px">维度明细</div>'
     + dims.map((d) => '<div class="dim-row" onclick="showAnchor(\'' + d.key + '\')"><div class="dim-name">' + U.esc(d.name)
     + (d.note ? ' <span class="dim-note">' + U.esc(d.note) + '</span>' : '')
@@ -3575,7 +3579,7 @@ function showAnchor(key) {
     });
     body = '<table class="cmp"><tr><th>等级</th><th>' + U.esc(a.unit) + '</th></tr>' + rows + '</table>';
   }
-  showModal('<div class="card-title" style="margin-bottom:8px">' + U.esc(a.name) + ' · 等级锚点（估算值）</div>' + body
+  showModal('<div class="card-title" style="margin-bottom:8px">' + U.esc(a.name) + ' · 判定标准（经验参考值）</div>' + body
     + '<div class="m-actions"><button class="btn-primary" onclick="closeModal()">知道了</button></div>');
 }
 
@@ -3661,28 +3665,31 @@ function renderGoal() {
   const lowW = M.weekLowInt(ws), lowAll = D.daily.reduce((s, r) => s + (((r.type === '有氧' || r.type === '长时活动') && r.durationMin) ? r.durationMin : 0), 0);
   // 三焦点卡：环形进度 + 大数字 + 两联小数字（本周X / 累计Y）
   h += '<div class="card"><div class="card-head"><div class="bubble bg-purple" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20.5 14.5A8.5 8.5 0 1 1 9.5 3.5a7 7 0 0 0 11 11z"/></svg></div>'
-    + '<div class="card-title" style="margin:0">睡眠修复</div></div>'
+    + '<div class="card-title" style="margin:0">睡眠保持</div></div>'
     + '<div style="display:flex;align-items:center;gap:14px" onclick="showK(\'K9\')">'
     + ringSvg(sl7 / 7, 'var(--purple)')
     + '<div style="flex:1"><div class="big-num" id="gSleep"><span></span></div><div class="sub">近7天睡眠≥7h 天数 / 7</div></div>'
     + '<div class="sub" style="text-align:right">本周' + slWeek + ' 天<br>累计' + M.sleepTotalDays() + ' 天</div></div>'
-    + '<div class="sub" style="margin-top:8px">基线 ' + D.profile.sleepBaseline + 'h（近3月平均，最大短板）→ 目标 7h+ · 点卡片展开 K9 睡眠修复方案</div></div>';
+    // v4.2 动线⑤：出厂默认 5.4 不是"近3月平均"——没设置过基线时说人话，不冒充统计结论
+    + '<div class="sub" style="margin-top:8px">' + (D.profile.sleepBaselineSet
+      ? '基线 ' + D.profile.sleepBaseline + 'h（近3月平均）→ 目标 7h+ · 点卡片展开睡眠修复方案'
+      : '目标 7h+ · 连续记录几天睡眠后，这里会换成你的真实基线 · 点卡片展开睡眠修复方案') + '</div></div>';
   h += '<div class="card"><div class="card-head"><div class="bubble bg-orange" aria-hidden="true"><svg viewBox="0 0 24 24"><ellipse cx="10" cy="14" rx="4" ry="6"/><circle cx="16.5" cy="7.5" r="1.4"/><circle cx="18.5" cy="11" r="1.4"/><circle cx="18.5" cy="15" r="1.4"/></svg></div>'
     + '<div class="card-title" style="margin:0">右足康复</div></div>'
     + '<div style="display:flex;align-items:center;gap:14px" onclick="showK(\'K7\')">'
     + ringSvg(footW / wd, 'var(--orange)')
     + '<div style="flex:1"><div class="big-num" id="gFoot"><span></span></div><div class="sub">本周足康复打卡 / ' + wd + ' 天 · Stage ' + D.state.footStage + '</div></div>'
     + '<div class="sub" style="text-align:right">本周' + footW + ' 天<br>累计' + footAll + ' 天</div></div>'
-    + '<div class="sub" style="margin-top:8px">点卡片展开 K7 足底康复与防崴模块</div></div>';
+    + '<div class="sub" style="margin-top:8px">点卡片展开足底康复与防崴模块</div></div>';
   h += '<div class="card"><div class="card-head"><div class="bubble bg-teal" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.6-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.4-9 9-9 9z"/></svg></div>'
     + '<div class="card-title" style="margin:0">有氧起步</div></div>'
     + '<div style="display:flex;align-items:center;gap:14px">'
     + ringSvg(lowW / CONFIG.aerobicGoalMin, 'var(--teal)')
-    + '<div style="flex:1"><div class="big-num" id="gLow"><span></span></div><div class="sub">本周低强度分钟数 · 目标' + CONFIG.aerobicGoalMin + '分钟（估算值）</div></div>'
+    + '<div style="flex:1"><div class="big-num" id="gLow"><span></span></div><div class="sub">本周低强度分钟数 · 目标' + CONFIG.aerobicGoalMin + '分钟（经验参考值）</div></div>'
     + '<div class="sub" style="text-align:right">本周' + lowW + ' 分钟<br>累计' + lowAll + ' 分钟</div></div>'
     + '<div class="prog"><i style="width:' + Math.min(100, Math.round(lowW / CONFIG.aerobicGoalMin * 100)) + '%"></i></div></div>';
   // K11 营养与体重
-  h += '<div class="card"><details class="fold" style="margin:0;background:transparent;padding:0"><summary>营养与体重（K11）</summary><div class="fold-body">'
+  h += '<div class="card"><details class="fold" style="margin:0;background:transparent;padding:0"><summary>营养与体重</summary><div class="fold-body">'
     + '偏瘦者（176/60，BMI 19.4）加量期原则：<br>· 不节食；训练日适当增加蛋白质与碳水（鸡蛋/奶/米饭多一口）<br>· 每周晨起空腹称重一次（可空）；较前值降&gt;2kg → 系统横幅提醒加餐<br>· 目标不是减重，是让体重稳定或缓升（肌肉增长）<br><span class="sub">每周体重在「档案与设置」页录入。</span></div></details></div>';
   // 远期目标
   h += '<div class="card"><details class="fold" style="margin:0;background:transparent;padding:0" open><summary>远期目标（只读展示，不参与计算）</summary><div class="fold-body">';
@@ -3707,11 +3714,14 @@ function renderGoal() {
   box.innerHTML = h;
   runAnims(box);
 }
+function kTitle(t) { // v4.2 动线⑤：K 编号/★优先级是内部记号，用户可见标题剥掉（id 引用与搜索均不动）
+  return String(t).replace(/^K\d+\s*(★\d+\s*)?/, '');
+}
 function showK(id) {
   const k = CONFIG.knowledge.find((x) => x.id === id);
   if (!k) return;
   const body = typeof k.bodyFn === 'function' ? k.bodyFn() : k.body;
-  showModal('<div class="card-title" style="margin-bottom:8px">' + U.esc(k.title) + '</div>' + youAreHere(id) + '<div class="body-tx" style="line-height:2">' + body + '</div>'
+  showModal('<div class="card-title" style="margin-bottom:8px">' + U.esc(kTitle(k.title)) + '</div>' + youAreHere(id) + '<div class="body-tx" style="line-height:2">' + body + '</div>'
     + '<div class="m-actions"><button class="btn-primary" onclick="closeModal()">知道了</button></div>');
 }
 
@@ -3770,7 +3780,7 @@ function renderGuideTab() {
     if (!cards.length) return;
     h += '<div class="k-group">' + g + '</div>';
     h += cards.map((k) => '<div class="card k-card' + (window.__kOpen === k.id ? ' open' : '') + '" id="kc_' + k.id + '">'
-      + '<div class="k-head" onclick="kToggle(\'' + k.id + '\')"><div class="k-title">' + U.esc(k.title) + '</div></div>'
+      + '<div class="k-head" onclick="kToggle(\'' + k.id + '\')"><div class="k-title">' + U.esc(kTitle(k.title)) + '</div></div>'
       + '<div class="k-body">' + (typeof k.bodyFn === 'function' ? k.bodyFn() : k.body) + '</div></div>').join('');
   });
   if (q && h.indexOf('k-card') < 0) h += '<div class="card empty-card"><div class="card-title">没有匹配的知识卡</div></div>';
@@ -4385,7 +4395,7 @@ function saveProfileEdit() {
   const hv = U.num(document.getElementById('pHrv').value);
   if (hv != null) p.hrvBaseline = hv;
   const sl = U.num(document.getElementById('pSleep').value);
-  if (sl != null) p.sleepBaseline = sl;
+  if (sl != null) { p.sleepBaseline = sl; p.sleepBaselineSet = true; } // v4.2：用户设置过基线才有"近3月平均"资格（动线⑤）
   p.updatedAt = Date.now();
   D.state.updatedAt = Date.now();
   persist();

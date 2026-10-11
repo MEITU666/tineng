@@ -379,6 +379,39 @@ check('㉟ v4.2 断档回归自动识别：练过但停了≥5天→今日=回�
   if (h2.indexOf('欢迎回来') >= 0) throw new Error('隔1天不应出欢迎回来');
   return '断档识别两态 ✓';
 });
+check('㊱ v4.2 黑话清零（用户可见层）：K编号剥离/notes消失/估算值改人话/睡眠卡不冒充统计', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData();');
+  // 指南页：卡片标题不带 K 编号前缀（id 锚与搜索保留）
+  w.eval('renderGuideTab();');
+  const gh = w.eval("document.getElementById('guideTabBody').innerHTML");
+  if (gh.indexOf('K11 营养与体重') >= 0 || gh.indexOf('>K18') >= 0) throw new Error('K 编号仍在标题层');
+  if (gh.indexOf('营养与体重') < 0) throw new Error('去前缀误伤卡名');
+  if (gh.indexOf('kc_K18') < 0) throw new Error('id 锚不应被剥离');
+  // 吃账行+问教练：无 notes/、无文献人名
+  w.eval('renderToday();');
+  const th = w.eval("document.getElementById('todayBody').innerHTML");
+  if (th.indexOf('notes/') >= 0) throw new Error('吃账行仍带 notes/');
+  w.eval('showCoachQA();');
+  const qh = w.eval('document.getElementById("modalBox").innerHTML');
+  w.eval('closeModal()');
+  if (qh.indexOf('Nedeltcheva') >= 0 || qh.indexOf('notes/') >= 0) throw new Error('问教练口径仍带内部痕迹');
+  if (qh.indexOf('口径：已核对') < 0) throw new Error('口径前缀缺失');
+  // 目标页：出厂默认不冒充"近3月平均"
+  w.eval('renderGoal();');
+  const goh = w.eval("document.getElementById('goalBody').innerHTML");
+  if (goh.indexOf('近3月平均') >= 0) throw new Error('出厂默认 5.4 不该冒充近3月平均');
+  if (goh.indexOf('真实基线') < 0) throw new Error('缺人话引导');
+  if (goh.indexOf('（估算值）') >= 0 || goh.indexOf('置灰不绘') >= 0) throw new Error('内部记号残留');
+  // 能力页空态：无"置灰不绘"
+  w.eval('renderAbility();');
+  const ah = w.eval("document.getElementById('abilityBody').innerHTML");
+  if (ah.indexOf('置灰不绘') >= 0) throw new Error('能力页黑话残留');
+  // 保命卡按钮：显示卡名不显示编号
+  const mb = w.eval('midTripBannerHtml()');
+  if (mb.indexOf('>K16<') >= 0 || mb.indexOf('>K17<') >= 0) throw new Error('保命卡按钮仍是编号');
+  return '黑话清零六处 ✓';
+});
 
 /* ---------- ⑦ 训练感受弹窗（跟练结束 → 三键定 RPE + 疼痛点选） ---------- */
 check('⑦ 课结报告含感受三键与疼痛点选', () => {
@@ -665,7 +698,7 @@ check('⑭ 老数据兼容：线上备份（daily 无 chk 字段）normalize 后
 });
 
 /* ---------- ⑮ 户外指导员席（最终版批2）：行前判定+行中模式+行后复盘+晋升标记 ---------- */
-check('⑮ 线路库（v4.1 字段升级）：12 条在位（10 已核+2 待核），鳌太/博格达双永拒，南太行实历升 L2', () => {
+check('⑮ 线路库（v4.1 字段升级）：12 条在位（10 已核+2 未定档），鳌太/博格达双永拒，南太行实历升 L2', () => {
   if (loadErr) throw loadErr;
   const n = w.eval('TRIP_ROUTES.length');
   if (n !== 12) throw new Error('线路数=' + n);
@@ -673,12 +706,12 @@ check('⑮ 线路库（v4.1 字段升级）：12 条在位（10 已核+2 待核�
   if (names !== 'gangrenboqi,lianbaoyeze,jiesigou,wugongshan,nantaihang,aotai,tengger,nanjiluo,yading,meili,genie,bogeda') throw new Error(names);
   if (w.eval('TRIP_ROUTES.find(r=>r.id==="aotai").riskLine') !== true) throw new Error('鳌太缺 riskLine');
   if (w.eval('TRIP_ROUTES.find(r=>r.id==="bogeda").riskLine') !== true) throw new Error('博格达缺 riskLine（v4.1 升永拒）');
-  const unvetted = w.eval('TRIP_ROUTES.filter(r=>r.grade==="待核").length');
-  if (unvetted !== 2) throw new Error('待核线数=' + unvetted + '（应只剩腾格里/梅里）');
+  const unvetted = w.eval('TRIP_ROUTES.filter(r=>r.grade==="未定档").length'); // v4.2 动线⑤：内部黑话"待核"改人话"未定档"
+  if (unvetted !== 2) throw new Error('未定档线数=' + unvetted + '（应只剩腾格里/梅里）');
   const g = (id) => w.eval('TRIP_ROUTES.find(r=>r.id==="' + id + '").grade');
   if (g('nantaihang') !== 'L2' || g('nanjiluo') !== 'L1' || g('yading') !== 'L3' || g('genie') !== 'L3') throw new Error('v4.1 四条升级字段错');
   if (String(w.eval('TRIP_ROUTES.find(r=>r.id==="nantaihang").src')).indexOf('实历完走') < 0) throw new Error('南太行应标实历完走');
-  return '12 线路（10 已核+2 待核）双永拒 ✓';
+  return '12 线路（10 已核+2 未定档）双永拒 ✓';
 });
 check('⑮ 行前判定：鳌太→no+明令禁止穿越，永不给能走', () => {
   if (loadErr) throw loadErr;
@@ -946,8 +979,8 @@ check('⑲ 行前判定：待核线不给三档只给自查要素；线路池扩
   const n = w.eval('TRIP_ROUTES.length');
   if (n !== 12) throw new Error('线路数=' + n);
   const r = w.eval('preTripEval(TRIP_ROUTES.find(x=>x.id==="tengger"))');
-  if (r.out !== 'cond' || String(r.lines[0]).indexOf('未守门') < 0 || String(r.lines[0]).indexOf('八维') < 0) throw new Error('待核线口径错：' + JSON.stringify(r.lines));
-  return '12 线路+待核不拍板 ✓';
+  if (r.out !== 'cond' || String(r.lines[0]).indexOf('还没核对过') < 0 || String(r.lines[0]).indexOf('八维度') < 0) throw new Error('未定档线口径错：' + JSON.stringify(r.lines)); // v4.2 动线⑤：人话化后锚词更新
+  return '12 线路+未定档不拍板 ✓';
 });
 check('⑲ 行前判定：心肺维度接入（有氧底盘未评=提示级不判负；跟能力雷达同源）', () => {
   if (loadErr) throw loadErr;

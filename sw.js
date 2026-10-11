@@ -4,7 +4,7 @@
    - GitHub API（api.github.com）响应：network-first，失败回退缓存（v4.1 Gist 通道已移除）
    - icon.svg / manifest.json：cache-first
    白名单之外的请求一律不拦截、不缓存 */
-const CACHE = 'tineng-cache-v9'; // v4.2 好用度整改批1：首开欢迎态（强制旧缓存失效）
+const CACHE = 'tineng-cache-v10'; // v4.2 动线⑤黑话清零批（补齐②③④四批的 CACHE bump：v9 之后改码未逐批 bump，发版前一次补齐）
 const ASSETS = ['./', './index.html', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', (e) => {
