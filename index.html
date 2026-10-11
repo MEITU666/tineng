@@ -1470,6 +1470,20 @@ function chkMissLine() { // v4.1 挖掘修复：晨检连断引导（今天没�
   if (miss < 3) return '';
   return '<div class="sub" style="color:var(--orange)">晨检停了 ' + miss + ' 天——不追溯，现在做一次 60 秒晨检就接上了。</div>';
 }
+function weatherCoachLine() { // v4.2 动线②批外补课（主人 10-11 指出）：天气是每日训练的第一输入，但此前藏在安排卡字段里——首屏给一行教练提示。
+  // 动机层约束：只在有行动含义时说话（雨雪/大风/闷热/低温→给替代方案；好天只在户外课日给一句正向），不把首页变仪表盘。
+  const w = D.state.weather;
+  if (!w || w.date !== U.todayStr() || !w.wx) return '';
+  const desc = w.desc || '';
+  if (w.wx === '雨雪') return '<div class="sub" style="color:var(--orange)">🌧️ 今晨' + U.esc(desc) + '——户外课改室内三选一：爬楼梯（只上不下）/跟练加长/每日包加量，在下方「今日安排」里换（K28）。</div>';
+  if (w.wx === '大风降温') return '<div class="sub" style="color:var(--orange)">💨 今晨' + U.esc(desc) + '——户外课改背风路线或室内，穿够防风再出门。</div>';
+  if (w.wx === '闷热') return '<div class="sub" style="color:var(--orange)">🥵 今晨' + U.esc(desc) + '——户外课放清晨或傍晚 17-19 点，补水翻倍，心率上限照旧。</div>';
+  if (w.wx === '好天') {
+    const __tpl = effTemplate()[new Date().getDay()];
+    if (__tpl === '有氧' || __tpl === '长时活动') return '<div class="sub" style="color:var(--green)">🌤️ 今晨' + U.esc(desc) + '——好天气，今天的户外课按计划走，别辜负。</div>';
+  }
+  return '';
+}
 function midTripBannerHtml() { // FR-D 行中感知（v4.1）：行中模式激活当天，状态卡前保命卡置顶条
   return '<div class="card" style="border:2px solid var(--red)"><div class="card-title" style="margin:0 0 6px">⛰️ 行中模式 · 保命卡置顶</div>'
     + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
@@ -2472,6 +2486,7 @@ function renderToday() {
     + '<div class="sub" style="margin-top:4px">理由：' + (rdNow.reasons.length ? rdNow.reasons.map(U.esc).join('；') : '各项信号正常') + (level === 'rest' ? '；昨日同样触发降档' : '') + '</div>'
     + (hasSleep ? '' : '<div class="sub" style="color:var(--orange);margin-top:4px">昨夜睡眠未记录——打卡时从健康App抄一个数，判定更准。</div>')
     + chkMissLine()
+    + weatherCoachLine() // v4.2：天气教练提示进首屏（主人 10-11 指出的缺口）
     + footRedCheck()
     + chkBarHtml()
     + ankleGateLine()

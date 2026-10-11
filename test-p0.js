@@ -417,6 +417,33 @@ check('㊱ v4.2 黑话清零（用户可见层）：K编号剥离/notes消失/�
   if (gsub.indexOf('不用注册') < 0 || gsub.indexOf('直接开始') < 0) throw new Error('欢迎语三要素缺失');
   return '黑话清零六处+人格名红线 ✓';
 });
+check('㊲ v4.2 天气教练提示进首屏：四档行动含义（雨雪/大风/闷热/好天×户外课），好天×非户外课不说话', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData();');
+  // 雨雪：给替代三选一
+  w.eval('D.state.weather = { date: U.todayStr(), wx: "雨雪", desc: "小雨·12°C" };');
+  const rain = w.eval('weatherCoachLine()');
+  if (rain.indexOf('室内三选一') < 0 || rain.indexOf('小雨') < 0) throw new Error('雨雪提示不对：' + rain);
+  // 大风
+  w.eval('D.state.weather = { date: U.todayStr(), wx: "大风降温", desc: "风速42km/h" };');
+  if (w.eval('weatherCoachLine()').indexOf('背风') < 0) throw new Error('大风提示缺失');
+  // 闷热
+  w.eval('D.state.weather = { date: U.todayStr(), wx: "闷热", desc: "体感35°C" };');
+  if (w.eval('weatherCoachLine()').indexOf('17-19') < 0) throw new Error('闷热提示缺失');
+  // 好天×户外课日（有氧）：正向一句
+  w.eval('D.state.weather = { date: U.todayStr(), wx: "好天", desc: "晴·18°C" };');
+  const tpl = w.eval('effTemplate()[new Date().getDay()]');
+  const sunny = w.eval('weatherCoachLine()');
+  if ((tpl === '有氧' || tpl === '长时活动') ? sunny.indexOf('别辜负') < 0 : sunny !== '') throw new Error('好天分支错（课表=' + tpl + '）：' + sunny);
+  // 隔天数据不生效
+  w.eval('D.state.weather = { date: U.addDays(U.todayStr(), -1), wx: "雨雪", desc: "旧数据" };');
+  if (w.eval('weatherCoachLine()') !== '') throw new Error('隔天天气不应生效');
+  // 首屏真的出现（状态卡内）
+  w.eval('D.state.weather = { date: U.todayStr(), wx: "雨雪", desc: "小雨·12°C" }; renderToday();');
+  const th = w.eval("document.getElementById('todayBody').innerHTML");
+  if (th.indexOf('室内三选一') < 0) throw new Error('首屏状态卡缺天气行');
+  return '天气提示四态+首屏露出 ✓';
+});
 
 /* ---------- ⑦ 训练感受弹窗（跟练结束 → 三键定 RPE + 疼痛点选） ---------- */
 check('⑦ 课结报告含感受三键与疼痛点选', () => {
