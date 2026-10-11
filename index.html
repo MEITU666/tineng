@@ -264,7 +264,7 @@ table.cmp{width:100%;border-collapse:collapse;font-size:13px}
 <body>
 <noscript>本应用需要启用 JavaScript。</noscript>
 
-<!-- ============ S0 解锁页：山形SVG+标题+密钥+主按钮+离线只读文字链 ============ -->
+<!-- ============ S0 欢迎页（v4.2 动线①）：欢迎语+直接开始主按钮+GitHub备份副链接（配置延后） ============ -->
 <div id="gate">
   <div class="gate-box">
     <svg class="gate-logo" viewBox="0 0 64 64" aria-hidden="true">
@@ -275,9 +275,10 @@ table.cmp{width:100%;border-collapse:collapse;font-size:13px}
       <path d="M14 22 L22 12 L28 19" fill="none" stroke="url(#mtg)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
     <div class="gate-title" id="gateTitle">体能系统</div>
-    <div class="gate-sub">数据在你自己的 GitHub 私有仓里。第一次用：粘贴一次令牌（下方），之后打开直接进。断网也能用——本机数据照常读写，联网自动同步。</div>
+    <div class="gate-sub" id="gateSub">你好，我是星黎。不用注册、不用配置——直接开始今天的第一次锻炼。数据先存本机；想备份到自己的 GitHub 私有仓，随时在【档案】页设置。</div>
+    <button type="button" class="btn-primary" id="btnStart">直接开始 · 今天的第一练</button>
     <button type="button" class="btn-primary" id="btnUnlock" hidden>解锁进入</button>
-    <button type="button" class="link-btn" id="btnOffline">离线只读模式（数据可能不是最新）</button>
+    <button type="button" class="link-btn" id="btnBackup">备份数据到 GitHub（可选，粘贴一次令牌）</button>
     <div id="gateMsg" class="gate-msg"></div>
   </div>
 </div>
@@ -856,7 +857,7 @@ async function pushNow() {
 function updateSyncBadge() {
   const el = document.getElementById('syncBadge');
   if (!el || !D) return;
-  if (readOnly) { el.textContent = '离线只读'; el.className = ''; return; }
+  if (readOnly) { el.textContent = '本机模式'; el.className = ''; return; }
   const last = D.state.lastSyncAt || 0;
   if (D.state.pendingSync) { el.textContent = '待同步'; el.className = 'pending'; return; }
   if (!last) { el.textContent = '未同步'; el.className = ''; return; }
@@ -875,7 +876,7 @@ function toast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.hidden = true; }, 3200);
 }
-window.APP_VER = '4.1.0'; // v4.1：版本常量（此前"关于"卡硬编码 v3.2 失真，M1-M3 无版本管理）
+window.APP_VER = '4.2.0'; // v4.2：好用度整改（动线①欢迎态+备份延后；星黎教练化第一批）
 window.addEventListener('error', function (e) { try { if (e && e.message) toast('出了个小问题：' + String(e.message).slice(0, 60)); } catch (err) {} }); // v4.1 审查修复 B4：全局异常不再静默
 window.addEventListener('unhandledrejection', function (e) { try { const r = e && e.reason; toast('后台出了个小问题：' + String(r && r.message || r || '未知').slice(0, 60)); } catch (err) {} });
 async function checkAppUpdate() { // v4.1：一键清 SW/缓存并重载——根治"PWA 更新后吃旧缓存"（原需手动强刷）
@@ -940,14 +941,14 @@ function startFresh() { // v4.1 实测修复：404 时以当前密钥新建空�
   nav('pgToday');
   toast('新数据已就绪：晨检、记录从今天开始积累');
 }
-function enterOffline() {
+function enterOffline() { // v4.2 动线①：改名含义——本机模式（功能完整可写），不再是吓人的"只读"
   if (!D) D = defaultData(); // 兜底
-  // 批9走查修复（重大）：离线模式放开本地写入——山上断网必须能晨检能记录（验收五条第5条）。
-  // 本地 IndexedDB 写入不依赖网络；未同步数据带 updatedAt，联网解锁后 mergeData 自动合并，不会覆盖云端。
+  // 批9走查修复：本机模式放开本地写入——山上断网必须能晨检能记录。
+  // 本地 IndexedDB 写入不依赖网络；未同步数据带 updatedAt，联网配好备份后 mergeData 自动合并，不会覆盖云端。
   document.getElementById('gate').hidden = true;
   document.getElementById('app').hidden = false;
   nav('pgToday');
-  toast('离线模式：可以正常晨检和记录，改动先存本机，联网解锁后自动同步');
+  toast('已进入。数据先存本机；在【档案】页配好 GitHub 备份后会自动同步');
 }
 function localEmpty() { return ['daily', 'metrics', 'weekly', 'tests', 'external'].every((k) => !D[k].length); }
 function recCount(o) { return ['daily', 'metrics', 'weekly', 'tests', 'external'].reduce((s, k) => s + ((o[k] && o[k].length) || 0), 0); }
@@ -4279,6 +4280,14 @@ function renderProfile() {
     + '<div class="sub" style="margin-bottom:10px">把健康App近7天均值生成7天metrics历史。</div>'
     + '<button class="btn-mini" onclick="openBackfill()">进入历史回填</button> '
     + '<button class="btn-mini" onclick="nav(\'pgTest\')">家庭体测录入 →</button></div>';
+  // v4.2 动线①：数据备份（GitHub）卡——本机模式进入后唯一的令牌配置入口（欢迎页"档案页可配"承诺的兑现）
+  h += '<div class="card"><div class="card-title" style="margin-bottom:8px">数据备份（GitHub，可选）</div>'
+    + (TOKEN
+      ? '<div class="sub" style="margin-bottom:8px">已开启：数据自动备份到你的 GitHub 私有仓（' + CONFIG.GITHUB_USER + '/' + CONFIG.DATA_REPO + '）。</div>'
+        + '<button class="btn-mini" onclick="configBackupModal()">更换令牌</button>'
+      : '<div class="sub" style="margin-bottom:8px">现在数据只存本机（换手机不会跟过去）。开启备份 = 存到你自己的 GitHub 私有仓，免费、只有你能看；断网照常记录，联网自动补传。</div>'
+        + '<button class="btn-mini" onclick="configBackupModal()">开启备份</button>')
+    + '</div>';
   // 导出/导入
   h += '<div class="card"><div class="card-title" style="margin-bottom:8px">导出与导入备份</div>'
     + '<button class="btn-mini" onclick="exportData()">导出备份（下载 JSON）</button> '
@@ -5006,7 +5015,8 @@ function renderWorkout() {
 
 /* ============ 启动 ============ */
 function bindUI() {
-  document.getElementById('btnOffline').onclick = () => enterOffline();
+  const bStart = document.getElementById('btnStart'); if (bStart) bStart.onclick = () => enterOffline(); // v4.2 动线①：主按钮=直接开始（本机模式）
+  const bBackup = document.getElementById('btnBackup'); if (bBackup) bBackup.onclick = () => showTokenSetup(); // 副链接：想备份时才见令牌配置
   document.getElementById('btnProfile').onclick = () => nav('pgProfile');
   const bs = document.getElementById('btnSave');
   if (bs) bs.onclick = () => tfSave(); // 保存按钮由 renderToday 动态渲染，静态期可能不存在
@@ -5043,8 +5053,17 @@ async function init() {
     TOKEN = savedToken;
     enterApp();
   } else {
-    showTokenSetup(); // v4.1 简化安全模型（主人拍板删口令锁）：首次粘贴令牌一次，之后永久免输
+    showWelcome(); // v4.2 动线①：首开=欢迎态，令牌配置延后（先用起来，想备份时才配）
   }
+}
+function showWelcome() { // v4.2 动线①：欢迎态（S0 默认）——先体验后配置（lazy registration）
+  document.getElementById('gateTitle').textContent = '体能系统';
+  const sub = document.getElementById('gateSub');
+  if (sub) sub.textContent = '你好，我是星黎。不用注册、不用配置——直接开始今天的第一次锻炼。数据先存本机；想备份到自己的 GitHub 私有仓，随时在【档案】页设置。';
+  document.getElementById('gateMsg').innerHTML = '';
+  document.getElementById('btnUnlock').hidden = true;
+  const st = document.getElementById('btnStart'); if (st) st.hidden = false;
+  const bb = document.getElementById('btnBackup'); if (bb) bb.hidden = false;
 }
 async function verifyToken(t) { // v4.1 主人实测反馈：粘贴时不瞎存——当场问 GitHub，失败给人话原因
   try {
@@ -5059,16 +5078,41 @@ async function verifyToken(t) { // v4.1 主人实测反馈：粘贴时不瞎存�
     return { ok: true, msg: '验证通过' + (login ? '（账号 ' + login + '，私有仓可读）' : '') };
   } catch (e) { return { ok: false, msg: '网络不通——连上 Wi-Fi 或蜂窝再试' }; }
 }
-function showTokenSetup() { // v4.1：首次使用/换设备——粘贴一次 GitHub 令牌（存本机 localStorage，不进公开仓）
+function configBackupModal() { // v4.2 动线①：app 内令牌配置（欢迎页"档案页可配"承诺的兑现；复用 verifyToken 当场验证）
+  showModal('<div class="card-title" style="margin-bottom:10px">备份到 GitHub</div>'
+    + '<div class="sub" style="margin-bottom:10px">需要一次「令牌」（GitHub 给你的一串钥匙）：github.com 登录 → 头像 → Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token → 勾选 repo → 生成后复制，粘贴到下面。</div>'
+    + '<div class="field"><input id="cfgToken" type="password" autocomplete="off" placeholder="ghp_ 或 github_pat_ 开头"></div>'
+    + '<div class="m-actions"><button class="btn-primary" id="cfgTokenSave">保存并备份</button>'
+    + '<button class="btn-ghost" id="cfgTokenCancel">取消</button></div>');
+  document.getElementById('cfgTokenCancel').onclick = closeModal;
+  document.getElementById('cfgTokenSave').onclick = async function () {
+    const t = (document.getElementById('cfgToken').value || '').trim();
+    if (t.indexOf('ghp_') !== 0 && t.indexOf('github_pat_') !== 0) { toast('令牌应以 ghp_ 或 github_pat_ 开头——检查复制是否完整'); return; }
+    const btn = this; btn.disabled = true; btn.textContent = '正在验证…';
+    const v = await verifyToken(t);
+    btn.disabled = false; btn.textContent = '保存并备份';
+    if (!v.ok) { toast(v.msg); return; }
+    try { localStorage.setItem('tineng_token', t); } catch (e) {}
+    TOKEN = t;
+    closeModal();
+    renderProfile();
+    toast(v.msg);
+    pushNow(); // 配好立即备份一次，用户当场看到"已同步"
+  };
+}
+function showTokenSetup() { // v4.2 动线①：备份配置（从欢迎态或【档案】页进入）——粘贴一次 GitHub 令牌（存本机 localStorage，不进公开仓）
   document.getElementById('gateTitle').textContent = '体能系统';
+  const sub = document.getElementById('gateSub');
+  if (sub) sub.textContent = '备份 = 把你的锻炼数据存到你自己的 GitHub 私有仓（免费、只有你能看）。';
   const box = document.getElementById('gateMsg');
-  box.innerHTML = '<div class="sub" style="margin:8px 0">第一次用？粘贴你的 GitHub 令牌（一次就好，存本机）。生成方法：GitHub → Settings → Developer settings → Personal access tokens → **Tokens (classic)** → 勾 repo → Generate → 复制。</div>'
+  box.innerHTML = '<div class="sub" style="margin:8px 0">需要一次「令牌」（GitHub 给你的一串钥匙）：打开 github.com 登录 → 右上角头像 → Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token → 勾选 repo → 生成后复制，粘贴到下面。一次就好，之后不用再管。</div>'
     + '<div class="field"><input id="setupToken" type="password" autocomplete="off" placeholder="ghp_ 或 github_pat_ 开头"></div>'
     + '<button type="button" class="btn-primary" id="btnSaveToken">保存并进入</button>'
-    + '<button type="button" class="link-btn" id="btnOffline2">离线只读模式</button>';
+    + '<button type="button" class="link-btn" id="btnOffline2">先不配，直接开始</button>'
+    + '<button type="button" class="link-btn" id="btnBackWelcome">返回</button>';
   document.getElementById('btnUnlock').hidden = true;
-  const old = document.getElementById('btnOffline');
-  if (old) old.hidden = true;
+  const bStart = document.getElementById('btnStart'); if (bStart) bStart.hidden = true;
+  const bBackup = document.getElementById('btnBackup'); if (bBackup) bBackup.hidden = true;
   document.getElementById('btnSaveToken').onclick = async function () {
     const t = (document.getElementById('setupToken').value || '').trim();
     if (t.indexOf('ghp_') !== 0 && t.indexOf('github_pat_') !== 0) { toast('令牌应以 ghp_ 或 github_pat_ 开头——检查复制是否完整'); return; }
@@ -5082,11 +5126,11 @@ function showTokenSetup() { // v4.1：首次使用/换设备——粘贴一次 G
     tryUnlockLocal();
   };
   document.getElementById('btnOffline2').onclick = function () { enterOffline(); };
+  document.getElementById('btnBackWelcome').onclick = function () { showWelcome(); };
 }
 function tryUnlockLocal() { // v4.1：免口令直进（数据通道=私有仓 TOKEN 认证，公开仓零信息）
   document.getElementById('gate').hidden = true;
   document.getElementById('app').hidden = false;
-  try { const old = document.getElementById('btnUnlock'); if (old) old.hidden = false; const o2 = document.getElementById('btnOffline'); if (o2) o2.hidden = false; } catch (e) {}
   enterApp();
 }
 document.addEventListener('DOMContentLoaded', init);

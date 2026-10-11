@@ -1,7 +1,7 @@
 {
   "name": "体能系统",
   "short_name": "体能系统",
-  "version": "4.1.0",
+  "version": "4.2.0",
   "description": "个人户外体能训练记录与健康数据，内置规则引擎给每日训练建议",
   "lang": "zh-CN",
   "start_url": "./index.html",

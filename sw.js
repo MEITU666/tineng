@@ -1,10 +1,10 @@
-/* 体能系统 v4.1 Service Worker（零外部依赖，白名单内才缓存）
+/* 体能系统 v4.2 Service Worker（零外部依赖，白名单内才缓存）
    策略：
    - 页面（导航 / index.html）：network-first，失败回退缓存
    - GitHub API（api.github.com）响应：network-first，失败回退缓存（v4.1 Gist 通道已移除）
    - icon.svg / manifest.json：cache-first
    白名单之外的请求一律不拦截、不缓存 */
-const CACHE = 'tineng-cache-v8'; // v4.1 审查修复批+安全模型简化+修改访问密钥 // v4.1 令牌制：强制所有设备丢弃旧缓存（含已作废令牌的旧链路）
+const CACHE = 'tineng-cache-v9'; // v4.2 好用度整改批1：首开欢迎态（强制旧缓存失效）
 const ASSETS = ['./', './index.html', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', (e) => {

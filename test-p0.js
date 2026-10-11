@@ -313,8 +313,10 @@ check('⑨ 顺延联动（v4.1 FR-B1）：schedShift.weeks=1 → anchorDate+7d�
   return '顺延联动+钳位全对';
 });
 check('⑨ 周期进度卡（v4.1）：冬训/专项卡头+峰值/检阅在位+顺延标注+中断按钮', () => {
-  const card = w.eval('mountainGoalHtml()');
-  if (card.indexOf('周期进度') < 0) throw new Error('缺周期卡头');
+  // v4.2 修复：原先无参调用随真实日期滚动进不同分支（2026-10-11 落 W1 无"周期进度"卡头→假失败）；
+  // 断言一律显式传日期：10-01=未开营（周期进度）、10-05=冬训 W1、2027-06-07=专项 W12。
+  const card = w.eval('mountainGoalHtml("2026-10-01")'); // 未开营分支（开营 10/5 前）
+  if (card.indexOf('周期进度') < 0 || card.indexOf('10/5 开营') < 0) throw new Error('缺周期卡头（未开营分支）');
   const cardW1 = w.eval('mountainGoalHtml("2026-10-05")'); // 冬训 W1：走冬训分支
   if (cardW1.indexOf('冬训期 · 第 1/24 周') < 0 || cardW1.indexOf('毕业线') < 0) throw new Error('W1 分支缺周次或毕业线');
   const cardS12 = w.eval('mountainGoalHtml("2027-06-07")'); // 专项 W12：检阅分支
