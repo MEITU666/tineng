@@ -1463,6 +1463,8 @@ function dailyPackCard(level) { // v4.1 挖掘修复 P0：每日包动线组装�
 function chkMissLine() { // v4.1 挖掘修复：晨检连断引导（今天没做不算断，从昨天往前数）
   // v4.2 动线②：从未开始过晨检的人，miss=30 是假断档——"停了30天"对没开始的人是问责账单（羞耻感=弃用触发器）
   if (!(D.daily || []).some((r) => r.chk)) return '';
+  const __t0 = M.dailyOn(U.todayStr());
+  if (__t0 && __t0.chk) return ''; // 真浏览器复验修复：今天刚做完晨检=已接上，绝不能显示"停了30天"
   let miss = 0;
   for (let i = 1; i <= 30; i++) { const d = M.dailyOn(U.addDays(U.todayStr(), -i)); if (d && d.chk) break; miss++; }
   if (miss < 3) return '';
