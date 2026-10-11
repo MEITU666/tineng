@@ -444,6 +444,33 @@ check('㊲ v4.2 天气教练提示进首屏：四档行动含义（雨雪/大风
   if (th.indexOf('室内三选一') < 0) throw new Error('首屏状态卡缺天气行');
   return '天气提示四态+首屏露出 ✓';
 });
+check('㊳ v4.2.1 足踝重装专项批：footStages 三级升四级（分控/离心/抗阻/负重下台阶）+2→3 晋级链', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData();');
+  if (w.eval('CONFIG.footStages.length') !== 4) throw new Error('应为 4 级（原 3 级+重装专项）');
+  const s3 = w.eval('JSON.stringify(CONFIG.footStages[3])');
+  for (const k of ['脚趾分控', '单腿提踵', '离心', '弹力带勾脚', '腓骨肌', '下台阶', '抛接', '48小时']) if (s3.indexOf(k) < 0) throw new Error('Stage3 缺「' + k + '」');
+  if (w.eval('CONFIG.footStages[2].promo').indexOf('晋级') < 0) throw new Error('Stage2 应有晋级判据');
+  // 晋级链：Stage2→3 测评表（双确认）
+  w.eval('D.state.footStage = 2; promoteFootModal();');
+  const pm = w.eval('document.getElementById("modalBox").innerHTML');
+  if (pm.indexOf('闭眼单腿每侧≥20秒') < 0 || pm.indexOf('无崴脚') < 0) throw new Error('Stage2→3 测评表缺失');
+  w.eval('document.getElementById("pmC1").checked = true; document.getElementById("pmC2").checked = true; promoteFoot();');
+  if (w.eval('D.state.footStage') !== 3) throw new Error('双确认后应晋级 Stage3');
+  // 顶格守卫：Stage3 不再弹晋级表，只 toast（先清空 modalBox 残留）
+  w.eval('document.getElementById("modalBox").innerHTML = ""; promoteFootModal();');
+  const tp3 = w.eval('document.getElementById("toastBox").textContent');
+  const pm3 = w.eval('document.getElementById("modalBox").innerHTML');
+  w.eval('closeModal()');
+  if (tp3.indexOf('最高 Stage 3') < 0) throw new Error('Stage3 应 toast 顶格提示：' + tp3);
+  if (pm3.indexOf('晋级测评（') >= 0) throw new Error('Stage3 不应再弹测评表');
+  // K7 卡自动带出
+  w.eval('showK("K7")');
+  const k7 = w.eval('document.getElementById("modalBox").innerHTML');
+  w.eval('closeModal()');
+  if (k7.indexOf('重装足踝专项') < 0) throw new Error('K7 未带出 Stage3');
+  return '四级足踝体系+晋级链+K7 带出 ✓';
+});
 
 /* ---------- ⑦ 训练感受弹窗（跟练结束 → 三键定 RPE + 疼痛点选） ---------- */
 check('⑦ 课结报告含感受三键与疼痛点选', () => {

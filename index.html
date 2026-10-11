@@ -554,7 +554,14 @@ const CONFIG = {
       '闭眼单腿站立（扶墙备。安全提示：站在墙或椅旁）',
       '折叠毛巾/软垫上单腿站立3×30秒/侧',
       '周末户外不平路面短距离行走（从10分钟起，带登山杖）' ],
-      promo: '无晋级门槛，持续至体测闭眼单腿每侧≥20秒 且 连续30天无崴脚' }
+      promo: '晋级：体测闭眼单腿每侧≥20秒 且 连续30天无崴脚（晋级测评入口自动出现）' },
+    { name: '重装足踝专项（徒步转化）', mins: '每天10分钟', items: [
+      '脚趾分控：站姿，大拇指单独抬起/下压、其余四趾反向，各3×10/足——做不到先坐姿练，2-3周建立（足内在肌控制，实证训练项）',
+      '单腿提踵慢落：3×10/侧，踮起2秒、下落3秒——离心是下山缓冲的主力',
+      '弹力带勾脚（胫前肌，防下坡绊脚）3×12/侧 + 弹力带外翻（腓骨肌，防内翻崴脚）3×12/侧',
+      '负重下台阶：背包5kg起，前脚慢踩3秒下台阶，3×8/侧；周末短途下坡徒步预适应（20分钟起，登山杖）',
+      '软垫单腿站+抛接干扰（扰动平衡，防崴脚复发的 RCT 级证据项）' ],
+      promo: '毕业：单腿提踵连续≥15/侧 且 负重下台阶训练次晨无痛不肿（48小时原则）。疼痛规则：练时痛≤2/10 放心做；2-5 可继续但次晨必须消退、周趋势不升；≥8 立即停' }
   ],
   footNote: '你的问题分两个：①右足软组织挫伤=脚掌疼（平时走路可感）②不平路面易崴脚=踝的问题。本模块以足底康复为主线，防崴平衡训练在 Stage 2 加入。疼痛位置不确定属于正常——本方案只含低风险动作；若 4 周无改善或疼痛加重，去运动医学科/骨科明确诊断，不要拖。',
   footLinks: [
@@ -876,7 +883,7 @@ function toast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.hidden = true; }, 3200);
 }
-window.APP_VER = '4.2.0'; // v4.2：好用度整改（动线①欢迎态+备份延后；动机导向重构第一批）。注：产品对外名以主人拍板为准（PRD :15），代码层不使用任何未经拍板的人格名
+window.APP_VER = '4.2.1'; // v4.2.1：足踝重装专项批（Stage3 脚趾分控/离心提踵/抗阻/负重下台阶）。注：产品对外名以主人拍板为准（PRD :15），代码层不使用任何未经拍板的人格名
 window.addEventListener('error', function (e) { try { if (e && e.message) toast('出了个小问题：' + String(e.message).slice(0, 60)); } catch (err) {} }); // v4.1 审查修复 B4：全局异常不再静默
 window.addEventListener('unhandledrejection', function (e) { try { const r = e && e.reason; toast('后台出了个小问题：' + String(r && r.message || r || '未知').slice(0, 60)); } catch (err) {} });
 async function checkAppUpdate() { // v4.1：一键清 SW/缓存并重载——根治"PWA 更新后吃旧缓存"（原需手动强刷）
@@ -4321,7 +4328,7 @@ function renderProfile() {
   h += '<div class="card"><div class="card-title" style="margin-bottom:8px">足康复 Stage：' + s.footStage + '（' + U.esc(stg.name) + '）</div>'
     + '<div class="sub">' + U.esc(stg.promo) + '</div>'
     + '<div class="sub" style="margin-top:6px">当前连续无足/踝痛：' + M.footPainFreeDays() + ' 天；踝痛打卡自动降一级（Stage 0 不再降）。</div>'
-    + (s.footStage < 2 ? '<button class="btn-mini" style="margin-top:10px" onclick="promoteFootModal()">Stage 晋级测评</button>' : '')
+    + (s.footStage < 3 ? '<button class="btn-mini" style="margin-top:10px" onclick="promoteFootModal()">Stage 晋级测评</button>' : '')
     + '</div>';
   // 睡眠锚点
   h += '<div class="card"><div class="card-title" style="margin-bottom:8px">睡眠锚点（K9：比几点起床更重要，先守21天）</div>'
@@ -4441,16 +4448,20 @@ function saveWeight() {
 /* 足康复 Stage 晋级测评（K7 晋级条件） */
 function promoteFootModal() {
   const st = D.state.footStage;
-  if (st >= 2) { toast('已到最高 Stage 2（维持：体测单腿每侧≥20s 且 连续30天无崴脚）'); return; }
+  if (st >= 3) { toast('已到最高 Stage 3（重装足踝专项，练到毕业线即随课表走）'); return; }
   let body = '';
   if (st === 0) {
     body = '<div class="sub" style="margin-bottom:10px">晋级条件：连续7天日常行走疼痛≤2/10。系统已核对连续无足/踝痛打卡 ' + M.footPainFreeDays() + ' 天。请自我确认后提交。</div>'
       + '<div class="row-between" style="margin-bottom:10px"><label class="body-tx">近7天日常行走疼痛≤2/10</label>'
       + '<label class="switch"><input type="checkbox" id="pmConfirm"><span class="sl"></span></label></div>';
-  } else {
+  } else if (st === 1) {
     body = '<div class="sub" style="margin-bottom:10px">晋级条件：连续14天日常行走无痛（系统核对：当前 ' + M.footPainFreeDays() + ' 天）且 睁眼单腿45秒×3组稳定（左右均达标）。</div>'
       + '<div class="field"><label>左腿睁眼单腿（秒）</label><input id="pmL" type="number" min="0" inputmode="numeric" placeholder="如 45"></div>'
       + '<div class="field"><label>右腿睁眼单腿（秒）</label><input id="pmR" type="number" min="0" inputmode="numeric" placeholder="如 45"></div>';
+  } else if (st === 2) {
+    body = '<div class="sub" style="margin-bottom:10px">晋级条件：体测闭眼单腿每侧≥20秒（体测页可核）且 连续30天无崴脚。系统已核对连续无足/踝痛打卡 ' + M.footPainFreeDays() + ' 天。两项自我确认后提交。</div>'
+      + '<div class="row-between" style="margin-bottom:8px"><label class="body-tx">体测闭眼单腿每侧≥20秒</label><label class="switch"><input type="checkbox" id="pmC1"><span class="sl"></span></label></div>'
+      + '<div class="row-between" style="margin-bottom:10px"><label class="body-tx">近30天无崴脚</label><label class="switch"><input type="checkbox" id="pmC2"><span class="sl"></span></label></div>';
   }
   showModal('<div class="card-title" style="margin-bottom:8px">Stage 晋级测评（' + st + ' → ' + (st + 1) + '）</div>' + body
     + '<div class="m-actions"><button class="btn-primary" onclick="promoteFoot()">提交测评</button>'
@@ -4459,12 +4470,12 @@ function promoteFootModal() {
 function promoteFoot() {
   if (readOnly) { toast('离线只读模式，改动不保存'); return; } // Codex 复核 P2-1 修复：补只读守卫
   const st = D.state.footStage;
-  if (st >= 2) { closeModal(); return; }
+  if (st >= 3) { closeModal(); return; }
   if (st === 0) {
     const ok = document.getElementById('pmConfirm').checked;
     if (!ok) { toast('请先确认近7天行走疼痛≤2/10'); return; }
     D.state.footStage = 1;
-  } else {
+  } else if (st === 1) {
     const need = 45; // 估算值：Stage1→2 睁眼单腿45秒
     const l = U.num(document.getElementById('pmL').value);
     const r = U.num(document.getElementById('pmR').value);
@@ -4472,6 +4483,10 @@ function promoteFoot() {
     if (M.footPainFreeDays() < 14) { toast('连续无足/踝痛未满14天（当前 ' + M.footPainFreeDays() + ' 天），暂不晋级'); return; }
     if (l < need || r < need) { toast('睁眼单腿需左右均≥' + need + '秒'); return; }
     D.state.footStage = 2;
+  } else {
+    const c1 = document.getElementById('pmC1').checked, c2 = document.getElementById('pmC2').checked;
+    if (!c1 || !c2) { toast('两项条件都确认了才能晋级'); return; }
+    D.state.footStage = 3;
   }
   D.state.updatedAt = Date.now();
   persist();
