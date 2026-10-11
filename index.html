@@ -3116,9 +3116,21 @@ function tfSave() {
     nb.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>已保存';
     setTimeout(() => { nb.classList.remove('saved'); nb.disabled = false; nb.textContent = '保存今日记录'; }, 1000);
   }
-  if (!navigator.onLine) toast('离线模式，已存本机待同步');
-  else if (warn) toast('已保存' + warn);
-  else toast('已保存');
+  if (!navigator.onLine) toast('已存本机待同步 · ' + saveCheer(rec));
+  else if (warn) toast('已保存' + warn + ' · ' + saveCheer(rec));
+  else toast(saveCheer(rec));
+}
+function saveCheer(rec) { // v4.2 动线③：做完有回应——带累计次数的即时正反馈（Fogg celebration：完成瞬间给'Shine'，不等周报）
+  // 调用点可能在 upsert 前或后：自动识别 rec 是否已入库，回答"这次是第几次"
+  if (CONFIG.trainTypes.indexOf(rec.type) < 0) {
+    return rec.type === '休息日' ? '已记录——休息也是训练的一部分' : '已记录';
+  }
+  const already = (D.daily || []).some((r) => r.date === rec.date && r.type === rec.type);
+  const n = (D.daily || []).filter((r) => CONFIG.trainTypes.indexOf(r.type) >= 0).length + (already ? 0 : 1);
+  if (n === 1) return '第 1 次完成——开练了，就是赢';
+  if (n <= 7) return '第 ' + n + ' 次，第一周稳住就是赢';
+  if (n < 30) return '第 ' + n + ' 次，节奏在长';
+  return '第 ' + n + ' 次，习惯已经站住了';
 }
 
 /* ============ SVG 图表库（原生手绘，颜色走 CSS 变量适配深色模式） ============ */

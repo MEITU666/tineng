@@ -349,6 +349,19 @@ check('㉝ v4.2 第一天零账单：从未开始的人不收"停了X天/0练/0-
   if (w.eval('chkMissLine()').indexOf('晨检停了 3 天') < 0) throw new Error('练过的人断档提示不应丢失');
   return '第一天零账单+断档语义保留 ✓';
 });
+check('㉞ v4.2 做完有回应：保存反馈带累计次数（第1次/第N次/休息日），不再是干巴巴"已保存"', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData();');
+  const c1 = w.eval('saveCheer({ type: "力量" })');
+  if (c1.indexOf('第 1 次完成') < 0 || c1.indexOf('就是赢') < 0) throw new Error('第1次反馈不对：' + c1);
+  w.eval('upsertByDate(D.daily, recStamp({ date: U.addDays(U.todayStr(), -1), type: "力量" }))');
+  const c3 = w.eval('saveCheer({ type: "有氧" })');
+  if (c3.indexOf('第 2 次') < 0) throw new Error('累计计数不对：' + c3);
+  const cRest = w.eval('saveCheer({ type: "休息日" })');
+  if (cRest.indexOf('休息也是训练的一部分') < 0) throw new Error('休息日反愧疚反馈缺失：' + cRest);
+  if (w.eval('saveCheer({ type: "病假" })').indexOf('已记录') < 0) throw new Error('病假反馈缺失');
+  return '即时回应四态 ✓';
+});
 
 /* ---------- ⑦ 训练感受弹窗（跟练结束 → 三键定 RPE + 疼痛点选） ---------- */
 check('⑦ 课结报告含感受三键与疼痛点选', () => {
