@@ -328,9 +328,26 @@ check('⑨ 周期进度卡（v4.1）：冬训/专项卡头+峰值/检阅在位+�
   w.eval('D.state.schedShift = { weeks: 2, log: [] };');
   if (w.eval('mountainGoalHtml("2026-10-05")').indexOf('（顺延 2 周）') < 0) throw new Error('顺延标注缺失');
   w.eval('D.state.schedShift = null;');
-  const cardIdle = w.eval('mountainGoalHtml("2026-10-05")'); // 冬训 W1+空记录（doneCnt=0<2）：应出顺延按钮
+  // v4.2 动线②：断档条只对"练过的人"出现（everTrained 守卫）——注入一条历史训练再验顺延按钮
+  w.eval('upsertByDate(D.daily, recStamp({ date: U.addDays(U.todayStr(), -1), type: "力量" }))');
+  const cardIdle = w.eval('mountainGoalHtml("2026-10-05")'); // 冬训 W1+练过但近7天<2练：应出顺延按钮
   if (cardIdle.indexOf('顺延 1 周') < 0) throw new Error('中断顺延按钮缺失');
   return '周期卡要素齐全';
+});
+/* ---------- ㉝ v4.2 动线②：第一天零账单（问责文案只对练过的人出现） ---------- */
+check('㉝ v4.2 第一天零账单：从未开始的人不收"停了X天/0练/0-7"三连', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData();'); // 全新用户：三表全空
+  if (w.eval('chkMissLine()') !== '') throw new Error('第一天不应出现"晨检停了X天"');
+  const mg = w.eval('mountainGoalHtml("2026-10-05")');
+  if (mg.indexOf('只完成 0 练') >= 0) throw new Error('第一天不应出现"只完成 0 练"顺延条');
+  const wr = w.eval('weekReviewHtml(true)');
+  if (wr.indexOf('0/7') >= 0 || wr.indexOf('丢了不少') >= 0 || wr.indexOf('完成率') >= 0) throw new Error('第一天周复盘不应是账单：' + wr.slice(0, 120));
+  if (wr.indexOf('第一周 · 欢迎') < 0) throw new Error('第一周应出欢迎版复盘');
+  // 练过之后：断档语义恢复（曾有 chk→"停了X天"合法）
+  w.eval('for (let i = 4; i <= 7; i++) upsertByDate(D.daily, recStamp({ date: U.addDays(U.todayStr(), -i), chk: { out: "ok", why: "" } }))');
+  if (w.eval('chkMissLine()').indexOf('晨检停了 3 天') < 0) throw new Error('练过的人断档提示不应丢失');
+  return '第一天零账单+断档语义保留 ✓';
 });
 
 /* ---------- ⑦ 训练感受弹窗（跟练结束 → 三键定 RPE + 疼痛点选） ---------- */
@@ -759,8 +776,10 @@ check('⑯ 周复盘：调用安全返回 string；若今天是周日则卡内�
   const r = w.eval('weekReviewHtml()');
   if (typeof r !== 'string') throw new Error('返回类型错');
   if (new Date().getDay() === 0) {
-    if (r.indexOf('周复盘 · 私教') < 0 || r.indexOf('训练打卡只 0/7') < 0 || r.indexOf('训练分布：本周无训练记录') < 0) throw new Error('周日空数据卡不对：' + r.slice(0, 300));
-    return '周日空数据态 ✓';
+    // v4.2 动线②：空数据=第一周欢迎版（不再是"训练打卡只 0/7"账单）
+    if (r.indexOf('第一周 · 欢迎') < 0) throw new Error('周日空数据应出欢迎版：' + r.slice(0, 300));
+    if (r.indexOf('0/7') >= 0 || r.indexOf('丢了不少') >= 0) throw new Error('欢迎版不应含账单词');
+    return '周日空数据欢迎版 ✓';
   }
   return '非周日空串 ✓（周日形态由⑯专项验证）';
 });
@@ -1221,7 +1240,8 @@ check('㉔ FR-G 动机层红线：首页渲染无问责信号（打卡率/完成
   }
   const h = w.eval("document.getElementById('todayBody').innerHTML");
   const coach = w.eval('weekReviewHtml()');
-  if (coach && coach.indexOf('训练打卡') < 0) throw new Error('周复盘卡应含教练视角打卡数据');
+  // v4.2 动线②：空数据=第一周欢迎版（无打卡数据也合规）；有数据时仍要求教练视角打卡数据
+  if (coach && coach.indexOf('第一周 · 欢迎') < 0 && coach.indexOf('训练打卡') < 0) throw new Error('周复盘卡应含教练视角打卡数据或欢迎版');
   return '首页零问责词 ✓（周复盘卡=教练视角白名单容器）';
 });
 check('㉔ schedShift 缺键防线：老数据 normalize/merge 补 null，不炸周期函数', () => {

@@ -1461,6 +1461,8 @@ function dailyPackCard(level) { // v4.1 挖掘修复 P0：每日包动线组装�
     + '<div class="sub" style="margin-top:4px">两样做完 = 今天完成' + (level === 'return' ? '，回归就是赢' : '') + '。</div></div>';
 }
 function chkMissLine() { // v4.1 挖掘修复：晨检连断引导（今天没做不算断，从昨天往前数）
+  // v4.2 动线②：从未开始过晨检的人，miss=30 是假断档——"停了30天"对没开始的人是问责账单（羞耻感=弃用触发器）
+  if (!(D.daily || []).some((r) => r.chk)) return '';
   let miss = 0;
   for (let i = 1; i <= 30; i++) { const d = M.dailyOn(U.addDays(U.todayStr(), -i)); if (d && d.chk) break; miss++; }
   if (miss < 3) return '';
@@ -1681,7 +1683,9 @@ function mountainGoalHtml(dateStr) { // 今日页"周期进度"卡（M6 目标�
     prompt += '<button class="ci-btn" style="margin-top:8px" onclick="openGradReview()">🎓 开始毕业评审（三判定+人工确认）</button>';
   }
   const doneCnt = weekDoneCount();
-  if (wk >= 1 && wk <= 36 && doneCnt < 2 && schedShiftWeeks() < 2) {
+  // v4.2 动线②："只完成 0 练"的顺延条只对练过的人出现——从未开始=开营第一周，不是断档
+  const everTrained = (D.daily || []).some((r) => CONFIG.trainTypes.indexOf(r.type) >= 0);
+  if (wk >= 1 && wk <= 36 && everTrained && doneCnt < 2 && schedShiftWeeks() < 2) {
     prompt = '<div class="sub" style="margin-top:6px;padding:8px;border-radius:8px;background:color-mix(in srgb, var(--orange) 10%, transparent)">最近 7 天只完成 ' + doneCnt + ' 练——断档不扣分，计划可以整体让路。'
       + '<button class="btn-mini" style="margin-left:6px" onclick="shiftCycleWeek()">顺延 1 周</button></div>';
   } else if (schedShiftWeeks() >= 2) {
@@ -2163,6 +2167,13 @@ function youAreHere(kId) { // 晋升标记（批2⑧）：K21/K23 卡头动态"�
 /* ============ 最终版·私教席（2026-09-27 深夜批3）：周复盘卡+新手7天引导 ============ */
 function weekReviewHtml(force) { // 周复盘卡（仅周日出现；force=测试/预览强制渲染）：打卡率/档位变化/睡眠保持+一句人话结论带理由；数据全来自现有 D 字段
   if (new Date().getDay() !== 0 && !force) return '';
+  // v4.2 动线②：第一周（全历史零记录）不出"0/7"账单——周日打开看到四连负面统计是弃用触发器
+  if (recCount(D) === 0) {
+    return '<div class="card"><div class="card-head"><div class="bubble bg-blue" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 19V5M4 19h16M8 15v-4M12 15V8M16 15v-6"/></svg></div>'
+      + '<div style="flex:1"><div class="card-title" style="margin:0">第一周 · 欢迎</div><div class="sub">复盘从你完成第一练之后开始</div></div></div>'
+      + '<div class="body-tx" style="margin-top:6px;font-weight:600">这周只需要做一件事：完成 1 次锻炼（12 分钟也算数）。</div>'
+      + '<div class="sub" style="margin-top:4px">做完回「今天」页保存，下周日这里就是你的第一份真实复盘。</div></div>';
+  }
   let trained = 0, sleepArr = [], typeCnt = {};
   for (let i = 0; i < 7; i++) {
     const d = M.dailyOn(U.addDays(U.todayStr(), -i)), m = M.metricOn(U.addDays(U.todayStr(), -i));
@@ -2924,7 +2935,7 @@ function prefillToday() {
     tf.painOpt = lf.painOpt;
     tf.painText = (lf.painOpt === '其他' && lf.painText) ? lf.painText : '';
   }
-  tf.mood = rec ? (rec.mood || '') : ((lf && lf.mood) || '');
+  tf.mood = rec ? (rec.mood || '') : ((lf && lf.mood) || '一般'); // v4.2 动线②：第一天无"上次"给中性默认——保存不再被"请选择主观状态"拦截（10秒记录承诺）
   const sf = document.getElementById('swFoot'), sb = document.getElementById('swBdj');
   if (sf) sf.checked = tf.footRehab;
   if (sb) sb.checked = tf.baduanjin;
