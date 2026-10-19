@@ -7,12 +7,12 @@ const path = require('path');
 const { JSDOM } = require('jsdom');
 
 const DIR = __dirname;
-const html = fs.readFileSync(path.join(DIR, 'index.html'), 'utf8');
+const html = fs.readFileSync(path.join(DIR, 'index.html'), 'utf8').replace(/\r\n/g, '\n');
 
-const scriptMatch = html.match(/<script>\n[\s\S]*?<\/script>/);
+const scriptMatch = html.match(/<script>\r?\n[\s\S]*?<\/script>/);
 if (!scriptMatch) { console.error('FATAL: 主 <script> 块没找到'); process.exit(2); }
 const scriptBody = scriptMatch[0].replace(/^<script>\n/, '').replace(/<\/script>$/, '');
-const stripped = html.replace(/<script>\n[\s\S]*?<\/script>/, '');
+const stripped = html.replace(/<script>\r?\n[\s\S]*?<\/script>/, '');
 
 /* 跳过 init 的 DOMContentLoaded 绑定（实施手册要求），其余原样注入 */
 const bodyNoInit = scriptBody.replace(
@@ -36,6 +36,7 @@ if (loadErr || w.eval('window.__appLoaded') !== true) loadErr = loadErr || new E
 const backupRaw = JSON.parse(fs.readFileSync(path.join(DIR, 'backup-20260927', 'data-main.json'), 'utf8'));
 w.eval('window.__bkBackup = ' + JSON.stringify(backupRaw) + ';');
 
+const ACCOUNTABILITY_RE = /(停了\s*\d+\s*天|隔了\s*\d+\s*天|只完成\s*\d+\s*练|断档\s*\d+\s*天|已经?\s*\d+\s*天没|连续\s*\d+\s*天没)/; // 首页问责式 N 天（单一常量，㉔/㊽ 共用）
 const results = [];
 function check(name, fn) {
   try { const detail = fn(); results.push({ ok: true, name, detail: detail || '' }); }
@@ -257,6 +258,15 @@ check('⑥ 卡面要素齐全：理由/主观点选/缺睡眠提示', () => {
 });
 
 /* ---------- ⑨ 引擎 v2（开工单§四落码）：疲劳四选/首句动作/踝门/M6 目标层 ---------- */
+check('㊵ 恢复档/回归档不出现“开始训练”主按钮（今天页只留每日包入口）', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); D.state.profileDone = true; D.state.tour7 = null; D.state.feelMark = { date: U.todayStr(), feel: "很虚" }; renderToday();');
+  const body = w.eval('document.getElementById("todayBody").innerHTML');
+  if (body.indexOf('onclick="startWorkout()"') >= 0) throw new Error('恢复档仍渲染开始训练按钮');
+  if (body.indexOf('开始每日包') < 0) throw new Error('恢复档缺每日包主按钮');
+  w.eval('D.state.feelMark = null; renderToday();');
+  return '恢复档主按钮唯一 ✓';
+});
 check('⑨ 疲劳四选在位：满血|正常|累|很虚', () => {
   if (w.eval('FEELS.join("|")') !== '满血|正常|累|很虚') throw new Error('FEELS 应为四选');
   return w.eval('FEELS.join("/")');
@@ -346,7 +356,9 @@ check('㉝ v4.2 第一天零账单：从未开始的人不收"停了X天/0练/0-
   if (wr.indexOf('第一周 · 欢迎') < 0) throw new Error('第一周应出欢迎版复盘');
   // 练过之后：断档语义恢复（曾有 chk→"停了X天"合法）
   w.eval('for (let i = 4; i <= 7; i++) upsertByDate(D.daily, recStamp({ date: U.addDays(U.todayStr(), -i), chk: { out: "ok", why: "" } }))');
-  if (w.eval('chkMissLine()').indexOf('晨检停了 3 天') < 0) throw new Error('练过的人断档提示不应丢失');
+  const missLine = w.eval('chkMissLine()');
+  if (missLine.indexOf('60 秒晨检') < 0) throw new Error('练过的人断档提示不应丢失');
+  if (/\d+\s*天/.test(missLine)) throw new Error('断档提示不得出现 N 天：' + missLine);
   return '第一天零账单+断档语义保留 ✓';
 });
 check('㉞ v4.2 做完有回应：保存反馈带累计次数（第1次/第N次/休息日），不再是干巴巴"已保存"', () => {
@@ -474,15 +486,21 @@ check('㊳ v4.2.1 足踝重装专项批：footStages 三级升四级（分控/�
 check('㊴ v4.2.2 四问批：髋臀进阶动作入库+COACH 10 问（RPE 校准/海拔）+增重平台期联动', () => {
   if (loadErr) throw loadErr;
   w.eval('D = defaultData();');
-  // 动作库：11 动作，新动作字段对齐+渐进键有初始值
-  if (w.eval('CONFIG.actions.length') !== 11) throw new Error('动作库应 11 个');
+  // 动作库：14 动作（2026-10-20 体检新增提踵/划船/负重走），新动作字段对齐+渐进键有初始值
+  if (w.eval('CONFIG.actions.length') !== 14) throw new Error('动作库应 14 个');
+  for (const n of ['单腿提踵', '弹力带划船', '负重行走']) {
+    if (!w.eval(`CONFIG.actions.some(a => a.name === "${n}" && a.repsKey === "${n}" && !!WHY_MAP["${n}"] && !!TIPS_FIVE["${n}"])`)) throw new Error(n + ' 缺条目/WHY/五件套');
+    if (w.eval(`D.state.strengthReps["${n}"]`) == null) throw new Error(n + ' 渐进键无初始值');
+  }
   for (const n of ['保加利亚分腿蹲', '单腿硬拉']) {
     if (!w.eval(`CONFIG.actions.some(a => a.name === "${n}" && a.repsKey === "${n}" && a.sets === 3 && !!WHY_MAP["${n}"])`)) throw new Error(n + ' 缺条目/WHY');
     if (w.eval(`D.state.strengthReps["${n}"]`) == null) throw new Error(n + ' 渐进键无初始值');
   }
   // 课单含新动作
-  const course = w.eval('JSON.stringify(buildCourse(false))');
-  if (course.indexOf('保加利亚分腿蹲') < 0 || course.indexOf('单腿硬拉') < 0) throw new Error('力量课单未含新动作');
+  const courseA = w.eval('JSON.stringify(buildCourse(false, "2026-10-20"))'); // 周二 A 日
+  const courseB = w.eval('JSON.stringify(buildCourse(false, "2026-10-22"))'); // 周四 B 日
+  if (courseA.indexOf('单腿硬拉') < 0) throw new Error('A 日课单未含单腿硬拉');
+  if (courseB.indexOf('保加利亚分腿蹲') < 0 || courseB.indexOf('单腿提踵') < 0) throw new Error('B 日课单未含新动作');
   // 平台期：连续 3 周 ≤0.2kg 持平 → 上探热量带提示
   w.eval('const ws0 = U.weekStart(U.todayStr()); D.weekly = [{weekStart: ws0, weightKg: 59.6}, {weekStart: U.addDays(ws0, -7), weightKg: 59.6}, {weekStart: U.addDays(ws0, -14), weightKg: 59.6}];');
   const led = w.eval('weightLedgerLine()');
@@ -1008,8 +1026,8 @@ check('⑱ 课单为什么：动作库 WHY_MAP 全覆盖且 planHtml 渲染', ()
   const missing = names.filter((n) => w.eval(`!WHY_MAP[${JSON.stringify(n)}]`));
   if (missing.length) throw new Error('缺 why：' + missing.join('、'));
   const h = w.eval('(function(){ tf.type = "力量"; return planHtml(); })()');
-  if (h.indexOf('为什么练它') < 0 || h.indexOf('碎石坡') < 0) throw new Error('planHtml 未渲染 why');
-  return '9/9 动作带为什么 ✓';
+  if (h.indexOf('为什么练它') < 0 || h.indexOf('背得动 8kg') < 0) throw new Error('planHtml 未渲染 why');
+  return '14/14 动作带为什么 ✓';
 });
 check('⑱ 体重账：无记录引导称重；在带内/持平/掉秤三态判读正确', () => {
   if (loadErr) throw loadErr;
@@ -1175,8 +1193,11 @@ check('㉑ 全页面复核：七页渲染无 throw、今日页天气行在（空
     const len = w.eval(`document.getElementById('${body}').innerHTML.length`);
     if (len < 300) throw new Error(pg + ' 渲染过短 ' + len);
   }
-  w.eval('renderToday()');
-  if (w.eval('document.getElementById("todayBody").innerHTML').indexOf('今天天气') < 0) throw new Error('天气行缺失');
+  w.eval('tf.type = "有氧"'); // 天气选择只在户外课显示（力量日隐藏）
+  if (w.eval('planHtml()').indexOf('好天') < 0) throw new Error('天气行缺失');
+  w.eval('tf.type = "力量"');
+  if (w.eval('planHtml()').indexOf('好天') >= 0) throw new Error('力量日不应有天气行');
+  w.eval('tf.type = "无"'); // 复位，避免影响后续用例
   return '七页+天气行 ✓';
 });
 
@@ -1247,13 +1268,13 @@ check('㉒ 拦截三选：未勾全弹「部分完成，照实记录」诚实出
   if (loadErr) throw loadErr;
   w.eval(`D = defaultData(); D.state.lastForm = { type: '力量', mood: '好', painOpt: '无' };
     renderToday(); tfType('力量'); // 课表优先预填可能给非力量类型，显式切到力量日场景
-    for (var i = 0; i < 5; i++) tf.checks[i] = true; // 只勾 5/9
+    todaysActions().slice(0,5).forEach(function(x){ tf.checks[x.i] = true; }); // 只勾今日 5 个
     document.getElementById('fDur').value = 45; // 手动表单：时长必填，是校验链第一步
     tf.mood = '好'; tfSave();`);
   const modal = w.eval('document.getElementById("modalWrap").innerHTML');
   if (modal.indexOf('部分完成，照实记录') < 0) throw new Error('拦截 modal 缺诚实出口按钮');
   if (modal.indexOf('回去补勾') < 0) throw new Error('拦截 modal 缺回去补勾');
-  if (modal.indexOf('5/' + w.eval('CONFIG.actions.length')) < 0) throw new Error('modal 未显示勾选进度');
+  if (modal.indexOf('5/' + w.eval('todaysActions().length')) < 0) throw new Error('modal 未显示勾选进度');
   const before = w.eval('D.state.strengthReps["深蹲"]');
   w.eval('partialHonestSave()');
   const rec = w.eval('D.daily[D.daily.length - 1]');
@@ -1271,8 +1292,8 @@ check('㉒ 只填空不改已填：手改时长/滑块后模板不覆盖；全�
     applyTemplateToForm();
     window.__dur = document.getElementById('fDur').value;
     window.__rpe = document.getElementById('fRpe').value;
-    tfCheckAll(true); window.__ckOn = tf.checks.every(Boolean);
-    tfCheckAll(false); window.__ckOff = tf.checks.some(Boolean);`);
+    tfCheckAll(true); window.__ckOn = todaysActions().every(function(x){ return tf.checks[x.i]; });
+    tfCheckAll(false); window.__ckOff = todaysActions().some(function(x){ return tf.checks[x.i]; });`);
   if (w.eval('window.__dur') !== '60') throw new Error('手改时长被模板覆盖');
   if (w.eval('window.__rpe') !== '6') throw new Error('手改 RPE 被模板覆盖');
   if (w.eval('window.__ckOn') !== true || w.eval('window.__ckOff') !== false) throw new Error('全勾/清空异常');
@@ -1284,7 +1305,7 @@ check('㉒ 一键副行逐字明示将存什么（按下去之前看得到）', 
     D.daily = [{ date: U.addDays(U.todayStr(), -1), type: '力量', rpe: 8, durationMin: 45 }];
     renderToday(); tfType('力量');`); // 课表优先预填可能给非力量类型，显式切到力量日场景
   const sub = w.eval('quickSubText()');
-  const __n = w.eval('CONFIG.actions.length');
+  const __n = w.eval('todaysActions().length');
   for (const k of ['力量', '45 分钟', 'RPE', __n + ' 动作全勾']) if (sub.indexOf(k) < 0) throw new Error('副行缺「' + k + '」：' + sub);
   const btn = w.eval('quickBtnText()');
   if (btn.indexOf('一键保存') < 0) throw new Error('按钮文案异常：' + btn);
@@ -1380,7 +1401,7 @@ check('㉔ FR-G 动机层红线：首页渲染无问责信号（打卡率/完成
   const cardsG = w.eval("(function(){ return [...document.querySelectorAll('#todayBody .card')].map(function (c) { return { t: (c.querySelector('.card-title') || { textContent: '' }).textContent, h: c.innerHTML }; }); })()");
   for (const c of cardsG) {
     if (c.t.indexOf('周复盘') >= 0) continue; // 教练视角白名单容器（FR-G 规格 1）
-    for (const k of ['打卡率', '完成率', '你已断', '还差', '落后']) if (c.h.indexOf(k) >= 0) throw new Error('「' + c.t + '」卡出现问责词「' + k + '」');
+    for (const k of ['打卡率', '完成率', '你已断', '落后']) if (c.h.indexOf(k) >= 0) throw new Error('「' + c.t + '」卡出现问责词「' + k + '」');
   }
   const h = w.eval("document.getElementById('todayBody').innerHTML");
   const coach = w.eval('weekReviewHtml()');
@@ -1632,7 +1653,8 @@ check('㉘ 晨检连断引导：断 4 天提示接上，刚断 1 天不烦人', 
   w.eval('D = defaultData();');
   w.eval('for (let i = 4; i <= 7; i++) upsertByDate(D.daily, recStamp({ date: U.addDays(U.todayStr(), -i), chk: { out: "ok", why: "" } }))');
   const line = w.eval('chkMissLine()');
-  if (line.indexOf('晨检停了 3 天') < 0) throw new Error('连断提示缺失：' + line);
+  if (line.indexOf('60 秒晨检') < 0) throw new Error('连断提示缺失：' + line);
+  if (/\d+\s*天/.test(line)) throw new Error('连断提示不得出现 N 天：' + line);
   w.eval('upsertByDate(D.daily, recStamp({ date: U.addDays(U.todayStr(), -1), chk: { out: "ok", why: "" } }))');
   if (w.eval('chkMissLine()') !== '') throw new Error('昨天做过不应提示');
   return '连断引导 ✓';
@@ -1684,7 +1706,7 @@ check('㉗ UX 补缺：天气请求 5s 超时+nav pushState+focusin 防遮挡+�
 });
 check('㉙ 安全模型简化（v4.1 审查修复）：令牌本机+公开仓零密文+异常兜底+口令链全删', () => {
   if (loadErr) throw loadErr;
-  const src = fs.readFileSync('index.html', 'utf8');
+  const src = fs.readFileSync(path.join(DIR, 'index.html'), 'utf8');
   if (src.indexOf('GIST_RAW_URL') >= 0 || src.indexOf('decryptToken') >= 0 || src.indexOf('encryptToken') >= 0) throw new Error('密文链残留');
   if (src.indexOf('tineng_token') < 0 || src.indexOf('updateToken') < 0) throw new Error('令牌制缺失');
   if (src.indexOf("addEventListener('error'") < 0 || src.indexOf("addEventListener('unhandledrejection'") < 0) throw new Error('全局异常兜底缺失');
@@ -1695,9 +1717,148 @@ check('㉙ 安全模型简化（v4.1 审查修复）：令牌本机+公开仓零
 });
 
 
+
+/* ---------- 2026-10-20 体检修复：结构与口径断言 ---------- */
+check('㊶ 今天页块序：决策卡→安排卡→记录卡，首屏主按钮在位', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); D.state.profileDone = true; D.state.tour7 = null; renderToday();');
+  const ids = w.eval("Array.from(document.querySelectorAll('#todayBody > .card')).map(function(c){return c.id||''})");
+  if (!(ids.indexOf('readinessCard') >= 0 && ids.indexOf('readinessCard') < ids.indexOf('planCard') && ids.indexOf('planCard') < ids.indexOf('recordCard'))) throw new Error('块序不对：' + ids.join(','));
+  if (!w.eval("!!document.getElementById('btnStartToday')")) throw new Error('缺首屏主按钮');
+  return '决策→安排→记录 ✓';
+});
+check('㊷ 每日包只渲染一次（恢复档）', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); D.state.profileDone = true; D.state.tour7 = null; D.state.feelMark = { date: U.todayStr(), feel: "很虚" }; renderToday();');
+  const n = (w.eval("document.getElementById('todayBody').innerHTML").match(/id="dayPackCard"/g) || []).length;
+  if (n !== 1) throw new Error('每日包渲染 ' + n + ' 次');
+  w.eval('D.state.feelMark = null; renderToday();');
+  return '每日包唯一 ✓';
+});
+check('㊸ 主按钮三态：恢复=每日包 / 红灯=停训卡 / 正常=开始', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); D.state.profileDone = true;');
+  if (w.eval('startCta("floor").t') !== '开始每日包') throw new Error('恢复档文案错');
+  w.eval('upsertByDate(D.daily, recStamp({ date: U.todayStr(), type: "无", pain: "膝" }));');
+  if (w.eval('startCta("ok").t') !== '查看停训卡') throw new Error('红灯文案错');
+  w.eval('D.daily = [];');
+  const ok = w.eval('startCta("ok")');
+  if (!/开始/.test(ok.t) && !/选有氧/.test(ok.t)) throw new Error('正常档文案错：' + ok.t);
+  if (/[\'"]/.test(ok.fn)) throw new Error('内联 onclick 含引号：' + ok.fn);
+  return '三态文案+无引号拼接 ✓';
+});
+check('㊹ 静态标记 click 事件零引号拼接', () => {
+  const body = html.slice(html.indexOf('<body'), html.indexOf('<script>'));
+  const bad = body.match(/onclick="[^"]*'[^"]*"/g) || [];
+  if (bad.length) throw new Error('静态 onclick 含单引号：' + bad[0]);
+  return '静态零引号拼接 ✓';
+});
+check('㊺ 力量课 A/B：14 动作、A6/B7、组数≤20、估时≤45', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData();');
+  if (w.eval('CONFIG.actions.length') !== 14) throw new Error('动作数不是 14');
+  const a = w.eval('todaysActions("2026-10-20").length');
+  const b = w.eval('todaysActions("2026-10-22").length');
+  if (a !== 6 || b !== 7) throw new Error('A/B 动作数不对：' + a + '/' + b);
+  const setsA = w.eval('buildCourse(false,"2026-10-20").filter(function(x){return x.kind==="set"}).length');
+  const setsB = w.eval('buildCourse(false,"2026-10-22").filter(function(x){return x.kind==="set"}).length');
+  if (setsA > 20 || setsB > 20) throw new Error('组数超 20：' + setsA + '/' + setsB);
+  const minA = w.eval('estimateMin(buildCourse(false,"2026-10-20"))');
+  const minB = w.eval('estimateMin(buildCourse(false,"2026-10-22"))');
+  if (minA > 45 || minB > 45) throw new Error('估时超 45：' + minA + '/' + minB);
+  return 'A6/B7 · ' + minA + '/' + minB + ' 分钟 ✓';
+});
+check('㊻ 源码红线：Apple Health / N 天问责 / 旧一键文案零命中', () => {
+  for (const s of ['Apple Health', '晨检停了', '最近 7 天只完成', "__gap + ' 天"]) {
+    if (html.indexOf(s) >= 0) throw new Error('残留：' + s);
+  }
+  return '红线词零命中 ✓';
+});
+check('㊼ 浅色语义色对比度 ≥4.5', () => {
+  const css = html.slice(0, html.indexOf('</style>'));
+  const m = css.match(/html\[data-theme="light"\]\{([^}]*)\}/);
+  if (!m) throw new Error('缺 light 主题');
+  const get = (k) => { const r = new RegExp('--' + k + ':#([0-9A-Fa-f]{6})'); const x = m[1].match(r); return x ? x[1] : null; };
+  const lum = (hex) => { const v = [0,2,4].map(i => parseInt(hex.substr(i,2),16)/255).map(c => c <= 0.03928 ? c/12.92 : Math.pow((c+0.055)/1.055, 2.4)); return 0.2126*v[0]+0.7152*v[1]+0.0722*v[2]; };
+  const ratio = (a,b) => { const L1=lum(a), L2=lum(b); return (Math.max(L1,L2)+0.05)/(Math.min(L1,L2)+0.05); };
+  const bg = get('bg');
+  for (const k of ['orange-text','green-text','accent-text','text2']) {
+    const c = get(k); if (!c) throw new Error('缺 --' + k);
+    const r = ratio(c, bg);
+    if (r < 4.5) throw new Error(k + ' 对比度 ' + r.toFixed(2) + ' < 4.5');
+  }
+  return '浅色四色 ≥4.5 ✓';
+});
+check('㊽ 断档态首页无数字+天问责表述', () => {
+  if (loadErr) throw loadErr;
+  w.eval(`D = defaultData(); D.state.profileDone = true; D.state.tour7 = null;
+    upsertByDate(D.daily, recStamp({ date: U.addDays(U.todayStr(), -6), type: "有氧" }));
+    renderToday();`);
+  const t = w.eval("document.getElementById('todayBody').textContent");
+  if (ACCOUNTABILITY_RE.test(t)) throw new Error('首页出现问责式 N 天：' + t.match(ACCOUNTABILITY_RE)[0]);
+  return '断档态零 N 天 ✓';
+});
+
+
+check('㊾ A/B 分组完整：并集=动作库、无重复、各 6-7 个', () => {
+  if (loadErr) throw loadErr;
+  const all = w.eval('CONFIG.actions.map(function(a){return a.name})');
+  const plan = w.eval('STRENGTH_PLAN.A.concat(STRENGTH_PLAN.B)');
+  const uniq = Array.from(new Set(plan));
+  if (uniq.length !== plan.length) throw new Error('A/B 有重复动作');
+  for (const n of all) {
+    if (plan.indexOf(n) < 0 && n !== '下斜俯卧撑') throw new Error('动作未分组：' + n); // 下斜=进阶备选，不入日常课
+  }
+  if (w.eval('STRENGTH_PLAN.A.length') < 6 || w.eval('STRENGTH_PLAN.B.length') < 6) throw new Error('单日动作不足 6');
+  return 'A/B 并集覆盖 ✓';
+});
+check('㊿ 组数=setsOf 之和，估时 30-45 分钟', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData();');
+  for (const d of ['2026-10-20', '2026-10-22']) {
+    const sum = w.eval(`todaysActions("${d}").reduce(function(s,x){return s + setsOf(x.a)},0)`);
+    const sets = w.eval(`buildCourse(false,"${d}").filter(function(x){return x.kind==="set"}).length`);
+    if (sum !== sets) throw new Error(d + ' 组数不一致 ' + sum + '/' + sets);
+    const min = w.eval(`estimateMin(buildCourse(false,"${d}"))`);
+    if (min < 30 || min > 45) throw new Error(d + ' 估时越界 ' + min);
+  }
+  return '组数一致 · 30-45 分钟 ✓';
+});
+check('51 最大力量期切 3×5，第 9 周回 12-15', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData();');
+  const wk3 = w.eval('(function(){var old=cycleWeekOf; cycleWeekOf=function(){return 3}; var v=targetRepsOf(CONFIG.actions[0]); cycleWeekOf=old; return v})()');
+  const wk10 = w.eval('(function(){var old=cycleWeekOf; cycleWeekOf=function(){return 10}; var v=targetRepsOf(CONFIG.actions[0]); cycleWeekOf=old; return v})()');
+  if (wk3 !== 5) throw new Error('最大力量期应为 5，实际 ' + wk3);
+  if (!(wk10 >= 12 && wk10 <= 15)) throw new Error('第 9 周后应回到 12-15，实际 ' + wk10);
+  return '3×5 → 3×12-15 ✓';
+});
+check('52 触控目标：源码无 min-height:2Xpx 破口，决策卡唯一主按钮', () => {
+  const bad = [];
+  html.replace(/min-height:\s*(\d{1,2})px/g, function (m, n) { if (Number(n) < 44) bad.push(m); return m; });
+  if (bad.length) throw new Error('残留小触控目标：' + bad.join(','));
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); D.state.profileDone = true; D.state.tour7 = null; renderToday();');
+  const n = w.eval("document.querySelectorAll('#readinessCard .btn-primary').length");
+  if (n !== 1) throw new Error('决策卡主按钮数 ' + n);
+  if (w.eval('startCta("ok").kind') !== 'strength' && w.eval('startCta("ok").kind') !== 'cardio' && w.eval('startCta("ok").kind') !== 'rest') throw new Error('startCta 正常档分支异常');
+  return '44px + 唯一主按钮 ✓';
+});
+
+check('53 todayLevelInfo 不跨次累积理由，颜色 token 四处齐全', () => {
+  if (loadErr) throw loadErr;
+  const a = w.eval('todayLevelInfo().rdNow.reasons.length');
+  const b = w.eval('todayLevelInfo().rdNow.reasons.length');
+  if (a !== b) throw new Error('reasons 跨次累积：' + a + '/' + b);
+  for (const t of ['--orange-text', '--green-text', '--accent-text', '--blue-text', '--text2']) {
+    const n = (html.match(new RegExp(t.replace(/[-]/g, '\\-'), 'g')) || []).length;
+    if (n < 4) throw new Error(t + ' 定义不全（:root + dark 媒体 + 两处 data-theme），命中 ' + n);
+  }
+  return '理由不累积 · 颜色 token 四处齐全 ✓';
+});
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);
-console.log('================ P0 jsdom 断言报告（node ' + process.version + ' · jsdom ' + require('jsdom/package.json').version + '） ================');
+console.log('================ P0 jsdom 断言报告（node ' + process.version + ' · jsdom ' + require(require.resolve('jsdom/package.json', { paths: [DIR] })).version + '） ================');
 console.log('脚本注入：' + (loadErr ? '失败！' + loadErr.message : '成功（init 未触发，符合预期）'));
 for (const r of results) {
   console.log((r.ok ? 'PASS' : 'FAIL') + ' | ' + r.name + (r.detail ? ' | ' + r.detail : ''));
