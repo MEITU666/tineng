@@ -141,7 +141,7 @@ details.fold .fold-body{padding:2px 0 12px;font-size:14px;line-height:1.9;color:
 .gate-sub{font-size:13px;color:var(--text2);margin-bottom:28px;line-height:1.8;text-align:left}
 .gate-box .field{text-align:left;margin-bottom:20px}
 .gate-box .btn-primary{margin-bottom:6px}
-.gate-msg{margin-top:14px;font-size:13px;color:var(--red-text);min-height:44px;white-space:pre-wrap;line-height:1.7;text-align:center}
+.gate-msg{/* 非触控目标：文案行，可低于 44px */margin-top:14px;font-size:13px;color:var(--red-text);min-height:19px;white-space:pre-wrap;line-height:1.7;text-align:center}
 /* 状态卡：圆形发光灯 + 状态底色 */
 .light-card{display:flex;gap:12px;align-items:flex-start}
 .light-card.lv-grn{background:rgba(52,199,89,.08)}
@@ -200,7 +200,8 @@ input[type="range"]{width:100%;accent-color:var(--accent-text);min-height:44px;b
 /* 力量动作勾选（微交互：150ms 缩放填充） */
 .check-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:0.5px solid var(--line)}
 .check-item:last-child{border-bottom:0}
-.ck{width:22px;height:22px;border-radius:50%;border:2px solid var(--line);flex:none;margin-top:1px;display:flex;align-items:center;justify-content:center;transition:transform .15s ease-out,background .15s ease-out,border-color .15s}
+.ck{position:relative;width:22px;height:22px;border-radius:50%;border:2px solid var(--line);flex:none;margin-top:1px;display:flex;align-items:center;justify-content:center;transition:transform .15s ease-out,background .15s ease-out,border-color .15s}
+.ck::after{content:'';position:absolute;inset:-11px;border-radius:50%} /* 视觉 22px，实际热区 44px；点击区不改变视觉尺寸 */
 .ck svg{width:12px;height:12px;stroke:#fff;fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;opacity:0;transition:opacity .15s}
 .ck.on{background:var(--green);border-color:var(--green-text)}
 .ck.on svg{opacity:1}

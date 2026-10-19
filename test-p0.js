@@ -1835,8 +1835,12 @@ check('51 最大力量期切 3×5，第 9 周回 12-15', () => {
 });
 check('52 触控目标：源码无 min-height:2Xpx 破口，决策卡唯一主按钮', () => {
   const bad = [];
-  html.replace(/min-height:\s*(\d{1,2})px/g, function (m, n) { if (Number(n) < 44) bad.push(m); return m; });
-  if (bad.length) throw new Error('残留小触控目标：' + bad.join(','));
+  for (const m of html.matchAll(/<button[^>]*min-height:\s*(\d+)px/g)) if (+m[1] < 44) bad.push('button ' + m[1] + 'px');
+  for (const m of html.matchAll(/<[a-z][^>]*onclick=[^>]*min-height:\s*(\d+)px/g)) if (+m[1] < 44) bad.push('onclick ' + m[1] + 'px');
+  for (const m of html.matchAll(/\.(btn-primary|btn-ghost|btn-mini|link-btn|ci-btn|chip|tab)\{[^}]*?(?:min-)?height:\s*(\d+)px/g)) if (+m[2] < 44) bad.push('.' + m[1] + ' ' + m[2] + 'px');
+  if (bad.length) throw new Error('触控目标 <44px：' + bad.join(' | '));
+  // 静态扫描边界：只覆盖声明了 min-height/height 的交互元素；.ck 用 width/height 定尺寸、伪元素扩热区，单列护栏
+  if (!/\.ck:{1,2}(?:before|after)\{[^}]*inset:\s*-11px/.test(html)) throw new Error('勾选圈点按区未扩到 44px（需伪元素 + inset:-11px）');
   if (loadErr) throw loadErr;
   w.eval('D = defaultData(); D.state.profileDone = true; D.state.tour7 = null; renderToday();');
   const n = w.eval("document.querySelectorAll('#readinessCard .btn-primary').length");
