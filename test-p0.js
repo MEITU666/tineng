@@ -22,7 +22,12 @@ const bodyNoInit = scriptBody.replace(
 
 /* 关键：不能走 window.eval——主脚本带 'use strict'，严格 eval 的绑定不落全局。
    用真实 <script> 元素注入（runScripts:dangerously），与浏览器执行形态一致。 */
-const dom = new JSDOM(stripped, { url: 'https://tineng.local/', pretendToBeVisual: true, runScripts: 'dangerously' });
+const { VirtualConsole } = require('jsdom');
+const vc = new VirtualConsole();
+vc.on('jsdomError', function (e) { // scrollTo 等未实现 API 不再冒充崩溃；判定看 exit code 与「合计」行
+  if (!/Not implemented/.test(String(e && e.message))) console.error(e);
+});
+const dom = new JSDOM(stripped, { url: 'https://tineng.local/', pretendToBeVisual: true, runScripts: 'dangerously', virtualConsole: vc });
 const w = dom.window;
 const injector = w.document.createElement('script');
 injector.textContent = bodyNoInit;
@@ -1840,7 +1845,12 @@ check('52 触控目标：源码无 min-height:2Xpx 破口，决策卡唯一主�
   for (const m of html.matchAll(/\.(btn-primary|btn-ghost|btn-mini|link-btn|ci-btn|chip|tab)\{[^}]*?(?:min-)?height:\s*(\d+)px/g)) if (+m[2] < 44) bad.push('.' + m[1] + ' ' + m[2] + 'px');
   if (bad.length) throw new Error('触控目标 <44px：' + bad.join(' | '));
   // 静态扫描边界：只覆盖声明了 min-height/height 的交互元素；.ck 用 width/height 定尺寸、伪元素扩热区，单列护栏
-  if (!/\.ck:{1,2}(?:before|after)\{[^}]*inset:\s*-11px/.test(html)) throw new Error('勾选圈点按区未扩到 44px（需伪元素 + inset:-11px）');
+  const ckSize = html.match(/[.]ck[{][^}]*[{;]width:([0-9]+)px[^}]*[{;]height:([0-9]+)px/);
+  const ckHit = html.match(/[.]ck:{1,2}(?:after|before)[{][^}]*inset:[ ]*-([0-9]+)px/);
+  if (!ckSize || !ckHit) throw new Error('勾选圈尺寸/热区规则缺失');
+  const ckW = +ckSize[1], ckH = +ckSize[2], ckIn = +ckHit[1];
+  if (!isFinite(ckW) || !isFinite(ckH) || !isFinite(ckIn)) throw new Error('勾选圈尺寸解析失败');
+  if (ckW + 2 * ckIn < 44 || ckH + 2 * ckIn < 44) throw new Error('勾选圈热区不足：' + (ckW + 2 * ckIn) + 'px');
   if (loadErr) throw loadErr;
   w.eval('D = defaultData(); D.state.profileDone = true; D.state.tour7 = null; renderToday();');
   const n = w.eval("document.querySelectorAll('#readinessCard .btn-primary').length");
