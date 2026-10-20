@@ -197,6 +197,13 @@ input[type="range"]{width:100%;accent-color:var(--accent-text);min-height:44px;b
 .streak i.p-on{background:var(--purple)}
 .streak i.rest:after{content:'';width:10px;height:2px;border-radius:1px;background:var(--text2)}
 .streak i.today{box-shadow:inset 0 0 0 1.5px var(--accent)}
+/* 今日三件事 */
+.today-strip{display:flex;margin-top:10px;border-top:1px solid var(--line);padding-top:10px}
+.today-strip .ts{flex:1;text-align:center;border-right:1px solid var(--line)}
+.today-strip .ts:last-child{border-right:0}
+.today-strip .ts b{display:block;font-size:15px;font-weight:600;line-height:1.3}
+.today-strip .ts span{font-size:11px;color:var(--text2)}
+.today-strip .ts.done b{color:var(--green-text)}
 /* 喝水进度格子 */
 .wdots{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 2px}
 .wdot{width:16px;height:24px;border-radius:4px;background:color-mix(in srgb, var(--teal) 12%, var(--card));border:1px solid color-mix(in srgb, var(--teal) 32%, var(--line));display:inline-block;flex:none}
@@ -918,7 +925,7 @@ function toast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.hidden = true; }, 3200);
 }
-window.APP_VER = '4.4.1'; // v4.4.1：好用度增强（天气时段推荐/冬季室内/冷天热身/喝水记录+日历提醒；休息日只给散步窗口） // v4.2.1：足踝重装专项批（Stage3 脚趾分控/离心提踵/抗阻/负重下台阶）。注：产品对外名以主人拍板为准（PRD :15），代码层不使用任何未经拍板的人格名
+window.APP_VER = '4.4.2'; // v4.4.2：好用度增强（天气时段/冬季室内/冷天热身/喝水+日历提醒/今日三件事/完成态/上次训练） // v4.2.1：足踝重装专项批（Stage3 脚趾分控/离心提踵/抗阻/负重下台阶）。注：产品对外名以主人拍板为准（PRD :15），代码层不使用任何未经拍板的人格名
 window.addEventListener('error', function (e) { try { if (e && e.message) toast('出了个小问题：' + String(e.message).slice(0, 60)); } catch (err) {} }); // v4.1 审查修复 B4：全局异常不再静默
 window.addEventListener('unhandledrejection', function (e) { try { const r = e && e.reason; toast('后台出了个小问题：' + String(r && r.message || r || '未知').slice(0, 60)); } catch (err) {} });
 async function checkAppUpdate() { // v4.1：一键清 SW/缓存并重载——根治"PWA 更新后吃旧缓存"（原需手动强刷）
@@ -1793,6 +1800,35 @@ function girthHtml() { // Keep 抄单小件（v4.1 FR-I）：围度月量一次�
     + '<input id="gLeg" type="number" inputmode="decimal" placeholder="腿围 cm" style="flex:1;min-height:44px"></div>'
     + '<button class="btn-mini" style="margin-top:6px" onclick="saveGirth()">保存围度</button></div></details>';
 }
+function todayDone() { // 今天是否已有一条训练记录（不含休息日/病假）
+  const rec = M.dailyOn(U.todayStr());
+  if (!rec || CONFIG.trainTypes.indexOf(rec.type) < 0) return false;
+  return !!(rec.durationMin || rec.cardioChoice || (rec.strengthChecks && rec.strengthChecks.some(Boolean)));
+}
+function lastTrainingLine() { // 中性事实：上次训练是哪天、练了什么；不显示“断了几天”
+  const t = U.todayStr();
+  let last = null;
+  D.daily.forEach(function (d) { if (d.date < t && CONFIG.trainTypes.indexOf(d.type) >= 0) last = d; });
+  if (!last) return '上次：还没有记录';
+  const days = U.diffDays(last.date, t);
+  const when = days === 1 ? '昨天' : (days + ' 天前');
+  return '上次：' + when + ' · ' + last.type + (last.durationMin ? ' ' + last.durationMin + ' 分钟' : '');
+}
+function todayStripHtml() { // 今日三件事：训练 / 喝水 / 足踝；只显示事实，不评分
+  const rec = M.dailyOn(U.todayStr()) || {};
+  const train = todayDone();
+  const restDay = effTemplate()[new Date().getDay()] === '休息日';
+  const w = waterToday(), wt = waterTarget();
+  const foot = !!(rec.footRehab);
+  const cell = function (label, val, done) {
+    return '<div class="ts' + (done ? ' done' : '') + '"><b>' + val + '</b><span>' + label + '</span></div>';
+  };
+  return '<div class="today-strip" aria-label="今日三件事">'
+    + cell('训练', restDay ? '休息日' : (train ? '已完成' : '待练'), train || restDay)
+    + cell('喝水', w.cups + '/' + wt, w.cups >= wt)
+    + cell('足踝', foot ? '已完成' : '待做', foot)
+    + '</div>';
+}
 function waterToday() { // 今日喝水记录（state.water 可选键；跨日自动归零）
   const w = D.state.water;
   return (w && w.date === U.todayStr()) ? w : { date: U.todayStr(), cups: 0 };
@@ -2598,8 +2634,9 @@ function seasonalWindows(month, indoor) { // 无天气数据时的季节经验�
     return [{ start: 6, end: 9, avg: 86, why: ['夏天清晨最凉，避开正午'], outdoor: !indoor, seasonal: true },
       { start: 19, end: 21, avg: 84, why: ['傍晚降温后更稳'], outdoor: !indoor, seasonal: true }];
   }
-  return [{ start: 9, end: 11, avg: 84, why: ['上午温度稳定'], outdoor: !indoor, seasonal: true },
-    { start: 15, end: 18, avg: 82, why: ['下午避开通勤尾气与高温'], outdoor: !indoor, seasonal: true }];
+  if (indoor) return [{ start: 14, end: 17, avg: 82, why: ['室内温度比室外滞后 2-3 小时，下午最暖'], outdoor: false, seasonal: true }];
+  return [{ start: 9, end: 11, avg: 84, why: ['上午温度稳定'], outdoor: true, seasonal: true },
+    { start: 15, end: 18, avg: 82, why: ['下午避开通勤尾气与高温'], outdoor: true, seasonal: true }];
 }
 function timePenalty(hr, month, indoor) { // 环境时钟先验：安全 > 能坚持 > 生理表现
   const winter = (month >= 11 || month <= 2);
@@ -2759,6 +2796,7 @@ function startCta(level) { // 今天页唯一主按钮：按当日类型与状�
   if ((chk && chk.out === 'stop') || (light && light.level === 'red')) {
     return { t: '查看停训卡', fn: 'openStopCard()', kind: 'stop' };
   }
+  if (todayDone()) return { t: '今天已完成 · 看记录', fn: 'scrollToRecord()', kind: 'done' };
   if (level === 'floor' || level === 'return') return { t: '开始每日包', fn: 'scrollToPack()', kind: 'pack' };
   if (level === 'rest') return { t: '记录休息日', fn: 'scrollToRecord()', kind: 'rest' };
   const dayType = effTemplate()[new Date().getDay()];
@@ -2798,11 +2836,13 @@ function renderToday() {
     + '<div style="flex:1"><div class="card-title" style="margin:0">今日状态 · ' + RD[0] + '</div><div class="sub">' + RD[2] + '</div></div></div>'
     + '<div class="body-tx" style="margin-top:6px;font-weight:600">' + todayActionLine(level) + '</div>'
     + '<div class="sub" style="margin-top:4px">理由：' + (rdNow.reasons.length ? rdNow.reasons.map(U.esc).join('；') : '各项信号正常') + (level === 'rest' ? '；昨日同样触发降档' : '') + '</div>'
+    + '<div class="sub" style="margin-top:2px">' + U.esc(lastTrainingLine()) + '</div>'
     + (hasSleep ? '' : '<div class="sub" style="color:var(--orange-text);margin-top:4px">昨夜睡眠未记录——有数就填，判定更准。</div>')
     + weatherCoachLine()
     + whenToTrainHtml()
     + footRedCheck()
-    + '<button class="btn-primary" id="btnStartToday" data-kind="' + cta.kind + '" style="margin-top:12px" onclick="' + cta.fn + '">' + cta.t + '</button></div>';
+    + '<button class="' + (cta.kind === 'done' ? 'btn-ghost' : 'btn-primary') + '" id="btnStartToday" data-kind="' + cta.kind + '" style="margin-top:12px" onclick="' + cta.fn + '">' + cta.t + '</button>'
+    + todayStripHtml() + '</div>';
   if (level === 'floor' || level === 'return') h += dailyPackCard(level);
   // 今日安排紧随决策卡（首屏可见主行动）
   h += '<div class="card" id="planCard">' + planHtml() + '</div>';
@@ -3027,6 +3067,9 @@ function planHtml(dateStr) {
       h += '<div class="callout-warn" style="margin-top:12px">今日红灯：停训，仅可八段锦与足底放松，等灯转绿再练。</div>';
     } else if (__lvNow === 'floor' || __lvNow === 'return' || __lvNow === 'rest') {
       h += '<div class="sub" style="margin-top:12px">今天按上方状态卡执行：' + (__lvNow === 'rest' ? '完全休息，或记录休息日' : '只做每日包，不练这张课表') + '。</div>';
+    } else if (todayDone()) {
+      h += '<div class="sub" style="margin-top:12px;color:var(--green-text)">✓ 今天已完成；想加练再点下面。</div>'
+        + '<div style="margin-top:8px"><button class="btn-ghost" onclick="startWorkout()">再练一次</button></div>';
     } else {
       h += '<button class="btn-primary" style="margin-top:12px" onclick="startWorkout()">开始训练</button>';
       h += '<div style="margin-top:10px"><button class="btn-ghost" id="btnQuick2" onclick="tfQuickSave()">' + quickBtnText() + '</button>'

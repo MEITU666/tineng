@@ -1957,6 +1957,23 @@ check('60 天气码：阵雨不再误判成雪，雪/冻雨/雷雨分开', () =>
   if (w.eval('wxFromCode(95)[1]') !== '雷雨') throw new Error('95 应为雷雨');
   return '雨/雪/冻雨/雷雨映射 ✓';
 });
+
+check('61 今日完成态/三件事/上次训练：保存后主按钮变已完成，不重复催练', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); D.state.profileDone = true; D.state.tour7 = null; D.state.water = { date: U.todayStr(), cups: 2 };');
+  w.eval(`upsertByDate(D.daily, recStamp({ date: U.addDays(U.todayStr(), -1), type: "力量", durationMin: 30, rpe: 7 }));`);
+  w.eval('renderToday()');
+  let th = w.eval("document.getElementById('todayBody').innerHTML");
+  if (th.indexOf('上次：昨天') < 0) throw new Error('缺上次训练事实行');
+  if (th.indexOf('today-strip') < 0) throw new Error('缺今日三件事');
+  if (w.eval('todayDone()')) throw new Error('未保存今天却判已完成');
+  w.eval(`upsertByDate(D.daily, recStamp({ date: U.todayStr(), type: "力量", durationMin: 20, rpe: 6, mood: "好" })); renderToday();`);
+  th = w.eval("document.getElementById('todayBody').innerHTML");
+  if (th.indexOf('今天已完成 · 看记录') < 0) throw new Error('完成态主按钮缺失');
+  if (w.eval('startCta("ok").kind') !== 'done') throw new Error('startCta 未返回 done');
+  if (th.indexOf('已完成') < 0 || th.indexOf('2/') < 0) throw new Error('三件事未显示完成/喝水');
+  return '完成态 + 三件事 + 上次训练 ✓';
+});
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);
 console.log('================ P0 jsdom 断言报告（node ' + process.version + ' · jsdom ' + require(require.resolve('jsdom/package.json', { paths: [DIR] })).version + '） ================');
