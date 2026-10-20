@@ -197,6 +197,10 @@ input[type="range"]{width:100%;accent-color:var(--accent-text);min-height:44px;b
 .streak i.p-on{background:var(--purple)}
 .streak i.rest:after{content:'';width:10px;height:2px;border-radius:1px;background:var(--text2)}
 .streak i.today{box-shadow:inset 0 0 0 1.5px var(--accent)}
+/* 喝水进度格子 */
+.wdots{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 2px}
+.wdot{width:16px;height:24px;border-radius:4px;background:color-mix(in srgb, var(--teal) 12%, var(--card));border:1px solid color-mix(in srgb, var(--teal) 32%, var(--line));display:inline-block;flex:none}
+.wdot.on{background:var(--teal);border-color:var(--teal)}
 /* 力量动作勾选（微交互：150ms 缩放填充） */
 .check-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:0.5px solid var(--line)}
 .check-item:last-child{border-bottom:0}
@@ -563,6 +567,7 @@ const CONFIG = {
 
   /* K4 热身与放松（逐字） */
   warmup: '原地踏步1分钟→踝绕环左右各10圈→弓步走10步→髋关节绕环10次→自重深蹲5次慢速',
+  warmupCold: '原地快走/踏步2分钟→踝泵20次→踝绕环左右各15圈→靠墙静蹲30秒×2→臀桥15次→自重深蹲5次慢速（做满5分钟，手脚发热再脱外层）',
   cooldown: '站姿股四头肌拉伸30秒/侧→站姿大腿后侧拉伸30秒/侧→靠墙小腿拉伸30秒/侧→坐姿体前屈30秒→婴儿式30秒→网球足底滚动1分钟/侧',
   weatherAlt: '雨雪/闷热替代：有氧日改室内原地快走/踏步，或爬楼梯（只上不下、下楼乘电梯；楼道闷热缩短至 15 分钟并补水）——替代课三件套细节见指南 K28',
 
@@ -720,7 +725,7 @@ function defaultData() {
       lastSyncAt: 0, pendingSync: false, strengthFails: 0, theme: 'auto', lastForm: null,
       strengthReps: { '深蹲': 12, '俯卧撑': 8, '下斜俯卧撑': 10, '平板': 30, '侧桥': 20, '箭步蹲': 8, '臀桥': 15, '俯卧YW': 8, '俯卧超人': 10, '保加利亚分腿蹲': 6, '单腿硬拉': 6, '单腿提踵': 12, '弹力带划船': 12, '负重行走': 30 },
       backfillDone: false, profileDone: false, downgradedAt: null, progressionLog: [], scheduleText: null,
-      preTrip: null, tour7: null, weekRev: null, weather: null, aiCfg: null, schedShift: null, girth: null, returnMark: null, rehab: null, graduated: null, // 最终版增量（可选键）：行前判定缓存/新手7天引导/周复盘去重/今晨实况天气/AI问答供应商配置/FR-B1顺延状态——normalize/merge 补默认
+      preTrip: null, tour7: null, weekRev: null, weather: null, aiCfg: null, schedShift: null, girth: null, returnMark: null, rehab: null, graduated: null, water: null, // 最终版增量（可选键）：行前判定缓存/新手7天引导/周复盘去重/今晨实况天气/AI问答供应商配置/FR-B1顺延状态——normalize/merge 补默认
       updatedAt: 0
     }
   };
@@ -830,7 +835,7 @@ function mergeData(local, remote) {
   out.state.strengthReps = out.state.strengthReps || {};
   CONFIG.actions.forEach((a) => { if (out.state.strengthReps[a.repsKey] == null) out.state.strengthReps[a.repsKey] = 10; }); // Codex 复核 P1-1 修复：合并后补缺键，防 undefined/NaN 污染
   // 最终版增量键缺键防线（与 4f52b7f 同套路）：老远端备份无这些键时补默认
-  ['preTrip', 'tour7', 'weekRev', 'weather', 'aiCfg', 'schedShift', 'girth', 'returnMark', 'rehab', 'graduated'].forEach((k) => { if (out.state[k] === undefined) out.state[k] = null; }); // aiCfg=问答外挂供应商配置（不含 key，key 只在本机 localStorage）；schedShift=FR-B1 顺延状态
+  ['preTrip', 'tour7', 'weekRev', 'weather', 'aiCfg', 'schedShift', 'girth', 'returnMark', 'rehab', 'graduated', 'water'].forEach((k) => { if (out.state[k] === undefined) out.state[k] = null; }); // aiCfg=问答外挂供应商配置（不含 key，key 只在本机 localStorage）；schedShift=FR-B1 顺延状态
   out.daily = mergeByKey(local.daily, remote.daily, 'date');
   out.metrics = mergeByKey(local.metrics, remote.metrics, 'date');
   out.tests = mergeByKey(local.tests, remote.tests, 'date');
@@ -913,7 +918,7 @@ function toast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.hidden = true; }, 3200);
 }
-window.APP_VER = '4.3.0'; // v4.3.0：体检修复（首开直达/今天页重排/力量A-B 14动作/专项1100m/浅色可读/断档问责清零） // v4.2.1：足踝重装专项批（Stage3 脚趾分控/离心提踵/抗阻/负重下台阶）。注：产品对外名以主人拍板为准（PRD :15），代码层不使用任何未经拍板的人格名
+window.APP_VER = '4.4.0'; // v4.4.0：好用度增强（天气时段推荐/冬季室内/冷天热身/喝水记录+日历提醒） // v4.2.1：足踝重装专项批（Stage3 脚趾分控/离心提踵/抗阻/负重下台阶）。注：产品对外名以主人拍板为准（PRD :15），代码层不使用任何未经拍板的人格名
 window.addEventListener('error', function (e) { try { if (e && e.message) toast('出了个小问题：' + String(e.message).slice(0, 60)); } catch (err) {} }); // v4.1 审查修复 B4：全局异常不再静默
 window.addEventListener('unhandledrejection', function (e) { try { const r = e && e.reason; toast('后台出了个小问题：' + String(r && r.message || r || '未知').slice(0, 60)); } catch (err) {} });
 async function checkAppUpdate() { // v4.1：一键清 SW/缓存并重载——根治"PWA 更新后吃旧缓存"（原需手动强刷）
@@ -1788,6 +1793,57 @@ function girthHtml() { // Keep 抄单小件（v4.1 FR-I）：围度月量一次�
     + '<input id="gLeg" type="number" inputmode="decimal" placeholder="腿围 cm" style="flex:1;min-height:44px"></div>'
     + '<button class="btn-mini" style="margin-top:6px" onclick="saveGirth()">保存围度</button></div></details>';
 }
+function waterToday() { // 今日喝水记录（state.water 可选键；跨日自动归零）
+  const w = D.state.water;
+  return (w && w.date === U.todayStr()) ? w : { date: U.todayStr(), cups: 0 };
+}
+function waterTarget() { // 基础 8 杯（2000ml）；训练日/热天各 +1 杯（运动日额外 400-800ml，取轻量档）
+  const dayType = effTemplate()[new Date().getDay()];
+  const train = CONFIG.trainTypes.indexOf(dayType) >= 0;
+  const hot = !!(D.state.weather && D.state.weather.appMax != null && D.state.weather.appMax >= 30);
+  return Math.min(10, 8 + (train ? 1 : 0) + (hot ? 1 : 0));
+}
+function waterNext() { // 下一个提醒档位；20:00 后不再提醒
+  const now = new Date();
+  const mins = now.getHours() * 60 + now.getMinutes();
+  const slots = [9 * 60, 11 * 60, 15 * 60, 17 * 60, 20 * 60];
+  const n = slots.filter(function (x) { return x > mins; })[0];
+  if (n == null) return '明早 09:00';
+  return ('0' + Math.floor(n / 60)).slice(-2) + ':' + ('0' + (n % 60)).slice(-2);
+}
+function logWater() { // 记录一杯 250ml；不惩罚、不连续天数、不归零
+  const w = waterToday();
+  w.cups = Math.min(waterTarget() + 2, w.cups + 1);
+  D.state.water = w;
+  D.state.updatedAt = Date.now();
+  persist();
+  renderToday();
+  const left = Math.max(0, waterTarget() - w.cups);
+  toast(left ? '第 ' + w.cups + ' 杯，今天还差 ' + left + ' 杯 · 下次 ' + waterNext() : '今天够了；20:00 前想喝再补一杯温水');
+}
+function waterSetupHtml(winter) { // 喝水提醒设置（今天卡与档案页共用）：只走系统日历导入，不做订阅/不承诺 App 自响
+  return '<div class="sub" style="line-height:1.9">iPhone 的网页应用不能自己在后台响铃（系统限制），所以用<b>系统日历</b>提醒，一次导入长期有效：<br>'
+    + '① 点下面「下载日历文件」→ 用 Safari 下载<br>'
+    + '② 打开「文件」App → 下载 → 点 <b>water.ics</b> → 右上「添加全部」<br>'
+    + '③ 选一个日历（建议新建「喝水」）→ 完成<br>'
+    + '④ 在日历列表里取消勾选「喝水」，事件不显示但提醒照响</div>'
+    + '<a class="btn-ghost" style="margin-top:10px;display:block;text-align:center;line-height:44px;text-decoration:none" href="./water.ics" target="_blank" rel="noopener">下载日历文件（每天 09/11/15/17/20 点）</a>'
+    + '<div class="sub" style="margin-top:8px">练前 30-60 分钟一杯；练中每 15-20 分钟 100-150ml；起身接水时顺便走 2 分钟，久坐就断一下。<br>不用快捷指令：一个自动化只能设一个时间点（5 个时段要建 5 个），还要关「运行前询问」；日历导入一次就够。提醒由系统日历发出，点通知打开的是日历，不是本 App。'
+    + '<br>觉得太频繁：在日历里删掉 11:00 和 17:00 两条，留 3 条就够。达标后日历仍会响，直接忽略即可——本 App 不会因为你没喝而扣分。'
+    + (winter ? '<br><b>冬天：</b>喝温水，小口慢饮；别一次灌 500ml。' : '') + '</div>';
+}
+function waterCardHtml() { // 今日喝水卡：进度 + 一键记录 + 日历提醒入口（不承诺 App 自己响）
+  const w = waterToday();
+  const target = waterTarget();
+  const winter = (new Date().getMonth() + 1 <= 2) || (new Date().getMonth() + 1 >= 11);
+  let dots = '';
+  for (let i = 0; i < target; i++) dots += '<i class="wdot' + (i < w.cups ? ' on' : '') + '"></i>';
+  return '<div class="card" id="waterCard"><div class="card-head"><div class="bubble bg-teal" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z"/></svg></div>'
+    + '<div style="flex:1"><div class="card-title" style="margin:0">喝水</div><div class="sub">今天 ' + w.cups + ' / ' + target + ' 杯（250ml/杯） · 下次提醒 ' + waterNext() + '</div></div></div>'
+    + '<div class="wdots" aria-label="喝水进度">' + dots + '</div>'
+    + '<button class="btn-primary" style="margin-top:10px" onclick="logWater()">＋250ml' + (winter ? ' 温水' : '') + '</button>'
+    + '<details class="fold" style="background:transparent;padding:0"><summary style="min-height:44px;font-size:13px;color:var(--text2)">怎么让手机到点提醒我</summary><div class="fold-body">' + waterSetupHtml(winter) + '</div></details></div>';
+}
 function saveGirth() { // 围度三行写入 state.girth（可选键，normalize/merge 补 null）
   const c = U.num((document.getElementById('gChest') || {}).value);
   const a = U.num((document.getElementById('gArm') || {}).value);
@@ -1906,8 +1962,9 @@ function todayActionLine(level) { // 引擎输出首句=今天干嘛（开工单
   if (level === 'floor') return '今天按恢复档：只做每日包（足底康复+八段锦这类固定组合）12 分钟，其他全免。';
   if (CONFIG.trainTypes.indexOf(dayType) < 0) return '今天按正常档：休息日，可做八段锦与足底康复（不计负荷）。';
   if (dayType === '力量') {
-    const items = todaysActions().map((x) => x.a.name + ' ' + setsOf(x.a) + '×' + targetRepsOf(x.a) + (x.a.unit || ''));
-    return '今天按' + (level === 'down' ? '降' : '正常') + '档练：' + items.join('、') + (level === 'down' ? '（每组少做 2 次或留 2-3 次余力）' : '');
+    const list = todaysActions();
+    const tag = (strengthPlanNames() === STRENGTH_PLAN.B) ? 'B' : 'A';
+    return '今天按' + (level === 'down' ? '降' : '正常') + '档练：力量 ' + tag + ' 日 · ' + list.length + ' 个动作（约 ' + estimateMin(buildCourse(level === 'down')) + ' 分钟）' + (level === 'down' ? '，每组留 2-3 次余力' : '');
   }
   if (dayType === '有氧') {
     const c = tf.cardioChoice ? CONFIG.cardio.find((x) => x.name === tf.cardioChoice) : null;
@@ -2530,6 +2587,167 @@ function todayLevelInfo() { // 今日档位纯函数：状态卡与安排卡共�
   }
   return { level: level, rdNow: rdNow };
 }
+function fmtHour(h) { return ('0' + h).slice(-2) + ':00'; }
+function seasonalWindows(month, indoor) { // 无天气数据时的季节经验（不假装有实况）
+  if (month >= 11 || month <= 2) {
+    return indoor
+      ? [{ start: 14, end: 17, avg: 80, why: ['室内温度比室外滞后 2-3 小时，下午最暖'], outdoor: false, seasonal: true }]
+      : [{ start: 11, end: 15, avg: 80, why: ['冬季中午最暖，关节更松'], outdoor: true, seasonal: true }];
+  }
+  if (month >= 6 && month <= 8) {
+    return [{ start: 6, end: 9, avg: 86, why: ['夏天清晨最凉，避开正午'], outdoor: !indoor, seasonal: true },
+      { start: 19, end: 21, avg: 84, why: ['傍晚降温后更稳'], outdoor: !indoor, seasonal: true }];
+  }
+  return [{ start: 9, end: 11, avg: 84, why: ['上午温度稳定'], outdoor: !indoor, seasonal: true },
+    { start: 15, end: 18, avg: 82, why: ['下午避开通勤尾气与高温'], outdoor: !indoor, seasonal: true }];
+}
+function timePenalty(hr, month, indoor) { // 环境时钟先验：安全 > 能坚持 > 生理表现
+  const winter = (month >= 11 || month <= 2);
+  const summer = (month >= 6 && month <= 8);
+  if (indoor) return (hr < 9 ? 10 : 0) + (hr >= 9 && hr < 13 ? 4 : 0) + (hr >= 13 && hr < 17 ? -5 : 0) + (hr >= 21 ? 10 : 0); // 室内温度滞后：下午优先
+  if (winter) {
+    if (hr < 6) return 30;
+    if (hr < 9) return 18;
+    if (hr < 10) return 6;
+    if (hr < 11) return 0;
+    if (hr < 15) return 0;
+    if (hr < 17) return 4;
+    if (hr < 19) return 12;
+    if (hr < 21) return 20;
+    return 20;
+  }
+  if (summer) {
+    if (hr < 6) return 20;
+    if (hr < 9) return 0;
+    if (hr < 11) return 0;
+    if (hr < 15) return 14;
+    if (hr < 17) return 4;
+    if (hr < 19) return 0;
+    if (hr < 21) return 0;
+    return 8;
+  }
+  if (hr < 6) return 22;
+  if (hr < 9) return 6;
+  if (hr < 11) return 0;
+  if (hr < 15) return 6;
+  if (hr < 17) return 0;
+  if (hr < 19) return 0;
+  if (hr < 21) return 6;
+  return 10;
+}
+function tempPenalty(app, month, indoor) {
+  const winter = (month >= 11 || month <= 2);
+  const summer = (month >= 6 && month <= 8);
+  const lo = indoor ? 10 : (winter ? 7 : (summer ? 16 : 10));
+  const hi = indoor ? 26 : (winter ? 14 : (summer ? 27 : 24)); // 室内 24°C 左右是中性，26 以上才提示偏热
+  let p = 0;
+  if (app < lo) p += (lo - app) * (winter ? 5.0 : 3.0); // 冬季冷惩罚更重：2°C 的早晨不进推荐
+  if (app > hi) p += (app - hi) * (summer ? 3.0 : 2.5);
+  if (summer && app >= 32) p += 8;
+  if (summer && app >= 35) p += 15;
+  return p;
+}
+function trainingWindows(hourly, month, indoor) { // 逐小时评分→连续时段；返回最多 2 个窗口
+  if (!hourly || hourly.length < 6) return seasonalWindows(month, indoor);
+  const severe = [95, 96, 99, 56, 57, 66, 67, 65, 82, 75, 86];
+  const rows = [];
+  hourly.forEach(function (h) {
+    const hr = parseInt(String(h.t || '').slice(11, 13), 10);
+    if (!(hr >= 6 && hr <= 21)) return;
+    const app0 = (h.app != null) ? h.app : h.temp;
+    const app = (app0 != null) ? app0 + (indoor ? 2 : 0) : null; // 室内无风无太阳：+2°C，不加太阳项
+    const pp = (h.precip == null) ? 0 : h.precip;
+    const wind = (h.wind == null) ? 0 : h.wind;
+    const gust = (h.gust == null) ? 0 : h.gust;
+    if (!indoor && (pp >= 60 || severe.indexOf(h.code) >= 0 || gust >= 50)) { rows.push({ hr: hr, score: 0, why: ['雨雪/大风，户外不安全'], h: h }); return; }
+    let score = 100; const why = [];
+    if (app != null) {
+      const tp = tempPenalty(app, month, indoor);
+      if (tp > 0 && why.length < 2) {
+        if (app < (indoor ? 10 : 7)) why.push('体感 ' + Math.round(app) + '°C，偏冷');
+        else if (app > (indoor ? 26 : 27)) why.push('体感 ' + Math.round(app) + '°C，偏热');
+      }
+      score -= tp;
+    }
+    if (!indoor) {
+      if (pp >= 30) { score -= 0.9 * (pp - 20); if (why.length < 2) why.push('降水概率 ' + pp + '%'); }
+      if (wind >= 20) { score -= Math.min(20, wind - 20); if (why.length < 2) why.push('风速 ' + Math.round(wind) + 'km/h'); }
+      if (h.isDay === 0) { score -= 8; if (why.length < 2) why.push('日出前/日落后'); }
+    }
+    score -= timePenalty(hr, month, indoor);
+    if (why.length === 0) why.push(indoor ? '室内温度稳定' : '温度与降水都稳');
+    rows.push({ hr: hr, score: Math.max(0, Math.min(100, score)), why: why, h: h });
+  });
+  const groups = []; let cur = [];
+  rows.forEach(function (r) {
+    if (r.score >= 70) {
+      if (cur.length && r.hr === cur[cur.length - 1].hr + 1) cur.push(r);
+      else { if (cur.length) groups.push(cur); cur = [r]; }
+    } else { if (cur.length) groups.push(cur); cur = []; }
+  });
+  if (cur.length) groups.push(cur);
+  const wins = groups.filter(function (g) { return g.length >= 2; }).map(function (g) {
+    // 连续窗口最多取 4 小时，选其中均分最高的一段：全天空调房也能给出“最值得练”的那几小时
+    let best = null;
+    for (let i = 0; i < g.length; i++) {
+      for (let len = 2; len <= 4 && i + len <= g.length; len++) {
+        const sub = g.slice(i, i + len);
+        const avg = sub.reduce(function (s, x) { return s + x.score; }, 0) / sub.length;
+        if (!best || avg > best.avg + 0.01 || (Math.abs(avg - best.avg) <= 0.01 && sub.length > best.sub.length)) best = { sub: sub, avg: avg }; // 分数相同取更长窗口
+      }
+    }
+    const why = []; best.sub.forEach(function (x) { x.why.forEach(function (w) { if (why.indexOf(w) < 0) why.push(w); }); });
+    return { start: best.sub[0].hr, end: best.sub[best.sub.length - 1].hr + 1, avg: best.avg, why: why.slice(0, 2), outdoor: !indoor };
+  }).sort(function (a, b) { return b.avg - a.avg; });
+  if (wins.length) return wins.slice(0, 2);
+  if (!indoor && hourly.some(function (h) { return (h.precip != null && h.precip >= 60) || severe.indexOf(h.code) >= 0 || (h.gust != null && h.gust >= 50); })) {
+    return [{ start: 9, end: 21, avg: 50, why: ['全天雨雪/大风，户外不安全，改室内'], outdoor: false, seasonal: true }];
+  }
+  return seasonalWindows(month, indoor);
+}
+function isColdDay() { // 冷天：有实况按体感 ≤8°C；无实况按月份（11-2 月）
+  const w = D.state.weather;
+  if (w && w.date === U.todayStr() && w.appMax != null) return w.appMax <= 8;
+  const m = new Date().getMonth() + 1;
+  return (m <= 2 || m >= 11);
+}
+function warmupText() { return isColdDay() ? CONFIG.warmupCold : CONFIG.warmup; }
+function whenToTrainHtml() { // 今天页一行入口：天气 + 最适合时段；点开看原因/冬季室内注意
+  const month = new Date().getMonth() + 1;
+  const w = D.state.weather;
+  const hasHourly = !!(w && w.date === U.todayStr() && w.hourly && w.hourly.length);
+  const dayType = effTemplate()[new Date().getDay()];
+  const indoor = dayType === '力量';
+  const wins = trainingWindows(hasHourly ? w.hourly : null, month, indoor);
+  const a = wins[0];
+  const nowH = new Date().getHours();
+  const inWin = wins.some(function (x) { return nowH >= x.start && nowH < x.end; });
+  const label = hasHourly ? '今天最适合' : '按季节经验';
+  const head = '<b style="color:var(--text)">' + label + ' ' + fmtHour(a.start) + '-' + fmtHour(a.end) + '</b> · ' + (indoor ? '室内' : '户外')
+    + (inWin ? ' · <span style="color:var(--green-text)">现在正合适</span>' : ' · <span class="sub">现在不是最佳</span>');
+  let body = '<div class="sub" style="line-height:1.9">';
+  wins.forEach(function (x, i) {
+    const lv = x.avg >= 80 ? '很合适' : (x.avg >= 65 ? '合适' : '可练但要注意');
+    body += (i === 0 ? '首选 ' : '备选 ') + fmtHour(x.start) + '-' + fmtHour(x.end) + '（' + lv + '）' + (x.why.length ? '：' + U.esc(x.why.join('；')) : '：温度与降水都稳') + '<br>';
+  });
+  if (!inWin) {
+    if (nowH < 10) body += '<b>现在偏冷：</b>先穿外层热身 12-15 分钟（5 分钟原地快走/开合跳 → 5 分钟动态拉伸 → 3 分钟踝泵/提踵/靠墙静蹲），手脚发热再脱。<br>';
+    else if (nowH > 16) body += indoor
+      ? '<b>现在降温快：</b>室内课关窗留缝，练完 5 分钟内换干衣再做拉伸；别汗湿坐在冷房间里。<br>'
+      : '<b>现在降温快：</b>练完 5-10 分钟内换干衣服再加外套，别汗湿吹风；室外课尽量背风。<br>';
+    else body += '<b>现在不在最佳窗口：</b>能挪就挪；不能挪就缩短户外时间、降低强度、加长热身。<br>';
+  }
+  if (w && w.wx === '雨雪' && !indoor) body += '<b>雨雪：</b>改室内三选一（楼梯只上不下/跟练加长/每日包加量）。<br>';
+  if (month >= 11 || month <= 2) {
+    body += '<b>武汉冬天室内没空调：</b>先穿三层热身到出汗再脱外层（棉内衣不行，汗湿不保温）；脚别直接踩瓷砖，垫子+鞋+厚袜；手先搓热再握器械；组间开窗对流 3-5 分钟；湿度 >80% 先除湿；练完 5 分钟内换干衣再做拉伸；冷天心率会骗人，用“能说完整句子”定强度；温水 200-300ml。<br>';
+    body += '<b>旧伤前置：</b>踝泵 20 次 + 提踵 15 次 + 靠墙静蹲 30 秒×2，再进主课；冷天不安排爆发跳、变向、长下坡。<br>';
+  } else if (month >= 6 && month <= 8) {
+    body += '<b>夏天：</b>避开 11-16 点；室内开窗对流，补水比平时多一杯。<br>';
+  }
+  body += '<b>只能现在练：</b>改室内 25 分钟循环（深蹲 12 / 臀桥 15 / 弹力带划船 12 / 死虫 10 / 提踵 20，做 3 轮，RPE 5-6），或改成 20 分钟快走+关节活动；今天不练也不会掉状态。<br>';
+  body += '</div>';
+  return '<details class="fold" style="margin-top:6px;background:transparent;padding:0"><summary style="min-height:44px;font-size:13px;color:var(--text2)">' + head + '</summary><div class="fold-body">' + body + '</div></details>';
+}
 function startCta(level) { // 今天页唯一主按钮：按当日类型与状态决定动作
   const chk = todayChk();
   const light = R.todayLight();
@@ -2577,6 +2795,7 @@ function renderToday() {
     + '<div class="sub" style="margin-top:4px">理由：' + (rdNow.reasons.length ? rdNow.reasons.map(U.esc).join('；') : '各项信号正常') + (level === 'rest' ? '；昨日同样触发降档' : '') + '</div>'
     + (hasSleep ? '' : '<div class="sub" style="color:var(--orange-text);margin-top:4px">昨夜睡眠未记录——有数就填，判定更准。</div>')
     + weatherCoachLine()
+    + whenToTrainHtml()
     + footRedCheck()
     + '<button class="btn-primary" id="btnStartToday" data-kind="' + cta.kind + '" style="margin-top:12px" onclick="' + cta.fn + '">' + cta.t + '</button></div>';
   if (level === 'floor' || level === 'return') h += dailyPackCard(level);
@@ -2616,6 +2835,7 @@ function renderToday() {
     + '<div class="field"><label>静息心率（次/分）</label><input id="fRhr" type="number" min="30" max="120" inputmode="numeric" placeholder="如 60"></div>'
     + '<div class="field"><label>HRV（毫秒）</label><input id="fHrv" type="number" min="5" max="200" inputmode="numeric" placeholder="如 50"></div>'
     + '</div>';
+  h += waterCardHtml(); // v4.4 喝水：记录 + 日历提醒入口
   // 晨检与身体信号：从首屏下沉，仍在一屏内可达
   h += '<div class="card" id="statusDetailCard">'
     + (D.state.profileDone ? '' : '<div id="profilePrompt" style="margin-bottom:10px"><div class="sub">档案还是默认值（176cm / 60kg / 无生日）——填一下，心率上限和建议更准。</div><button class="btn-ghost" style="margin-top:8px" onclick="openGuide()">现在完善（30 秒）</button></div>')
@@ -2795,7 +3015,7 @@ function planHtml(dateStr) {
     const __lvNow = todayLevelInfo().level;
     if (__lvNow !== 'floor' && __lvNow !== 'return' && __lvNow !== 'rest') {
       h += '<details class="fold"><summary>热身与放松（各5分钟）</summary><div class="fold-body">'
-        + '<b>热身：</b>' + U.esc(CONFIG.warmup) + '<br><b>放松：</b>' + U.esc(CONFIG.cooldown)
+        + '<b>热身：</b>' + U.esc(warmupText()) + (isColdDay() ? ' <span style="color:var(--orange-text)">（今天冷，做满 5 分钟）</span>' : '') + '<br><b>放松：</b>' + U.esc(CONFIG.cooldown)
         + '<br><span class="sub">' + U.esc(CONFIG.weatherAlt) + '</span></div></details>';
     }
     if (R.todayLight().level === 'red') { // REH-1 红灯门禁：不渲染开始按钮
@@ -2856,7 +3076,7 @@ function setCardio(c) {
 }
 function setWeather(wx) { // 手动改天气：覆盖自动实况（manual 标记），当天有效
   tf.weather = wx;
-  D.state.weather = { date: U.todayStr(), wx: wx, desc: '手动选择', manual: true, t: Date.now() };
+  D.state.weather = { date: U.todayStr(), wx: wx, desc: '手动选择', manual: true, hourly: null, t: Date.now() };
   D.state.updatedAt = Date.now();
   persist();
   const pc = document.getElementById('planCard');
@@ -2864,7 +3084,10 @@ function setWeather(wx) { // 手动改天气：覆盖自动实况（manual 标�
 }
 function wxFromCode(code, appMax, windKmh) { // WMO weather code → 产品天气档（wind 单位 km/h——open-meteo 实测确认，阈值 39≈6 级风）
   code = code == null ? 0 : code;
-  if ([51,53,55,56,57,61,63,65,66,67,71,73,75,77,80,81,82,85,86,95,96,99].indexOf(code) >= 0) return ['雨雪', code >= 95 ? '雷雨' : (code >= 71 ? '雪' : '降水')];
+  if ([51,53,55,56,57,61,63,65,66,67,71,73,75,77,80,81,82,85,86,95,96,99].indexOf(code) >= 0) {
+    const label = (code >= 95) ? '雷雨' : (([71,73,75,77,85,86].indexOf(code) >= 0) ? '雪' : (([56,57,66,67].indexOf(code) >= 0) ? '冻雨' : '降水'));
+    return ['雨雪', label];
+  }
   if (windKmh != null && windKmh >= 39) return ['大风降温', '风速' + Math.round(windKmh) + 'km/h'];
   if (appMax != null && appMax >= 33) return ['闷热', '体感' + Math.round(appMax) + '°C'];
   return ['好天', code === 0 ? '晴' : (code <= 3 ? '多云' : '雾/霾')];
@@ -2874,13 +3097,32 @@ async function fetchWeather() { // 批10：接入 Open-Meteo 实况（免费无 
   const c = CONFIG.CITY_COORDS[D.profile.city] || CONFIG.CITY_COORDS['武汉'];
   try {
     const acWx = new AbortController(); const toWx = setTimeout(() => acWx.abort(), 5000); // v4.1 UX 补缺：天气请求 5s 超时取消
-    const r = await fetch('https://api.open-meteo.com/v1/forecast?latitude=' + c[0] + '&longitude=' + c[1] + '&daily=weather_code,apparent_temperature_max,wind_speed_10m_max&timezone=auto&forecast_days=1', { cache: 'no-store', signal: acWx.signal });
+    const r = await fetch('https://api.open-meteo.com/v1/forecast?latitude=' + c[0] + '&longitude=' + c[1] + '&daily=weather_code,apparent_temperature_max,wind_speed_10m_max,sunrise,sunset&hourly=temperature_2m,apparent_temperature,precipitation_probability,wind_speed_10m,wind_gusts_10m,weather_code,relative_humidity_2m,is_day&timezone=auto&forecast_days=1', { cache: 'no-store', signal: acWx.signal });
     if (!r.ok) return;
     const j = await r.json();
     const d = j.daily || {};
     const wx = wxFromCode((d.weather_code || [])[0], (d.apparent_temperature_max || [])[0], (d.wind_speed_10m_max || [])[0]);
     if (D.state.weather && D.state.weather.date === U.todayStr() && D.state.weather.manual) return; // 手改过的当天不覆盖
-    D.state.weather = { date: U.todayStr(), wx: wx[0], desc: wx[1] + '·' + Math.round((d.apparent_temperature_max || [])[0]) + '°C', appMax: (d.apparent_temperature_max && d.apparent_temperature_max[0] != null) ? Math.round(d.apparent_temperature_max[0]) : null, t: Date.now() }; // v4.1 FR-D：appMax 数字键供气温提示
+    const H = j.hourly || {};
+    const hourly = (H.time || []).map((t, i) => ({
+      t: t,
+      temp: H.temperature_2m ? H.temperature_2m[i] : null,
+      app: H.apparent_temperature ? H.apparent_temperature[i] : null,
+      precip: H.precipitation_probability ? H.precipitation_probability[i] : null,
+      wind: H.wind_speed_10m ? H.wind_speed_10m[i] : null,
+      code: H.weather_code ? H.weather_code[i] : null,
+      rh: H.relative_humidity_2m ? H.relative_humidity_2m[i] : null,
+      isDay: H.is_day ? H.is_day[i] : null,
+      gust: H.wind_gusts_10m ? H.wind_gusts_10m[i] : null
+    }));
+    D.state.weather = {
+      date: U.todayStr(), wx: wx[0], desc: wx[1] + '·' + Math.round((d.apparent_temperature_max || [])[0]) + '°C',
+      appMax: (d.apparent_temperature_max && d.apparent_temperature_max[0] != null) ? Math.round(d.apparent_temperature_max[0]) : null,
+      hourly: hourly,
+      sunrise: (d.sunrise && d.sunrise[0]) || null,
+      sunset: (d.sunset && d.sunset[0]) || null,
+      t: Date.now()
+    }; // v4.1 FR-D：appMax 数字键供气温提示；v4.4 加 hourly/sunrise/sunset 供时段推荐
     D.state.updatedAt = Date.now();
     persist();
     renderToday();
@@ -4455,6 +4697,11 @@ function renderProfile() {
   h += '<div class="card"><div class="card-title" style="margin-bottom:8px">睡眠锚点（K9：比几点起床更重要，先守21天）</div>'
     + '<div class="field"><label>固定关灯时间</label><input id="pAnchor" type="time" value="' + U.esc(p.sleepAnchor || '23:30') + '"></div>'
     + '<button class="btn-mini" onclick="saveAnchor()">保存锚点</button></div>';
+  // 喝水提醒（v4.4：解决“找不到设置入口”）
+  h += '<div class="card" id="waterSetupCard"><div class="card-title" style="margin-bottom:8px">喝水提醒</div>'
+    + '<div class="sub" style="margin-bottom:6px">每天 5 次：09:00 / 11:00 / 15:00 / 17:00 / 20:00；20:00 后不再提醒。</div>'
+    + waterSetupHtml((new Date().getMonth() + 1 <= 2) || (new Date().getMonth() + 1 >= 11))
+    + '</div>';
   // 每周体重
   const wsNow = U.weekStart(U.todayStr());
   const wrec = D.weekly.find((x) => x.weekStart === wsNow) || null;
@@ -4982,6 +5229,7 @@ function startWorkout() {
     + (pendingYellow ? '<div class="sub" style="color:var(--orange-text);margin-bottom:8px">今日黄灯：目标已自动减量 30%（估算）</div>' : '')
     + '<div class="body-tx" style="line-height:1.8">' + U.esc(names) + '</div>'
     + '<div class="sub" style="margin-top:8px">热身与放松各约5分钟 · 全程约 ' + estimateMin(pendingCourse) + ' 分钟（估算）</div>'
+    + (isColdDay() ? '<div class="sub" style="color:var(--orange-text);margin-top:6px">今天冷：热身按弹窗里的冷天版做满 5 分钟，手脚发热再脱外层。</div>' : '')
     + '<div class="m-actions"><button class="btn-primary" onclick="confirmCourse()">确认，开始</button>'
     + '<button class="btn-ghost" onclick="closeModal()">再等等</button></div>');
 }
@@ -5201,7 +5449,7 @@ function renderWorkout() {
   const pauseBtn = '<button class="btn-ghost" onclick="' + (wk.pausedAt ? 'resumeWorkout()' : 'pauseWorkout()') + '">' + (wk.pausedAt ? '继续' : '暂停') + '</button>';
   let h = '';
   if (p.kind === 'warm') {
-    h = bar + '<div class="wk-name">热身</div><div class="wk-tip">' + U.esc(CONFIG.warmup) + '</div>'
+    h = bar + '<div class="wk-name">热身</div><div class="wk-tip">' + U.esc(warmupText()) + '</div>' + (isColdDay() ? '<div class="sub" style="color:var(--orange-text)">今天冷：热身做满 5 分钟，手脚发热再脱外层</div>' : '')
       + '<div class="wk-ring" style="width:170px;height:170px"><div class="wt" style="font-size:38px">' + clock(wk.elapsed) + '</div></div>'
       + '<div class="wk-btns"><button class="btn-primary" onclick="warmDone()">热身完成，开始力量训练</button>' + pauseBtn + '<button class="btn-ghost" onclick="exitWorkout()">结束训练</button></div>';
   } else if (p.kind === 'pre') {

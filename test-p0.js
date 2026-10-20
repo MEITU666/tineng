@@ -1870,6 +1870,93 @@ check('53 todayLevelInfo 不跨次累积理由，颜色 token 四处齐全', () 
   }
   return '理由不累积 · 颜色 token 四处齐全 ✓';
 });
+
+check('54 喝水记录：0 起步、单击 +1、跨日归零、训练日目标 8-10', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData();');
+  if (w.eval('waterToday().cups') !== 0) throw new Error('初始不是 0');
+  const target = w.eval('waterTarget()');
+  if (target < 8 || target > 10) throw new Error('目标越界：' + target);
+  w.eval('logWater()');
+  if (w.eval('waterToday().cups') !== 1) throw new Error('单击未 +1');
+  w.eval('D.state.water = { date: U.addDays(U.todayStr(), -1), cups: 5 };');
+  if (w.eval('waterToday().cups') !== 0) throw new Error('跨日未归零');
+  return '喝水 0→1·跨日归零·目标 ' + target + ' 杯 ✓';
+});
+check('55 喝水卡与档案入口都在，且指向 water.ics', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); D.state.profileDone = true; D.state.tour7 = null; renderToday();');
+  const th = w.eval("document.getElementById('todayBody').innerHTML");
+  if (th.indexOf('id="waterCard"') < 0 || th.indexOf('water.ics') < 0) throw new Error('今天页喝水卡/链接缺失');
+  w.eval('renderProfile()');
+  const pf = w.eval("document.getElementById('profileBody').innerHTML");
+  if (pf.indexOf('id="waterSetupCard"') < 0 || pf.indexOf('water.ics') < 0) throw new Error('档案页提醒入口缺失');
+  return '今天卡 + 档案入口 ✓';
+});
+check('56 喝水日历文件：5 个每日事件 + 5 个闹钟 + 浮动时间', () => {
+  const ics = fs.readFileSync(path.join(DIR, 'water.ics'), 'utf8');
+  if ((ics.match(/BEGIN:VEVENT/g) || []).length !== 5) throw new Error('VEVENT 不是 5 个');
+  if ((ics.match(/BEGIN:VALARM/g) || []).length !== 5) throw new Error('VALARM 不是 5 个');
+  if ((ics.match(/RRULE:FREQ=DAILY/g) || []).length !== 5) throw new Error('RRULE 不是每日');
+  if ((ics.match(/TRIGGER:-PT0M/g) || []).length !== 5) throw new Error('提醒触发缺失');
+  for (const t of ['T090000', 'T110000', 'T150000', 'T170000', 'T200000']) if (ics.indexOf(t) < 0) throw new Error('缺时段 ' + t);
+  return '5 事件/5 提醒/5 时段 ✓';
+});
+
+check('57 训练时段：冬季选中中午、夏季避开正午、雨天改室内', () => {
+  if (loadErr) throw loadErr;
+  function mk(month, apps, precip, wind) {
+    const out = [];
+    for (let h = 6; h <= 21; h++) {
+      out.push({ t: '2026-' + ('0' + month).slice(-2) + '-15T' + ('0' + h).slice(-2) + ':00', temp: apps[h], app: apps[h], precip: precip == null ? 5 : precip, wind: wind == null ? 5 : wind, code: 1, isDay: h >= 7 && h <= 18 ? 1 : 0, gust: 8 });
+    }
+    return out;
+  }
+  const winterApps = {}; for (let h = 6; h <= 21; h++) winterApps[h] = (h < 10 ? 2 : (h <= 15 ? 12 : 5));
+  const w1 = w.eval('trainingWindows(' + JSON.stringify(mk(1, winterApps)) + ', 1, false)');
+  if (!(w1[0].start >= 10 && w1[0].start <= 12)) throw new Error('冬季首选不在中午：' + JSON.stringify(w1[0]));
+  const summerApps = {}; for (let h = 6; h <= 21; h++) summerApps[h] = (h >= 11 && h <= 16 ? 35 : 24);
+  const w2 = w.eval('trainingWindows(' + JSON.stringify(mk(7, summerApps)) + ', 7, false)');
+  if (w2[0].start >= 11 && w2[0].start <= 16) throw new Error('夏季首选撞正午：' + JSON.stringify(w2[0]));
+  const rainApps = {}; for (let h = 6; h <= 21; h++) rainApps[h] = 12;
+  const w3 = w.eval('trainingWindows(' + JSON.stringify(mk(1, rainApps, 80)) + ', 1, false)');
+  if (w3[0].outdoor !== false || w3[0].why.join('').indexOf('室内') < 0) throw new Error('雨天未改室内：' + JSON.stringify(w3[0]));
+  const indoorApps = {}; for (let h = 6; h <= 21; h++) indoorApps[h] = 8;
+  const w4 = w.eval('trainingWindows(' + JSON.stringify(mk(1, indoorApps)) + ', 1, true)');
+  if (w4[0].start < 13 || w4[0].start > 15) throw new Error('室内冬季首选应偏下午：' + JSON.stringify(w4[0]));
+  return '冬中午/夏避峰/雨改室内/室内下午 ✓';
+});
+check('58 首屏有“今天最适合”入口，且含冬季/室内建议', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); D.state.profileDone = true; D.state.tour7 = null; D.state.weather = { date: U.todayStr(), wx: "好天", desc: "晴·12°C", appMax: 12, hourly: null }; renderToday();');
+  const th = w.eval("document.getElementById('todayBody').innerHTML");
+  if (th.indexOf('今天最适合') < 0 && th.indexOf('按季节经验') < 0) throw new Error('缺时段入口');
+  if (th.indexOf('户外') < 0 && th.indexOf('室内') < 0) throw new Error('缺室内/户外标识');
+  return '首屏时段入口 ✓';
+});
+
+check('59 冷天自动加长热身：体感 ≤8°C 用冷天版，正常天用常规版', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); D.state.weather = { date: U.todayStr(), wx: "好天", appMax: 5 };');
+  if (!w.eval('isColdDay()')) throw new Error('5°C 未判冷');
+  if (w.eval('warmupText()').indexOf('做满5分钟') < 0) throw new Error('冷天热身文案未生效');
+  w.eval('D.state.weather = { date: U.todayStr(), wx: "好天", appMax: 20 };');
+  if (w.eval('isColdDay()')) throw new Error('20°C 误判冷');
+  if (w.eval('warmupText()').indexOf('做满5分钟') >= 0) throw new Error('正常天不应出现冷天提示');
+  w.eval('D.state.profileDone = true; D.state.tour7 = null; D.state.weather = { date: U.todayStr(), wx: "好天", appMax: 5 }; renderToday();');
+  if (w.eval("document.getElementById('todayBody').innerHTML").indexOf('今天冷，做满 5 分钟') < 0) throw new Error('课表未显示冷天热身');
+  return '冷天热身切换 ✓';
+});
+
+check('60 天气码：阵雨不再误判成雪，雪/冻雨/雷雨分开', () => {
+  if (loadErr) throw loadErr;
+  if (w.eval('wxFromCode(81)[1]') === '雪') throw new Error('81 阵雨仍误判为雪');
+  if (w.eval('wxFromCode(81)[1]') !== '降水') throw new Error('81 应为降水');
+  if (w.eval('wxFromCode(71)[1]') !== '雪') throw new Error('71 应为雪');
+  if (w.eval('wxFromCode(66)[1]') !== '冻雨') throw new Error('66 应为冻雨');
+  if (w.eval('wxFromCode(95)[1]') !== '雷雨') throw new Error('95 应为雷雨');
+  return '雨/雪/冻雨/雷雨映射 ✓';
+});
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);
 console.log('================ P0 jsdom 断言报告（node ' + process.version + ' · jsdom ' + require(require.resolve('jsdom/package.json', { paths: [DIR] })).version + '） ================');

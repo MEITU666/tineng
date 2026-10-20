@@ -1,11 +1,11 @@
-/* 体能系统 v4.3 Service Worker（零外部依赖，白名单内才缓存）
+/* 体能系统 v4.4 Service Worker（零外部依赖，白名单内才缓存）
    策略：
    - 页面（导航 / index.html）：network-first，失败回退缓存
    - GitHub API（api.github.com）响应：network-first，失败回退缓存（v4.1 Gist 通道已移除）
    - icon.svg / manifest.json：cache-first
    白名单之外的请求一律不拦截、不缓存 */
-const CACHE = 'tineng-cache-v16'; // v4.3.0 体检修复：首开直达/今天页重排/力量A-B/专项1100m/浅色可读
-const ASSETS = ['./', './index.html', './manifest.json', './icon.svg'];
+const CACHE = 'tineng-cache-v17'; // v4.4.0 好用度：天气时段/冬季室内/冷天热身/喝水提醒
+const ASSETS = ['./', './index.html', './manifest.json', './icon.svg', './water.ics'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));

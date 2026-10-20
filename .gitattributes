@@ -1,1 +1,4 @@
 * text=auto eol=lf
+
+# iCalendar 需要 CRLF，禁止 git 归一化
+*.ics -text
