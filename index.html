@@ -575,7 +575,30 @@ const CONFIG = {
   /* K4 热身与放松（逐字） */
   warmup: '原地踏步1分钟→踝绕环左右各10圈→弓步走10步→髋关节绕环10次→自重深蹲5次慢速',
   warmupCold: '原地快走/踏步2分钟→踝泵20次→踝绕环左右各15圈→靠墙静蹲30秒×2→臀桥15次→自重深蹲5次慢速（做满5分钟，手脚发热再脱外层）',
-  cooldown: '站姿股四头肌拉伸30秒/侧→站姿大腿后侧拉伸30秒/侧→靠墙小腿拉伸30秒/侧→坐姿体前屈30秒→婴儿式30秒→网球足底滚动1分钟/侧',
+  cooldown: '站姿股四头肌拉伸30秒/侧→站姿大腿后侧拉伸30秒/侧→靠墙小腿拉伸30秒/侧（直膝+屈膝各一组）→坐姿体前屈30秒→婴儿式30秒→网球足底滚动1分钟/侧（小腿紧/足底酸时加：毛巾拉脚趾30秒×3）',
+  release: { // v4.5.0：久坐肩颈 / 小腿胀硬 / 足底按压酸的日常释放（不是诊断，动作以无痛范围为界）
+    shoulder: { title: '肩颈（久坐 45 分钟）', mins: '3 分钟', items: [
+      '收下巴：坐直，下巴水平后收，停 5 秒×10 次（不要低头）',
+      '门框胸拉伸：前臂扶门框，身体前倾，30 秒×2/侧',
+      '墙面滑手：背贴墙，手臂沿墙上滑，10 次（肩胛骨贴墙）',
+      '肩胛后收：双肩向后向下夹，停 5 秒×10 次',
+      '每 45 分钟起身 2 分钟：接水/走一圈，楼梯只上不下'
+    ] },
+    calf: { title: '小腿（胀/硬/按压酸）', mins: '4 分钟', items: [
+      '直膝靠墙拉伸：后脚跟踩实，30 秒×2/侧',
+      '屈膝靠墙拉伸：膝盖微屈、重心下沉，30 秒×2/侧（比目鱼肌）',
+      '球/泡沫轴滚：1-2 分钟/侧，慢，避开最痛点，不要死压',
+      '慢速提踵：踮起 2 秒、下落 3 秒，10 次×2',
+      '坐久脚踝泵：每小时 20 次（勾脚-踩脚），防小腿僵'
+    ] },
+    foot: { title: '足底（绷直脚背按压酸）', mins: '3 分钟', items: [
+      '毛巾拉脚趾（足底筋膜拉伸）：坐姿，毛巾套前脚掌往自己方向拉，30 秒×3/侧；晨起第一步前先做',
+      '球滚：网球/筋膜球 1 分钟/侧，轻，避开最痛点',
+      '短足运动：不蜷脚趾，把足弓“缩短”抬起，停 5 秒×10 次×3',
+      '今天少爬楼、少走硬地；鞋底硬/磨平的鞋先换掉',
+      '如果晨起第一步剧痛、夜间痛、肿胀或不能承重：别硬练，去运动医学科/骨科查一下'
+    ] }
+  },
   weatherAlt: '雨雪/闷热替代：有氧日改室内原地快走/踏步，或爬楼梯（只上不下、下楼乘电梯；楼道闷热缩短至 15 分钟并补水）——替代课三件套细节见指南 K28',
 
   /* K7 足底康复三 Stage */
@@ -925,7 +948,7 @@ function toast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.hidden = true; }, 3200);
 }
-window.APP_VER = '4.4.2'; // v4.4.2：好用度增强（天气时段/冬季室内/冷天热身/喝水+日历提醒/今日三件事/完成态/上次训练） // v4.2.1：足踝重装专项批（Stage3 脚趾分控/离心提踵/抗阻/负重下台阶）。注：产品对外名以主人拍板为准（PRD :15），代码层不使用任何未经拍板的人格名
+window.APP_VER = '4.5.0'; // v4.5.0：身体照顾（久坐肩颈/小腿胀硬/足底筋膜释放+晨检联动+练前热身/练后放松明确化） // v4.2.1：足踝重装专项批（Stage3 脚趾分控/离心提踵/抗阻/负重下台阶）。注：产品对外名以主人拍板为准（PRD :15），代码层不使用任何未经拍板的人格名
 window.addEventListener('error', function (e) { try { if (e && e.message) toast('出了个小问题：' + String(e.message).slice(0, 60)); } catch (err) {} }); // v4.1 审查修复 B4：全局异常不再静默
 window.addEventListener('unhandledrejection', function (e) { try { const r = e && e.reason; toast('后台出了个小问题：' + String(r && r.message || r || '未知').slice(0, 60)); } catch (err) {} });
 async function checkAppUpdate() { // v4.1：一键清 SW/缓存并重载——根治"PWA 更新后吃旧缓存"（原需手动强刷）
@@ -1829,6 +1852,29 @@ function todayStripHtml() { // 今日三件事：训练 / 喝水 / 足踝；只�
     + cell('足踝', foot ? '已完成' : '待做', foot)
     + '</div>';
 }
+function releaseCardHtml() { // 久坐释放卡：肩颈/小腿/足底，三组可折叠；只给动作，不诊断
+  const R = CONFIG.release;
+  const group = function (key) {
+    const g = R[key];
+    return '<details class="fold"><summary>' + U.esc(g.title) + ' · ' + U.esc(g.mins) + '</summary><div class="fold-body">'
+      + g.items.map(function (x, i) { return '<div class="body-tx" style="padding:3px 0">' + (i + 1) + '. ' + U.esc(x) + '</div>'; }).join('')
+      + '</div></details>';
+  };
+  return '<div class="card" id="releaseCard"><div class="card-head"><div class="bubble bg-purple" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 12h4l2-6 4 12 2-6h4"/></svg></div>'
+    + '<div style="flex:1"><div class="card-title" style="margin:0">久坐释放 · 5 分钟</div><div class="sub">肩颈 / 小腿 / 足底：坐久了、练完胀、按压酸时做</div></div></div>'
+    + '<div class="sub" style="margin-top:6px">先做释放，再决定今天练不练；动作以“舒服的酸”为界，不是越痛越好。</div>'
+    + group('shoulder') + group('calf') + group('foot') + '</div>';
+}
+function chkAdviceHtml(c) { // 晨检部位→针对性处理（只给低风险动作，不做诊断）
+  if (!c || c.out === 'stop') return '';
+  const parts = c.parts || [];
+  const tips = [];
+  if (parts.indexOf('肩') >= 0 || parts.indexOf('上背') >= 0) tips.push('肩颈：收下巴 10 次×5 秒 + 门框胸拉伸 30 秒×2 + 墙面滑手 10 次；屏幕抬到平视，45 分钟起身一次。');
+  if (parts.indexOf('小腿') >= 0) tips.push('小腿：直膝/屈膝靠墙拉伸各 30 秒×2 + 球滚 1-2 分钟（避开最痛点）+ 慢速提踵 10 次×2；今天少爬楼。');
+  if (parts.indexOf('足底') >= 0 || parts.indexOf('右足底') >= 0) tips.push('足底：毛巾拉脚趾 30 秒×3（晨起第一步前）+ 球滚 1 分钟（轻）+ 短足 10 次×3；今天少走硬地。');
+  if (!tips.length) return '';
+  return '<div class="sub" style="margin-top:8px;padding:8px 10px;border-radius:8px;background:var(--accent-soft)">针对性处理：<br>' + tips.join('<br>') + '</div>';
+}
 function waterToday() { // 今日喝水记录（state.water 可选键；跨日自动归零）
   const w = D.state.water;
   return (w && w.date === U.todayStr()) ? w : { date: U.todayStr(), cups: 0 };
@@ -2058,7 +2104,7 @@ function chkBarHtml() { // 晨检条：日常一行，点开 60 秒点选完成�
   else if (c.out === 'ok') head = '<div class="sub" style="margin-top:8px;color:var(--green-text)">✓ 晨检已做：' + (c.why ? U.esc(c.why) : '身体正常，按计划练') + '。</div>';
   else if (c.out === 'watch') head = '<div class="sub" style="margin-top:8px;color:var(--orange-text)">⚠ 晨检：' + U.esc(c.why) + '——今日已自动降档，改法见上。</div>';
   else head = '<div class="sub" style="color:var(--red-text);font-weight:600;margin-top:8px">🚩 晨检：' + U.esc(c.why) + '——今日停训，恢复课已自动替换，就医线见停训卡。</div>';
-  return '<div class="field" style="margin-top:10px"><label>康复师晨检</label>' + head
+  return '<div class="field" style="margin-top:10px"><label>康复师晨检</label>' + head + chkAdviceHtml(c)
     + '<details class="fold" style="margin-top:6px"' + (c ? '' : ' open') + '><summary>' + (c ? '重新晨检' : '点开晨检（60 秒）') + '</summary><div class="fold-body">'
     + '<div class="sub" style="margin-bottom:4px">第 1 步：哪里不舒服？（没有就选"无"）</div>'
     + '<div class="chips">' + CHK_PARTS.map((p) => '<button class="chip" onclick="chkPickParts(\'' + p + '\',this)">' + p + '</button>').join('') + '</div>'
@@ -2881,6 +2927,7 @@ function renderToday() {
     + '<div class="field"><label>HRV（毫秒）</label><input id="fHrv" type="number" min="5" max="200" inputmode="numeric" placeholder="如 50"></div>'
     + '</div>';
   h += waterCardHtml(); // v4.4 喝水：记录 + 日历提醒入口
+  h += releaseCardHtml(); // v4.5 久坐/小腿/足底释放
   // 晨检与身体信号：从首屏下沉，仍在一屏内可达
   h += '<div class="card" id="statusDetailCard">'
     + (D.state.profileDone ? '' : '<div id="profilePrompt" style="margin-bottom:10px"><div class="sub">档案还是默认值（176cm / 60kg / 无生日）——填一下，心率上限和建议更准。</div><button class="btn-ghost" style="margin-top:8px" onclick="openGuide()">现在完善（30 秒）</button></div>')
@@ -3059,9 +3106,9 @@ function planHtml(dateStr) {
   if (CONFIG.trainTypes.indexOf(eff) >= 0) {
     const __lvNow = todayLevelInfo().level;
     if (__lvNow !== 'floor' && __lvNow !== 'return' && __lvNow !== 'rest') {
-      h += '<details class="fold"><summary>热身与放松（各5分钟）</summary><div class="fold-body">'
+      h += '<details class="fold"><summary>练前热身 5 分钟 / 练后放松 5 分钟</summary><div class="fold-body">'
         + '<b>热身：</b>' + U.esc(warmupText()) + (isColdDay() ? ' <span style="color:var(--orange-text)">（今天冷，做满 5 分钟）</span>' : '') + '<br><b>放松：</b>' + U.esc(CONFIG.cooldown)
-        + '<br><span class="sub">' + U.esc(CONFIG.weatherAlt) + '</span></div></details>';
+        + '<br><span class="sub">' + U.esc(CONFIG.weatherAlt) + '</span><br><span class="sub">小腿紧/足底酸：练后加 2 分钟球滚 + 毛巾拉脚趾 30 秒×3。</span></div></details>';
     }
     if (R.todayLight().level === 'red') { // REH-1 红灯门禁：不渲染开始按钮
       h += '<div class="callout-warn" style="margin-top:12px">今日红灯：停训，仅可八段锦与足底放松，等灯转绿再练。</div>';

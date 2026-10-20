@@ -1974,6 +1974,23 @@ check('61 今日完成态/三件事/上次训练：保存后主按钮变已完�
   if (th.indexOf('已完成') < 0 || th.indexOf('2/') < 0) throw new Error('三件事未显示完成/喝水');
   return '完成态 + 三件事 + 上次训练 ✓';
 });
+
+check('62 久坐释放与晨检联动：肩颈/小腿/足底都有动作，练前练后说明在位', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData();');
+  const rc = w.eval('releaseCardHtml()');
+  for (const k of ['肩颈（久坐 45 分钟）', '小腿（胀/硬/按压酸）', '足底（绷直脚背按压酸）', '毛巾拉脚趾', '短足运动', '不是越痛越好']) {
+    if (rc.indexOf(k) < 0) throw new Error('释放卡缺：' + k);
+  }
+  const adv = w.eval('chkAdviceHtml({ out: "watch", parts: ["小腿", "肩"] })');
+  if (adv.indexOf('小腿：') < 0 || adv.indexOf('肩颈：') < 0) throw new Error('晨检针对性处理缺失');
+  if (w.eval('chkAdviceHtml({ out: "stop", parts: ["小腿"] })') !== '') throw new Error('红灯不应再给自练建议');
+  w.eval('D.state.profileDone = true; D.state.tour7 = null; renderToday();');
+  const th = w.eval("document.getElementById('todayBody').innerHTML");
+  if (th.indexOf('id="releaseCard"') < 0) throw new Error('今天页缺释放卡');
+  if (th.indexOf('练前热身 5 分钟 / 练后放松 5 分钟') < 0) throw new Error('课表未标明练前/练后');
+  return '释放卡 + 晨检联动 + 练前练后 ✓';
+});
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);
 console.log('================ P0 jsdom 断言报告（node ' + process.version + ' · jsdom ' + require(require.resolve('jsdom/package.json', { paths: [DIR] })).version + '） ================');
