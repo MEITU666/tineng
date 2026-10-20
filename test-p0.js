@@ -1976,21 +1976,51 @@ check('61 今日完成态/三件事/上次训练：保存后主按钮变已完�
   return '完成态 + 三件事 + 上次训练 ✓';
 });
 
-check('62 久坐释放与晨检联动：肩颈/小腿/足底都有动作，练前练后说明在位', () => {
+check('62（v4.6 改）拉伸并入日课：独立卡取消、晨检联动保留、课表说明更新', () => {
   if (loadErr) throw loadErr;
   w.eval('D = defaultData();');
-  const rc = w.eval('releaseCardHtml()');
-  for (const k of ['肩颈（久坐 45 分钟）', '小腿（胀/硬/按压酸）', '足底（绷直脚背按压酸）', '毛巾拉脚趾', '短足运动', '不是越痛越好']) {
-    if (rc.indexOf(k) < 0) throw new Error('释放卡缺：' + k);
+  if (w.eval('typeof releaseCardHtml') !== 'undefined') throw new Error('releaseCardHtml 独立卡应已删除（拉伸进了每天的课）');
+  const lib = w.eval('JSON.stringify(Object.keys(STRETCH_LIB))');
+  for (const k of ['foot_towel', 'calf_straight', 'calf_bent', 'chin_tuck', 'chest_door', 'foot_short']) {
+    if (lib.indexOf(k) < 0) throw new Error('动作库缺：' + k);
   }
   const adv = w.eval('chkAdviceHtml({ out: "watch", parts: ["小腿", "肩"] })');
   if (adv.indexOf('小腿：') < 0 || adv.indexOf('肩颈：') < 0) throw new Error('晨检针对性处理缺失');
   if (w.eval('chkAdviceHtml({ out: "stop", parts: ["小腿"] })') !== '') throw new Error('红灯不应再给自练建议');
   w.eval('D.state.profileDone = true; D.state.tour7 = null; renderToday();');
   const th = w.eval("document.getElementById('todayBody').innerHTML");
-  if (th.indexOf('id="releaseCard"') < 0) throw new Error('今天页缺释放卡');
-  if (th.indexOf('练前热身 5 分钟 / 练后放松 5 分钟') < 0) throw new Error('课表未标明练前/练后');
-  return '释放卡 + 晨检联动 + 练前练后 ✓';
+  if (th.indexOf('id="releaseCard"') >= 0) throw new Error('首页不应再有独立释放卡');
+  if (th.indexOf('激活与收尾') < 0) throw new Error('课表未标明激活/收尾');
+  return '独立卡取消 + 晨检联动 + 课表说明 ✓';
+});
+/* ---------- 64 v4.6 课程引擎（拉伸并入每日课） ---------- */
+check('64 v4.6 引擎：三阶段课单/主练反推/足底必做/当天冻结/收尾不卡打卡', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); D.state.profileDone = true; D.state.planCache = null;');
+  const plan = JSON.parse(w.eval('JSON.stringify(stretchPlanFor(U.todayStr()))'));
+  if (plan.release.indexOf('foot_towel') < 0) throw new Error('足底必做（10″×10）不在收尾列');
+  if (plan.reason.foot_towel.indexOf('DiGiovanni') < 0) throw new Error('动作无理由/出处');
+  const c = w.eval('buildCourse(false)');
+  const act = c.filter((p) => p.kind === 'stretch' && p.phase === 'activate');
+  const rel = c.filter((p) => p.kind === 'stretch' && p.phase === 'release');
+  if (act.length !== 5) throw new Error('激活应 5 条，实得 ' + act.length);
+  if (rel.length < 4) throw new Error('收尾过少：' + rel.length);
+  if (c[0].kind !== 'stretch' || c[0].phase !== 'activate') throw new Error('课单第一条应是激活');
+  const est = w.eval('estimateMin(buildCourse(false))');
+  if (est < 30 || est > 45) throw new Error('力量日估时应在 30-45 分钟，实得 ' + est);
+  // 当天冻结：两次生成一致
+  const p2 = JSON.parse(w.eval('JSON.stringify(stretchPlanFor(U.todayStr()))'));
+  if (JSON.stringify(p2.release) !== JSON.stringify(plan.release)) throw new Error('当天两次生成不一致（冻结失效）');
+  // 收尾不参与完成判定：stretch 不该出现在 todayDone 链路
+  w.eval('D.daily = [{ date: U.todayStr(), type: "无", durationMin: 3 }]');
+  if (w.eval('todayDone()')) throw new Error('只有拉伸记录时 todayDone 应为 false（收尾 required:false）');
+  // 跟练页 stretch 相位渲染
+  w.eval('D = defaultData(); D.state.profileDone = true; wk = { kind:"力量", mode:"course", course: buildCourse(false), ci: 0, phase:"stretch", left: 20, phaseDur: 30, phaseStartTs: Date.now(), startTs: Date.now(), pausedTotal: 0, pausedAt: null, elapsed: 5, setsDone: CONFIG.actions.map(()=>0), setsPer: CONFIG.actions.map(()=>3), totalSets: 16, yellow:false, lastPerf:"", timer: null, reduced:false }; document.getElementById("workout").hidden = false; renderWorkout();');
+  const wh = w.eval("document.getElementById('wkBody').innerHTML");
+  if (wh.indexOf('收尾') < 0 && wh.indexOf('激活') < 0) throw new Error('跟练页未渲染拉伸相位');
+  if (wh.indexOf('跳过这个') < 0) throw new Error('拉伸相位缺"跳过"按钮');
+  w.eval('wk = null');
+  return '三阶段课单 + 引擎冻结 + 收尾不卡打卡 + 跟练相位 ✓';
 });
 /* ---------- 63 数据口径四修（2026-10-20 七角色审查批①） ---------- */
 check('63 数据口径：晨检不算打卡、无记录≠无痛、完成率同源、睡眠线单一来源', () => {

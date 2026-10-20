@@ -593,12 +593,12 @@ const CONFIG = {
   warmupCold: '原地快走/踏步2分钟→踝泵20次→踝绕环左右各15圈→靠墙静蹲30秒×2→臀桥15次→自重深蹲5次慢速（做满5分钟，手脚发热再脱外层）',
   cooldown: '站姿股四头肌拉伸30秒/侧→站姿大腿后侧拉伸30秒/侧→靠墙小腿拉伸30秒/侧（直膝+屈膝各一组）→坐姿体前屈30秒→婴儿式30秒→网球足底滚动1分钟/侧（小腿紧/足底酸时加：毛巾拉脚趾30秒×3）',
   release: { // v4.5.0：久坐肩颈 / 小腿胀硬 / 足底按压酸的日常释放（不是诊断，动作以无痛范围为界）
-    shoulder: { title: '肩颈（久坐 45 分钟）', mins: '3 分钟', items: [
+    shoulder: { title: '肩颈（坐久了就松）', mins: '3 分钟', items: [
       '收下巴：坐直，下巴水平后收，停 5 秒×10 次（不要低头）',
       '门框胸拉伸：前臂扶门框，身体前倾，30 秒×2/侧',
       '墙面滑手：背贴墙，手臂沿墙上滑，10 次（肩胛骨贴墙）',
       '肩胛后收：双肩向后向下夹，停 5 秒×10 次',
-      '每 45 分钟起身 2 分钟：接水/走一圈，楼梯只上不下'
+      '起身节奏默认 45 分钟（好执行）；代谢上 20-30 分钟更优，能早就早——起身 2 分钟：接水/走一圈，楼梯只上不下'
     ] },
     calf: { title: '小腿（胀/硬/按压酸）', mins: '4 分钟', items: [
       '直膝靠墙拉伸：后脚跟踩实，30 秒×2/侧',
@@ -964,7 +964,7 @@ function toast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.hidden = true; }, 3200);
 }
-window.APP_VER = '4.5.2'; // v4.5.2 七角色审查修复批（2026-10-20 深夜）：数据口径4修+训练快照持久化+草稿保护+chip回填+按钮收敛+中断如实记录+字号三档+深色补齐+死代码清理+合规文案 · 前批 v4.5.1 隐私修复：出厂默认清空身高/体重/城市/伤史——源码进公开仓，个人数据仅存本机；检测来源默认去城市化 // v4.5.0：身体照顾（久坐肩颈/小腿胀硬/足底筋膜释放+晨检联动+练前热身/练后放松明确化）
+window.APP_VER = '4.6.0'; // v4.6.0 拉伸并入每日课（三阶段/恢复课/起床档/规则引擎/当天冻结）· 前批 v4.5.2：数据口径4修+训练快照持久化+草稿保护+chip回填+按钮收敛+中断如实记录+字号三档+深色补齐+死代码清理+合规文案 · 前批 v4.5.1 隐私修复：出厂默认清空身高/体重/城市/伤史——源码进公开仓，个人数据仅存本机；检测来源默认去城市化 // v4.5.0：身体照顾（久坐肩颈/小腿胀硬/足底筋膜释放+晨检联动+练前热身/练后放松明确化）
 window.addEventListener('error', function (e) { try { if (e && e.message) toast('出了个小问题：' + String(e.message).slice(0, 60)); } catch (err) {} }); // v4.1 审查修复 B4：全局异常不再静默
 window.addEventListener('unhandledrejection', function (e) { try { const r = e && e.reason; toast('后台出了个小问题：' + String(r && r.message || r || '未知').slice(0, 60)); } catch (err) {} });
 async function checkAppUpdate() { // v4.1：一键清 SW/缓存并重载——根治"PWA 更新后吃旧缓存"（原需手动强刷）
@@ -1851,34 +1851,24 @@ function todayStripHtml() { // 今日三件事：训练 / 喝水 / 足踝；只�
   const train = todayDone();
   const restDay = effTemplate()[new Date().getDay()] === '休息日';
   const w = waterToday(), wt = waterTarget();
-  const foot = !!(rec.footRehab);
+  const ps = D.state.pendingStretch && D.state.pendingStretch.date === U.todayStr() ? D.state.pendingStretch : null;
+  const st = rec.stretch || ps;
+  const strDone = !!(st && st.rTotal && st.r >= Math.ceil(st.rTotal * 2 / 3));
+  const strTxt = st && st.rTotal ? st.r + '/' + st.rTotal : '待做';
   const cell = function (label, val, done) {
     return '<div class="ts' + (done ? ' done' : '') + '"><b>' + val + '</b><span>' + label + '</span></div>';
   };
   return '<div class="today-strip" aria-label="今日三件事">'
     + cell('训练', restDay ? '休息日' : (train ? '已完成' : '待练'), train || restDay)
     + cell('喝水', w.cups + '/' + wt, w.cups >= wt)
-    + cell('足踝', foot ? '已完成' : '待做', foot)
+    + cell('拉伸', strTxt, strDone)
     + '</div>';
-}
-function releaseCardHtml() { // 久坐释放卡：肩颈/小腿/足底，三组可折叠；只给动作，不诊断
-  const R = CONFIG.release;
-  const group = function (key) {
-    const g = R[key];
-    return '<details class="fold"><summary>' + U.esc(g.title) + ' · ' + U.esc(g.mins) + '</summary><div class="fold-body">'
-      + g.items.map(function (x, i) { return '<div class="body-tx" style="padding:3px 0">' + (i + 1) + '. ' + U.esc(x) + '</div>'; }).join('')
-      + '</div></details>';
-  };
-  return '<div class="card" id="releaseCard"><div class="card-head"><div class="bubble bg-purple" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 12h4l2-6 4 12 2-6h4"/></svg></div>'
-    + '<div style="flex:1"><div class="card-title" style="margin:0">久坐释放 · 5 分钟</div><div class="sub">肩颈 / 小腿 / 足底：坐久了、练完胀、按压酸时做</div></div></div>'
-    + '<div class="sub" style="margin-top:6px">先做释放，再决定今天练不练；动作以“舒服的酸”为界，不是越痛越好。</div>'
-    + group('shoulder') + group('calf') + group('foot') + '</div>';
 }
 function chkAdviceHtml(c) { // 晨检部位→针对性处理（只给低风险动作，不做诊断）
   if (!c || c.out === 'stop') return '';
   const parts = c.parts || [];
   const tips = [];
-  if (parts.indexOf('肩') >= 0 || parts.indexOf('上背') >= 0) tips.push('肩颈：收下巴 10 次×5 秒 + 门框胸拉伸 30 秒×2 + 墙面滑手 10 次；屏幕抬到平视，45 分钟起身一次。');
+  if (parts.indexOf('肩') >= 0 || parts.indexOf('上背') >= 0) tips.push('肩颈：收下巴 10 次×5 秒 + 门框胸拉伸 30 秒×2 + 墙面滑手 10 次；屏幕抬到平视；起身默认 45 分钟一次，能早就早。');
   if (parts.indexOf('小腿') >= 0) tips.push('小腿：直膝/屈膝靠墙拉伸各 30 秒×2 + 球滚 1-2 分钟（避开最痛点）+ 慢速提踵 10 次×2；今天少爬楼。');
   if (parts.indexOf('足底') >= 0 || parts.indexOf('右足底') >= 0) tips.push('足底：毛巾拉脚趾 30 秒×3（晨起第一步前）+ 球滚 1 分钟（轻）+ 短足 10 次×3；今天少走硬地。');
   if (!tips.length) return '';
@@ -2848,10 +2838,10 @@ function startCta(level) { // 今天页唯一主按钮：按当日类型与状�
   }
   if (todayDone()) return { t: '今天已完成 · 看记录', fn: 'scrollToRecord()', kind: 'done' };
   if (level === 'floor' || level === 'return') return { t: '开始每日包', fn: 'scrollToPack()', kind: 'pack' };
-  if (level === 'rest') return { t: '记录休息日', fn: 'scrollToRecord()', kind: 'rest' };
+  if (level === 'rest') return { t: '开始恢复课 · 约 12 分钟', fn: 'startRecovery()', kind: 'rest' };
   const dayType = effTemplate()[new Date().getDay()];
   if (dayType === '力量') return { t: '开始力量课', fn: 'startWorkout()', kind: 'strength' };
-  if (dayType === '休息日') return { t: '记录休息日', fn: 'scrollToRecord()', kind: 'rest' };
+  if (dayType === '休息日') return { t: '开始恢复课 · 约 12 分钟', fn: 'startRecovery()', kind: 'rest' };
   return { t: tf.cardioChoice ? '开始训练' : '选有氧方式并开始', fn: 'quickStart()', kind: 'cardio' };
 }
 function scrollToPack() { const el = document.getElementById('dayPackCard'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
@@ -2938,6 +2928,7 @@ function renderToday() {
     + whenToTrainHtml()
     + footRedCheck()
     + '<button class="' + (cta.kind === 'done' ? 'btn-ghost' : 'btn-primary') + '" id="btnStartToday" data-kind="' + cta.kind + '" style="margin-top:12px" onclick="' + cta.fn + '">' + cta.t + '</button>'
+    + morningStretchHtml()
     + todayStripHtml() + '</div>';
   h += resumeCardHtml(); // IX-01：有未完成训练时，今天页第一张卡=续练
   if (level === 'floor' || level === 'return') h += dailyPackCard(level);
@@ -2978,7 +2969,7 @@ function renderToday() {
     + '<div class="field"><label>HRV（毫秒）</label><input id="fHrv" type="number" min="5" max="200" inputmode="numeric" placeholder="如 50"></div>'
     + '</div>';
   h += waterCardHtml(); // v4.4 喝水：记录 + 日历提醒入口
-  h += releaseCardHtml(); // v4.5 久坐/小腿/足底释放
+  // v4.6：久坐释放独立卡已取消——动态部分进激活、静态部分进收尾（拉伸并入每天的课）；急救动作仍在晨检联动里
   // 晨检与身体信号：从首屏下沉，仍在一屏内可达
   h += '<div class="card" id="statusDetailCard">'
     + (D.state.profileDone ? '' : '<div id="profilePrompt" style="margin-bottom:10px"><div class="sub">档案还是默认值（176cm / 60kg / 无生日）——填一下，心率上限和建议更准。</div><button class="btn-ghost" style="margin-top:8px" onclick="openGuide()">现在完善（30 秒）</button></div>')
@@ -3160,8 +3151,8 @@ function planHtml(dateStr) {
   if (CONFIG.trainTypes.indexOf(eff) >= 0) {
     const __lvNow = todayLevelInfo().level;
     if (__lvNow !== 'floor' && __lvNow !== 'return' && __lvNow !== 'rest') {
-      h += '<details class="fold"><summary>练前热身 5 分钟 / 练后放松 5 分钟</summary><div class="fold-body">'
-        + '<b>热身：</b>' + U.esc(warmupText()) + (isColdDay() ? ' <span style="color:var(--orange-text)">（今天冷，做满 5 分钟）</span>' : '') + '<br><b>放松：</b>' + U.esc(CONFIG.cooldown)
+      h += '<details class="fold"><summary>激活与收尾（拉伸并入课里了）</summary><div class="fold-body">'
+        + '<b>激活：</b>课单前段 5 个动态动作（跟着做）' + (isColdDay() ? ' <span style="color:var(--orange-text)">（今天冷，做满 5 分钟）</span>' : '') + '</div><b>收尾：</b>按今天主练与晨检算出的静态拉伸（课单末段）'
         + '<br><span class="sub">' + U.esc(CONFIG.weatherAlt) + '</span><br><span class="sub">小腿紧/足底酸：练后加 2 分钟球滚 + 毛巾拉脚趾 30 秒×3。</span></div></details>';
     }
     if (R.todayLight().level === 'red') { // REH-1 红灯门禁：不渲染开始按钮
@@ -3576,6 +3567,8 @@ function tfSave() {
       D.state.strengthFails = 0;
     }
     rec.strengthChecks = tf.checks.slice();
+  const __ps = D.state.pendingStretch; // v4.6：拉伸留痕并入（required:false，不影响完成判定）
+  if (__ps && __ps.date === U.todayStr()) { rec.stretch = __ps; D.state.pendingStretch = null; }
   }
   if (tf.painOpt === '其他') {
     const p = (document.getElementById('fPainText') || {}).value || '';
@@ -5313,8 +5306,98 @@ function targetRepsOf(a) { // 最大力量期主项 3×5（慢速离心），其
   if (rehabPhase() === 0 && isMaxStrengthPhase() && STRENGTH_MAIN.indexOf(a.name) >= 0 && a.unit.indexOf('秒') < 0) return Math.min(5, base);
   return base;
 }
-function buildCourse(reduced, dateStr) { // 课单：热身 + 今日 A/B 动作（组数走 setsOf）+ 放松
-  const c = [{ kind: 'warm' }];
+/* ===== v4.6 拉伸并入日课：动作库（单一真源）===== */
+/* 防膨胀约束（07 方案 §3.9）：region 固定 9 类、库上限 35 条、症状是规则不是动作属性、左右侧用 laterality 展开 */
+const STRETCH_LIB = {
+  // —— Phase 0 激活（动态）——
+  ankle_pump:   { name: '踝泵', region: 'ankle', mode: 'rep', secs: 2, reps: 15, sets: 1, laterality: 'none', phase: ['activate'], cue: '勾脚-踩脚缓慢交替', why: '踝', src: '临床通则（D）' },
+  calf_raise_slow: { name: '慢速提踵', region: 'calf', mode: 'rep', secs: 3, reps: 10, sets: 1, laterality: 'none', phase: ['activate'], cue: '踮起 2 秒、下落 3 秒', why: '小腿', src: '临床通则（D）' },
+  leg_swing:    { name: '腿摆', region: 'hip', mode: 'rep', secs: 3, reps: 10, sets: 1, laterality: 'none', phase: ['activate'], cue: '前后摆，幅度渐大', why: '髋', src: '动态热身惯例（C）' },
+  arm_circle:   { name: '肩绕环', region: 'shoulder_neck', mode: 'rep', secs: 2, reps: 10, sets: 1, laterality: 'none', phase: ['activate'], cue: '前后各绕 10 圈', why: '肩', src: '动态热身惯例（C）' },
+  wall_slide:   { name: '墙面滑手', region: 'shoulder_neck', mode: 'rep', secs: 3, reps: 8, sets: 1, laterality: 'none', phase: ['activate', 'release'], cue: '背贴墙，手臂沿墙上滑，不耸肩', why: '肩胛上回旋', src: '肌电合理、结局未验证（D）' },
+  thoracic_rot: { name: '跪姿胸椎旋转', region: 'thoracic', mode: 'rep', secs: 4, reps: 8, sets: 1, laterality: 'bilateral', phase: ['activate'], cue: '随呼气转，不塌腰', why: '胸椎', src: '自主旋转证据弱（C/D）' },
+  // —— Phase 2 收尾（静态 hold / 高频 rep）——
+  foot_towel:   { name: '毛巾拉脚趾', region: 'foot', mode: 'rep', secs: 10, reps: 10, sets: 1, laterality: 'bilateral', phase: ['release'], cue: '拉到足弓绷紧如琴弦，不拉到刺痛', why: '足底筋膜', red: '跖筋膜撕裂急性期', src: 'DiGiovanni 2003 JBJS（B）：10″×10×3/天，≥8 周' },
+  foot_ball:    { name: '球滚足底', region: 'foot', mode: 'hold', secs: 60, reps: 1, sets: 1, laterality: 'bilateral', phase: ['release'], cue: '慢速，避开最痛点，不跳脚', why: '足底舒适度', red: '锐痛/麻木区', src: 'Wiewelhove 2019（C 间接）' },
+  foot_short:   { name: '短足运动', region: 'foot', mode: 'rep', secs: 5, reps: 10, sets: 1, laterality: 'none', phase: ['release'], cue: '不蜷脚趾，足弓"缩短"抬起', why: '足内在肌', src: 'SR+MA 13 RCT（A 对功能/对疼痛阴性）' },
+  calf_straight:{ name: '靠墙小腿拉伸（直膝）', region: 'calf', mode: 'hold', secs: 30, reps: 1, sets: 1, laterality: 'bilateral', phase: ['release'], cue: '后脚跟踩实，膝盖伸直', why: '腓肠肌', src: 'APTA CPG 2023（A 组合）' },
+  calf_bent:    { name: '靠墙小腿拉伸（屈膝）', region: 'calf', mode: 'hold', secs: 30, reps: 1, sets: 1, laterality: 'bilateral', phase: ['release'], cue: '屈膝 30-45°，脚跟不离地', why: '比目鱼肌', src: 'APTA CPG 2023（A 组合）' },
+  chin_tuck:    { name: '收下巴', region: 'shoulder_neck', mode: 'rep', secs: 5, reps: 10, sets: 1, laterality: 'none', phase: ['release'], cue: '水平后缩做"双下巴"，不低头', why: '颈深屈肌', src: 'SR+MA 10 篇（B）' },
+  chest_door:   { name: '门框胸拉伸', region: 'chest', mode: 'hold', secs: 30, reps: 1, sets: 1, laterality: 'bilateral', phase: ['release'], cue: '前臂贴框，身体前移，肩前侧不刺痛', why: '胸小肌', red: '肩前侧刺痛/不稳', src: '无专项 RCT（C/D）' },
+  hip_flexor:   { name: '半跪髋屈肌拉伸', region: 'hip', mode: 'hold', secs: 30, reps: 1, sets: 1, laterality: 'bilateral', phase: ['release'], cue: '收腹夹臀，骨盆后倾再前移', why: '髋屈肌', red: '膝前痛加重（垫厚）', src: '通用（C）' },
+  quad_stretch: { name: '站姿股四头拉伸', region: 'quad', mode: 'hold', secs: 30, reps: 1, sets: 1, laterality: 'bilateral', phase: ['release'], cue: '同侧手拉脚背，膝盖朝下', why: '股四头', src: '通用（C）' },
+  ham_wall:     { name: '仰卧腘绳拉伸', region: 'hamstring', mode: 'hold', secs: 30, reps: 1, sets: 1, laterality: 'bilateral', phase: ['release'], cue: '腿靠墙/门框，膝微屈', why: '腘绳肌', src: '通用（C）' },
+  glute_fig4:   { name: '4 字臀拉伸', region: 'glute', mode: 'hold', secs: 30, reps: 1, sets: 1, laterality: 'bilateral', phase: ['release'], cue: '脚踝搭对侧膝，往胸口带', why: '臀', src: '通用（C）' },
+  calf_eccen:   { name: '慢速离心提踵', region: 'calf', mode: 'rep', secs: 5, reps: 10, sets: 1, laterality: 'none', phase: ['release'], cue: '上 2 秒、下 3 秒，扶墙', why: '小腿离心', red: '跟腱急性剧痛', src: 'Alfredson 1998（B）· 与高载提踵二选一' }
+};
+/* 主练部位 → 收尾映射（07 方案 §3.3 规则 2） */
+const PART2STRETCH = [
+  ['下肢推', ['quad_stretch', 'hip_flexor']], ['单侧下肢', ['quad_stretch', 'hip_flexor', 'glute_fig4']],
+  ['后链', ['ham_wall', 'glute_fig4', 'thoracic_rot']], ['上肢推', ['chest_door']],
+  ['上肢拉', ['chest_door', 'thoracic_rot']], ['上背', ['chest_door', 'thoracic_rot']],
+  ['小腿', ['calf_straight', 'calf_bent']], ['核心', ['hip_flexor', 'thoracic_rot']]
+];
+/* 晨检主诉 → 必做序列（规则 1：主诉优先） */
+function stretchSymptomAdd(parts, add) {
+  const hit = (re) => parts.some((p) => re.test(p || ''));
+  if (hit(/足/)) { add('foot_towel', '今晨足底有主诉'); add('foot_ball', '足底放松'); }
+  if (hit(/小腿/)) { add('calf_straight', '今晨小腿胀硬'); add('calf_bent', '比目鱼肌成对拉伸'); }
+  if (hit(/肩|上背/)) { add('chin_tuck', '今晨肩颈酸'); add('chest_door', '胸小肌放松'); }
+}
+/* 周轮转（规则 3：一周覆盖全身） */
+const STRETCH_ROT = { 1: 'hip_flexor', 2: 'calf_straight', 3: 'chin_tuck', 4: 'foot_short', 5: 'glute_fig4', 6: 'quad_stretch', 0: 'ham_wall' };
+const STRETCH_ACTIVATE = ['ankle_pump', 'calf_raise_slow', 'leg_swing', 'arm_circle', 'wall_slide']; // 激活固定 5 条
+function stretchPlanFor(dateStr) { // 收尾内容引擎（当天冻结：缓存命中直接用，同一份输入永远同一份输出）
+  dateStr = dateStr || U.todayStr();
+  const cached = D.state.planCache;
+  if (cached && cached.date === dateStr && cached.ver === '4.6') return cached;
+  const d = new Date(dateStr.replace(/-/g, '/'));
+  const dayType = effTemplate()[d.getDay()];
+  const chk = todayChk();
+  const parts = (chk && chk.parts) || [];
+  const lv = todayLevelInfo().level;
+  const stopped = (chk && chk.out === 'stop') || lv === 'red';
+  const reasons = {};
+  const release = [];
+  const add = (id, why) => { if (id && STRETCH_LIB[id] && STRETCH_LIB[id].phase.indexOf('release') >= 0 && release.indexOf(id) < 0) { release.push(id); reasons[id] = why; } };
+  add('foot_towel', '足底筋膜每天 10″×10（DiGiovanni 2003）'); // 规则0 足底每天必做（先加保证在列，后续 add 自动去重）
+  if (stopped) { // 停训/红灯降级：只留足底必做
+  } else {
+    stretchSymptomAdd(parts, add); // 规则1 主诉优先
+    if (dayType === '力量') { // 规则2 当日主练反推
+      const acts = todaysActions(dateStr);
+      PART2STRETCH.forEach((m) => { if (acts.some((x) => (x.a.part || '').indexOf(m[0]) >= 0)) m[1].forEach((id) => add(id, '今天练了' + m[0] + '类动作')); });
+    } else if (dayType === '有氧' || dayType === '长时活动') {
+      ['calf_straight', 'calf_bent', 'foot_ball'].forEach((id) => add(id, '今天有走/跑量，小腿和足底先松'));
+    }
+    add(STRETCH_ROT[d.getDay()], '本周轮转部位'); // 规则3 补位
+  }
+  const out = { date: dateStr, ver: '4.6', activate: STRETCH_ACTIVATE.slice(), release: release.slice(0, 6), reason: reasons, stopped: stopped };
+  D.state.planCache = out; // 当天冻结：做到一半刷新不变
+  D.state.updatedAt = Date.now();
+  return out;
+}
+function stretchItems(plan, phase, maxIds) { // 把计划展开成课单条目（左右侧运行时展开，不建新 id）
+  const ids = phase === 'activate' ? plan.activate : plan.release.slice(0, maxIds || 99);
+  const items = [];
+  ids.forEach((id) => {
+    const a = STRETCH_LIB[id];
+    if (!a) return;
+    const sides = a.laterality === 'bilateral' ? ['左', '右'] : [null];
+    for (let sd = 0; sd < (a.sets || 1); sd++) {
+      sides.forEach((sd2) => {
+        const total = a.mode === 'rep' ? (a.reps || 1) * (a.secs || 3) : (a.secs || 30);
+        items.push({ kind: 'stretch', phase: phase, id: id, secs: total, mode: a.mode, reps: a.reps || 1, name: a.name + (sd2 ? ' · ' + sd2 + '侧' : ''), side: sd2, why: (plan.reason || {})[id] || a.why });
+      });
+    }
+  });
+  return items;
+}
+function buildCourse(reduced, dateStr) { // 课单：v4.6 三阶段——激活（动态）→ 今日主练 → 收尾（静态，算出来的）
+  const plan = stretchPlanFor(dateStr);
+  const mode = D.state.stretchMode || 'full'; // 时长三档：short(3分钟) full(8) long(15)
+  const maxIds = mode === 'short' ? 2 : (mode === 'long' ? 99 : 5);
+  const c = stretchItems(plan, 'activate'); // Phase 0 激活（动态，替代原 warm 占位）
   const list = todaysActions(dateStr);
   list.forEach((x, idx) => {
     const a = x.a;
@@ -5329,16 +5412,21 @@ function buildCourse(reduced, dateStr) { // 课单：热身 + 今日 A/B 动作�
       if (!last) c.push({ kind: 'rest', sec: restSecOf(a), nextName: (set < st ? a.name : list[idx + 1].a.name), nextSet: (set < st ? set + 1 : 1) });
     }
   });
-  c.push({ kind: 'cooldown' });
+  stretchItems(plan, 'release', maxIds).forEach((it) => { if (mode === 'long') it.secs = Math.round(it.secs * 1.5); c.push(it); }); // Phase 2 收尾（15 分钟档单次加长 50%）
   return c;
 }
 function restSecOf(a) { // FR-4 组间休息差异化（v4.1）：大肌群力量 90s、其余 60s、计时类 45s——不再固定 60s
   if (a.unit.indexOf('秒') >= 0) return 45;
   return (a.part === '下肢推' || a.part === '上肢推' || a.part === '后链' || a.part === '后链/核心稳定') ? 90 : 60;
 }
-function estimateMin(course) { // 预计时长（估算值：次数类按40秒/组，热身/放松各按5分钟，rest 按各自 sec）
-  let s = 300 + 300 + course.filter((p) => p.kind === 'pre').length * 3;
-  course.forEach((p) => { if (p.kind === 'rest') s += (p.sec || 60); else if (p.kind === 'set') s += p.timed ? p.secs : 40; });
+function estimateMin(course) { // 预计时长（2026-10-20 v4.6：从课单实时 sum，不再硬编码热身/放松各 5 分钟——Feeel cachedTotalDuration 的坑）
+  let s = 0;
+  course.forEach((p) => {
+    if (p.kind === 'stretch') s += (p.secs || 30);
+    else if (p.kind === 'rest') s += (p.sec || 60);
+    else if (p.kind === 'set') s += p.timed ? p.secs : 40;
+    else if (p.kind === 'pre') s += 3;
+  });
   return Math.max(1, Math.round(s / 60));
 }
 function lastPerfTxt() { // N3 上次成绩：最近一条（不含今天）含勾选的力量记录
@@ -5391,7 +5479,7 @@ function startWorkout() {
   showModal('<div class="card-title" style="margin-bottom:8px">今日力量课</div>'
     + (pendingYellow ? '<div class="sub" style="color:var(--orange-text);margin-bottom:8px">今日黄灯：目标已自动减量 30%（估算）</div>' : '')
     + '<div class="body-tx" style="line-height:1.8">' + U.esc(names) + '</div>'
-    + '<div class="sub" style="margin-top:8px">热身与放松各约5分钟 · 全程约 ' + estimateMin(pendingCourse) + ' 分钟（估算）</div>'
+    + '<div class="sub" style="margin-top:8px">含激活与收尾拉伸 · 全程约 ' + estimateMin(pendingCourse) + ' 分钟（估算）</div>'
     + (isColdDay() ? '<div class="sub" style="color:var(--orange-text);margin-top:6px">今天冷：热身按弹窗里的冷天版做满 5 分钟，手脚发热再脱外层。</div>' : '')
     + '<div class="m-actions"><button class="btn-primary" onclick="confirmCourse()">确认，开始</button>'
     + '<button class="btn-ghost" onclick="closeModal()">再等等</button></div>');
@@ -5439,6 +5527,45 @@ function resumeWorkoutSnap() { // 从快照重建训练态：课程按当天课�
   renderWorkout();
 }
 function discardResume() { wkClear(); renderToday(); }
+function startRecovery() { // v4.6：休息日=恢复课（激活轻量 3 条 + 收尾加长），同一跟练引擎
+  if (wk) { toast('有未完成的训练在跑'); return; }
+  const plan = stretchPlanFor(U.todayStr());
+  const c = [];
+  ['ankle_pump', 'arm_circle', 'wall_slide'].forEach((id) => {
+    const a = STRETCH_LIB[id];
+    c.push({ kind: 'stretch', phase: 'activate', id: id, secs: a.mode === 'rep' ? a.reps * a.secs : a.secs, mode: a.mode, reps: a.reps, name: a.name, why: '恢复课激活' });
+  });
+  stretchItems(plan, 'release').forEach((it) => { it.secs = Math.round(it.secs * 1.5); c.push(it); });
+  const startTs = Date.now();
+  wk = { kind: '恢复课', mode: 'course', course: c, ci: 0, phase: 'stretch', left: 0, phaseDur: 0, phaseStartTs: startTs, startTs: startTs, pausedTotal: 0, pausedAt: null, elapsed: 0, setsDone: CONFIG.actions.map(() => 0), setsPer: CONFIG.actions.map(() => 0), totalSets: 0, yellow: false, lastPerf: '', spoken10: false, spoken30: false, lastSpokenNum: -1, timer: null, recovery: true, reduced: false };
+  document.getElementById('workout').hidden = false;
+  wk.timer = setInterval(wkTick, 1000);
+  wkSave();
+  acquireWakeLock();
+  enterPhase(0);
+  SPEAK('恢复课开始');
+  renderWorkout();
+}
+function stretchQuick90() { // v4.6 双锚点之二：起床档（脚不着地做足底——DiGiovanni 第一时点；双侧约 3 分钟，文案写实际时长）
+  if (wk) { toast('有训练在跑'); return; }
+  const a = STRETCH_LIB.foot_towel, b = STRETCH_LIB.calf_straight;
+  const mk = (lib, id, side) => ({ kind: 'stretch', phase: 'release', id: id, secs: lib.mode === 'rep' ? lib.reps * lib.secs : lib.secs, mode: lib.mode, reps: lib.reps, name: lib.name + (side ? ' · ' + side + '侧' : ''), why: '晨起第一步前必做' });
+  const c = [mk(a, 'foot_towel', '左'), mk(a, 'foot_towel', '右'), mk(b, 'calf_straight', '左'), mk(b, 'calf_straight', '右')];
+  const startTs = Date.now();
+  wk = { kind: '起床放松', mode: 'course', course: c, ci: 0, phase: 'stretch', left: 0, phaseDur: 0, phaseStartTs: startTs, startTs: startTs, pausedTotal: 0, pausedAt: null, elapsed: 0, setsDone: CONFIG.actions.map(() => 0), setsPer: CONFIG.actions.map(() => 0), totalSets: 0, yellow: false, lastPerf: '', spoken10: false, spoken30: false, lastSpokenNum: -1, timer: null, recovery: true, quick: true, reduced: false };
+  document.getElementById('workout').hidden = false;
+  wk.timer = setInterval(wkTick, 1000);
+  wkSave();
+  enterPhase(0);
+  SPEAK('先别下地，把脚底松开');
+  renderWorkout();
+}
+function morningStretchHtml() { // 起床档入口：10:30 前出现（双锚点之二）
+  const d = new Date();
+  if (d.getHours() > 10 || (d.getHours() === 10 && d.getMinutes() > 30)) return '';
+  if (wk || pendingResume()) return '';
+  return '<button class="btn-ghost" style="margin-top:8px" onclick="stretchQuick90()">刚起床？脚先别落地 · 3 分钟把足底松开</button>';
+}
 function resumeCardHtml() { // 今天页顶部恢复卡（只在有未完成快照时出现）
   const s = pendingResume(); if (!s) return '';
   const mins = Math.max(0, Math.round((Date.now() - s.startTs - (s.pausedTotal || 0) - (s.pausedAt ? Date.now() - s.pausedAt : 0)) / 60000));
@@ -5473,6 +5600,7 @@ function enterPhase(i) { // 进入课单第 i 项：重置计时三件套与播�
   if (p.kind === 'pre') { wk.phaseDur = 3; wk.left = 3; wk.phaseStartTs = now; SPEAK('预备'); }
   else if (p.kind === 'rest') { wk.phaseDur = p.sec || 60; wk.left = p.sec || 60; wk.phaseStartTs = now; SPEAK('休息一下，下一个：' + p.nextName); }
   else if (p.kind === 'set') { wk.phaseDur = p.timed ? p.secs : 0; wk.left = wk.phaseDur; wk.phaseStartTs = now; SPEAK(p.name + '，第' + p.set + '组，目标' + p.target + p.unit); }
+  else if (p.kind === 'stretch') { wk.phaseDur = p.secs || 30; wk.left = wk.phaseDur; wk.phaseStartTs = now; SPEAK(p.phase === 'activate' ? '激活：' + p.name : '收尾：' + p.name); }
   else if (p.kind === 'warm') { wk.phaseDur = 0; wk.left = 0; wk.phaseStartTs = now; }
   else { wk.phaseDur = 0; wk.left = 0; wk.phaseStartTs = now; SPEAK('最后，放松拉伸'); }
   wkSave(); // IX-01 训练快照（换相即存）
@@ -5506,6 +5634,9 @@ function wkTick() {
     wk.left = Math.max(0, wk.phaseDur - passed);
     if (wk.left <= 10 && wk.left > 0 && !wk.spoken10) { wk.spoken10 = true; SPEAK('还剩10秒'); }
     if (wk.left <= 0) { wkAdvance(); return; }
+  } else if (p.kind === 'stretch') {
+    wk.left = Math.max(0, wk.phaseDur - passed);
+    if (wk.left <= 0) { stretchLog(p, false); wkAdvance(); return; }
   } else if (p.kind === 'set' && p.timed) {
     wk.left = Math.max(0, wk.phaseDur - passed);
     if (wk.left <= 10 && wk.left > 0 && !wk.spoken10) { wk.spoken10 = true; SPEAK('还剩10秒'); }
@@ -5514,6 +5645,19 @@ function wkTick() {
     if (passed >= 30 && !wk.spoken30) { wk.spoken30 = true; SPEAK('做完了就点完成本组'); }
   }
   renderWorkout();
+}
+function stretchLog(p, skipped) { // v4.6：拉伸完成/跳过统计（收尾不参与"今天完成"判定——required:false）
+  if (!wk.stretchLog) wk.stretchLog = { a: 0, aTotal: 0, r: 0, rTotal: 0, skipped: 0, secs: 0 };
+  if (p.phase === 'activate') { if (!skipped) wk.stretchLog.a++; wk.stretchLog.aTotal++; }
+  else { if (!skipped) wk.stretchLog.r++; wk.stretchLog.rTotal++; if (!skipped) wk.stretchLog.secs += (p.secs || 30); }
+  if (skipped) wk.stretchLog.skipped++;
+}
+function stretchSkip() { // 跳过要落 skipped（数据上分清"没时间"和"不想做"）
+  if (!wk || wk.mode !== 'course') return;
+  const p = wk.course[wk.ci];
+  if (p.kind !== 'stretch') return;
+  stretchLog(p, true);
+  wkAdvance();
 }
 function completeSet() {
   if (!wk || wk.mode !== 'course') return;
@@ -5537,6 +5681,27 @@ function exitWorkout() {
 }
 function finishWorkout() {
   if (!wk) return;
+  if (wk.recovery) { // 恢复课/起床档：直接写记录（type=无 或 休息日），不算训练
+    const mins = Math.max(1, Math.round((Date.now() - wk.startTs - wk.pausedTotal) / 60000));
+    if (wk.stretchLog) D.state.pendingStretch = Object.assign({ date: U.todayStr(), ts: Date.now() }, wk.stretchLog);
+    let rec = M.dailyOn(U.todayStr());
+    if (!rec) { rec = { date: U.todayStr(), type: '无', createdAt: Date.now() }; D.daily.push(rec); D.daily.sort((x, y) => (x.date < y.date ? -1 : 1)); }
+    if (!wk.quick) rec.type = '休息日';
+    rec.durationMin = (rec.durationMin || 0) + mins;
+    const __ps = D.state.pendingStretch;
+  if (__ps && __ps.date === U.todayStr()) { rec.stretch = __ps; D.state.pendingStretch = null; }
+  rec.updatedAt = Date.now();
+    D.state.updatedAt = Date.now();
+    persist();
+    const nR = rec && rec.stretch ? rec.stretch.r : 0;
+    wk = null; wkClear();
+    clearInterval && null;
+    releaseWakeLock();
+    document.getElementById('workout').hidden = true;
+    nav('pgToday');
+    toast('记下了 ' + mins + ' 分钟——今天身体照顾到了');
+    return;
+  }
   clearInterval(wk.timer);
   releaseWakeLock(); // 训练结束，交还系统息屏策略
   const mins = Math.max(1, Math.round((Date.now() - wk.startTs - wk.pausedTotal) / 60000));
@@ -5549,6 +5714,7 @@ function finishWorkout() {
   const lastPerf = (mode === 'course') ? wk.lastPerf : '';
   const log = D.state.progressionLog || [];
   const progTxt = log.length ? log[log.length - 1].what.split('、')[0] : null; // 上期渐进示例（历史事实，非本次预测）
+  if (wk.stretchLog) D.state.pendingStretch = Object.assign({ date: U.todayStr(), ts: Date.now() }, wk.stretchLog); // v4.6：拉伸留痕（required:false，不参与 todayDone）
   wk = null;
   wkClear(); // IX-01：训练结束清快照
   document.getElementById('workout').hidden = true;
@@ -5668,6 +5834,8 @@ function saveInterrupted() { // IX-14：中断记录——type='无' 与晨检�
   rec.type = '无';
   rec.durationMin = (rec.durationMin || 0) + mins;
   rec.note = '力量中断（一组没完成，热身 ' + mins + ' 分钟）';
+  const __ps = D.state.pendingStretch;
+  if (__ps && __ps.date === U.todayStr()) { rec.stretch = __ps; D.state.pendingStretch = null; }
   rec.updatedAt = Date.now();
   D.state.updatedAt = Date.now();
   persist();
@@ -5697,7 +5865,20 @@ function renderWorkout() {
   const bar = '<div class="wk-bar"><div style="width:' + Math.round(100 * doneSets / wk.totalSets) + '%"></div></div>';
   const pauseBtn = '<button class="btn-ghost" onclick="' + (wk.pausedAt ? 'resumeWorkout()' : 'pauseWorkout()') + '">' + (wk.pausedAt ? '继续' : '暂停') + '</button>';
   let h = '';
-  if (p.kind === 'warm') {
+  if (p.kind === 'stretch') {
+    const frac = Math.max(0, Math.min(1, wk.phaseDur ? wk.left / wk.phaseDur : 0));
+    const C = 2 * Math.PI * 96;
+    const shown = p.mode === 'rep' ? Math.max(1, Math.ceil(wk.left / (p.secs / (p.reps || 1)))) + ' 次' : wk.left + ' 秒';
+    h = bar + '<div class="wk-name">' + U.esc(p.name) + '</div>'
+      + '<div class="wk-set">' + (p.phase === 'activate' ? '激活' : '收尾') + (p.why ? ' · ' + U.esc(p.why) : '') + '</div>'
+      + '<div class="wk-ring"><svg viewBox="0 0 220 220"><circle cx="110" cy="110" r="96" fill="none" style="stroke:var(--line)" stroke-width="10"/>'
+      + '<circle cx="110" cy="110" r="96" fill="none" style="stroke:var(--teal)" stroke-width="10" stroke-linecap="round" stroke-dasharray="' + (C * frac).toFixed(1) + ' ' + C.toFixed(1) + '" transform="rotate(-90 110 110)"/></svg>'
+      + '<div class="wt">' + shown + '</div></div>'
+      + '<div class="wk-tip" style="margin:2px 0 16px">' + U.esc((STRETCH_LIB[p.id] || {}).cue || '') + '</div>'
+      + '<div class="wk-btns"><button class="btn-primary" onclick="wkAdvance()">做完了</button>' + pauseBtn
+      + '<button class="btn-ghost" onclick="stretchSkip()">跳过这个</button>'
+      + '<button class="btn-ghost" onclick="exitWorkout()">结束训练</button></div>';
+  } else if (p.kind === 'warm') {
     h = bar + '<div class="wk-name">热身</div><div class="wk-tip">' + U.esc(warmupText()) + '</div>' + (isColdDay() ? '<div class="sub" style="color:var(--orange-text)">今天冷：热身做满 5 分钟，手脚发热再脱外层</div>' : '')
       + '<div class="wk-ring" style="width:170px;height:170px"><div class="wt" style="font-size:38px">' + clock(wk.elapsed) + '</div></div>'
       + '<div class="wk-btns"><button class="btn-primary" onclick="warmDone()">热身完成，开始力量训练</button>' + pauseBtn + '<button class="btn-ghost" onclick="exitWorkout()">结束训练</button></div>';
