@@ -7,7 +7,7 @@
   运行要求：http(s) 访问（GitHub Pages 或本地 python -m http.server），file:// 直开无 Web Crypto/SW。
 -->
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#F2F2F7">
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000000">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -27,16 +27,26 @@
   --glass:rgba(255,255,255,.8); --accent-soft:rgba(0,122,255,.18);
   --shadow:0 1px 2px rgba(0,0,0,.04);
   --r-card:16px; --r-btn:12px; --r-pill:999px;
+  /* 2026-10-20 视觉/a11y 批：字号三档缩放 + 实心蓝加深（白字对比 4.02→5.5）+ 控件边框提对比（非文本 1.16→3.0+） */
+  --fscale:1;
+  --accent-btn:#0066CC;
+  --ctrl-line:#8E8E93;
 }
+html[data-fs="lg"]{--fscale:1.15}
+html[data-fs="xl"]{--fscale:1.3}
 @media (prefers-color-scheme: dark){
   :root{
     --bg:#000000; --card:#1C1C1E; --text:#FFFFFF; --text2:#98989F; --line:#38383A;
     --orange-text:#FF9500; --green-text:#34C759; --red-text:#FF3B30; --accent-text:#0A84FF; --blue-text:#0A84FF;
-    --glass:rgba(28,28,30,.8);
+    /* 深色补齐（2026-10-20 视觉审查：此前漏 12 个变量，状态色在深色下失真） */
+    --accent:#0A84FF; --green:#30D158; --orange:#FF9F0A; --red:#FF453A;
+    --purple:#7D7AFF; --teal:#40C8E0; --pink:#FF6482; --blue:#0A84FF;
+    --glass:rgba(28,28,30,.8); --accent-soft:rgba(10,132,255,.25);
+    --shadow:none; --accent-btn:#0066CC; --ctrl-line:#98989F;
   }
 }
 /* P1-3 外观设置：手动浅色/深色覆盖（优先级高于系统媒体查询） */
-html[data-theme="dark"]{--bg:#000000; --card:#1C1C1E; --text:#FFFFFF; --text2:#98989F; --line:#38383A; --glass:rgba(28,28,30,.8); --orange-text:#FF9500; --green-text:#34C759; --red-text:#FF3B30; --accent-text:#0A84FF; --blue-text:#0A84FF}
+html[data-theme="dark"]{--bg:#000000; --card:#1C1C1E; --text:#FFFFFF; --text2:#98989F; --line:#38383A; --glass:rgba(28,28,30,.8); --orange-text:#FF9500; --green-text:#34C759; --red-text:#FF3B30; --accent-text:#0A84FF; --blue-text:#0A84FF; --accent:#0A84FF; --green:#30D158; --orange:#FF9F0A; --red:#FF453A; --purple:#7D7AFF; --teal:#40C8E0; --pink:#FF6482; --blue:#0A84FF; --accent-soft:rgba(10,132,255,.25); --shadow:none; --accent-btn:#0066CC; --ctrl-line:#98989F}
 html[data-theme="light"]{--bg:#F2F2F7; --card:#FFFFFF; --text:#1C1C1E; --text2:#6B6B70; --line:#E5E5EA;
   --orange-text:#A85B00; --green-text:#1B7A34; --red-text:#C0392B; --accent-text:#0057C8; --blue-text:#0057C8; --glass:rgba(255,255,255,.8)}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -44,7 +54,7 @@ html[data-theme="light"]{--bg:#F2F2F7; --card:#FFFFFF; --text:#1C1C1E; --text2:#
 html,body{height:100%}
 body{
   font-family:-apple-system,system-ui,"PingFang SC","HarmonyOS Sans SC","Microsoft YaHei",sans-serif;
-  background:var(--bg);color:var(--text);font-size:15px;line-height:1.5;
+  background:var(--bg);color:var(--text);font-size:calc(15px * var(--fscale, 1));line-height:1.5;
 }
 button{font-family:inherit;cursor:pointer;background:none;border:0;color:inherit}
 input,select,textarea{font-family:inherit}
@@ -52,9 +62,10 @@ input,select,textarea{font-family:inherit}
 /* 字阶：页面标题28/700 大数字34/700 卡片标题17/600 正文15/400 辅助13/400 Tab标签10/500 */
 .page-title{font-size:28px;font-weight:700;line-height:1.25}
 .big-num{font-size:34px;font-weight:700;line-height:1.15}
-.card-title{font-size:17px;font-weight:600}
-.sub{font-size:13px;color:var(--text2);line-height:1.7}
-.tab-label{font-size:10px;font-weight:500}
+.card-title{font-size:calc(17px * var(--fscale, 1));font-weight:600}
+.body-tx{font-size:calc(15px * var(--fscale, 1));line-height:1.6} /* 2026-10-20 修复：.body-tx 被用 57 次但从未定义过，全靠继承 */
+.sub{font-size:calc(13px * var(--fscale, 1));color:var(--text2);line-height:1.7}
+.tab-label{font-size:calc(12px * var(--fscale, 1));font-weight:500} /* 10→12：40+ 可读性底线（视觉审查 V-01）*/
 /* 布局 */
 #app{padding-bottom:calc(60px + env(safe-area-inset-bottom))}
 #topbar{
@@ -79,7 +90,7 @@ main{padding:16px 16px 24px;max-width:600px;margin:0 auto}
 .bg-blue{background:var(--blue)} .bg-orange{background:var(--orange)} .bg-gray{background:var(--text2)}
 .bg-green{background:var(--green)} .bg-red{background:var(--red)}
 /* 按钮/输入/胶囊 */
-.btn-primary{display:block;width:100%;min-height:44px;background:var(--accent);color:#fff;border-radius:var(--r-btn);font-size:17px;font-weight:600;text-align:center}
+.btn-primary{display:block;width:100%;min-height:44px;background:var(--accent-btn);color:#fff;border-radius:var(--r-btn);font-size:17px;font-weight:600;text-align:center}
 .btn-primary:disabled{opacity:.4}
 .btn-ghost{display:block;width:100%;min-height:44px;background:var(--card);color:var(--accent-text);border-radius:var(--r-btn);font-size:15px;font-weight:500;text-align:center;border:1px solid var(--line)}
 .link-btn{display:block;width:100%;min-height:44px;color:var(--accent-text);font-size:15px;text-align:center}
@@ -90,8 +101,8 @@ main{padding:16px 16px 24px;max-width:600px;margin:0 auto}
 .field{margin-bottom:14px}
 .field>label{display:block;font-size:13px;color:var(--text2);margin-bottom:6px}
 .field input,.field select,.field textarea{
-  width:100%;min-height:44px;background:var(--card);border:1px solid var(--line);color:var(--text);
-  border-radius:var(--r-btn);padding:10px 12px;font-size:15px;outline:none;
+  width:100%;min-height:44px;background:var(--card);border:1px solid var(--ctrl-line, var(--line));color:var(--text);
+  border-radius:var(--r-btn);padding:10px 12px;font-size:calc(15px * var(--fscale, 1));outline:none;
 }
 .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent-text)}
 .field input[readonly]{background:var(--bg);color:var(--text2)}
@@ -100,7 +111,7 @@ main{padding:16px 16px 24px;max-width:600px;margin:0 auto}
 /* 开关 */
 .switch{position:relative;display:inline-block;width:46px;height:28px;flex:none}
 .switch input{opacity:0;width:0;height:0}
-.switch .sl{position:absolute;inset:0;background:var(--line);border-radius:999px;transition:.15s}
+.switch .sl{position:absolute;inset:0;background:var(--ctrl-line, var(--line));border-radius:999px;transition:.15s}
 .switch .sl:before{content:'';position:absolute;width:24px;height:24px;border-radius:50%;background:var(--card);top:2px;left:2px;box-shadow:0 1px 2px rgba(0,0,0,.15);transition:.15s}
 .switch input:checked + .sl{background:var(--green)}
 .switch input:checked + .sl:before{transform:translateX(18px)}
@@ -185,9 +196,11 @@ details.fold .fold-body{padding:2px 0 12px;font-size:14px;line-height:1.9;color:
 #phaseUp .pu-n{font-size:34px;font-weight:700;color:var(--accent-text);margin:2px 0}
 /* 打卡日历热力（连续越久颜色越深） */
 .cal .d.t1{background:rgba(0,122,255,.35)}
-.cal .d.t2{background:rgba(0,122,255,.62);color:#fff}
-.cal .d.t3{background:var(--blue);color:#fff}
+.cal .d.t2{background:var(--accent-btn);color:#fff} /* 2026-10-20 a11y：半透明蓝上白字 2.35 → 实心深蓝 5.5 */
+.cal .d.t3{background:var(--accent-btn);color:#fff}
 input[type="range"]{width:100%;accent-color:var(--accent-text);min-height:44px;background:transparent;border:0;padding:0}
+input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:30px;height:30px;border-radius:50%;background:var(--accent-btn);border:3px solid var(--card);box-shadow:0 1px 3px rgba(0,0,0,.3);margin-top:-2px} /* V-24：thumb 从浏览器默认放大，1-10 档不再一拖两档 */
+input[type="range"]::-webkit-slider-runnable-track{height:26px;background:transparent}
 .light-main{flex:1}
 .light-name{font-size:17px;font-weight:600;margin-bottom:2px}
 /* 最近5天打卡格子（18×18 圆角4） */
@@ -211,7 +224,7 @@ input[type="range"]{width:100%;accent-color:var(--accent-text);min-height:44px;b
 /* 力量动作勾选（微交互：150ms 缩放填充） */
 .check-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:0.5px solid var(--line)}
 .check-item:last-child{border-bottom:0}
-.ck{position:relative;width:22px;height:22px;border-radius:50%;border:2px solid var(--line);flex:none;margin-top:1px;display:flex;align-items:center;justify-content:center;transition:transform .15s ease-out,background .15s ease-out,border-color .15s}
+.ck{position:relative;width:22px;height:22px;border-radius:50%;border:2px solid var(--ctrl-line, var(--line));flex:none;margin-top:1px;display:flex;align-items:center;justify-content:center;transition:transform .15s ease-out,background .15s ease-out,border-color .15s}
 .ck::after{content:'';position:absolute;inset:-11px;border-radius:50%} /* 视觉 22px，实际热区 44px；点击区不改变视觉尺寸 */
 .ck svg{width:12px;height:12px;stroke:#fff;fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;opacity:0;transition:opacity .15s}
 .ck.on{background:var(--green);border-color:var(--green-text)}
@@ -270,7 +283,8 @@ table.cmp{width:100%;border-collapse:collapse;font-size:13px}
 /* 模态/提示/吸底保存 */
 #modalWrap{position:fixed;inset:0;z-index:55;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;padding:24px}
 #modalBox{width:100%;max-width:340px;max-height:78vh;overflow:auto;background:var(--card);border-radius:var(--r-card);padding:20px 16px;box-shadow:var(--shadow)}
-#modalBox .m-actions{margin-top:16px;display:flex;flex-direction:column;gap:8px}
+#modalBox .m-actions{position:sticky;bottom:-20px;margin-left:-16px;margin-right:-16px;padding:12px 16px calc(12px + env(safe-area-inset-bottom, 0px));background:var(--card);border-top:0.5px solid var(--line);z-index:2;
+  /* V-23 旧样式合并：margin-top:16px;display:flex;flex-direction:column;gap:8px}
 #toastBox{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(80px + env(safe-area-inset-bottom));z-index:60;background:var(--text);color:var(--bg);padding:10px 18px;border-radius:var(--r-pill);font-size:13px;max-width:86vw;text-align:center}
 .btn-primary.saved{background:var(--green)}
 .bannercard{background:var(--card);border-radius:var(--r-card);padding:12px 16px;box-shadow:var(--shadow);margin-bottom:12px;font-size:13px;color:var(--orange-text);line-height:1.7}
@@ -291,6 +305,7 @@ table.cmp{width:100%;border-collapse:collapse;font-size:13px}
     </svg>
     <div class="gate-title" id="gateTitle">体能系统</div>
     <div class="gate-sub" id="gateSub">你好。不用注册、不用配置——直接开始今天的第一次锻炼。数据先存本机；想备份到自己的 GitHub 私有仓，随时在【档案】页设置。</div>
+    <div class="gate-sub" style="margin-top:6px;opacity:.85">有医生看过的伤，按医生说的练。这里只管今天练多少。</div>
     <button type="button" class="btn-primary" id="btnStart">直接开始 · 今天的第一练</button>
     <button type="button" class="btn-primary" id="btnUnlock" hidden>解锁进入</button>
     <button type="button" class="link-btn" id="btnBackup">备份数据到 GitHub（可选，粘贴一次令牌）</button>
@@ -403,14 +418,14 @@ const CONFIG = {
   GITHUB_USER: 'MEITU666',
   DATA_REPO: 'jianshen',
   DATA_PATH: 'data/main.json',
-  PBKDF2_ITERATIONS: 250000,
-  SALT_BYTES: 16,
-  IV_BYTES: 12,
+  // 加密死配置已删（2026-10-20 privacy 审查）：PBKDF2/SALT/IV 无任何引用，加密通道早撤——避免下一个审查者误判"已加密"
   IMPORT_MAX_BYTES: 10 * 1024 * 1024,
 
   hrCapBase: 180,        // 估算值：心率硬上限基数 = 180 - 周岁
   zone2Cap: 139,         // 估算值（180-31-10 保守修正）
-  sleepShortH: 6,        // 估算值：黄灯-睡眠不足线
+  sleepShortH: 6,        // 估算值：黄灯-睡眠不足线（连续 N 天才黄灯）
+  sleepFloorH: 6.5,      // 估算值：睡眠保持底线（K9 口径，2026-10-20 口径统一：原 5 处硬编码 6.5 收进此常量）
+  sleepGoalH: 7,         // 估算值：睡眠目标线（趋势图参考线/恢复力 L 级/目标页，2026-10-20 口径统一）
   sleepShortDays: 2,     // 估算值
   sleepRefH: 7,          // 估算值：睡眠参考线
   rhrRedDelta: 7,        // 估算值
@@ -735,7 +750,7 @@ const DB = {
 let D = null;           // 当前数据
 let TOKEN = null;       // GitHub 令牌：仅内存，绝不持久化
 let ghSha = null;       // contents API sha
-let readOnly = false;   // 离线只读
+// readOnly 死变量已整体移除（2026-10-20 QA 审查）：本机模式全功能可写，所谓离线只读态从未存在过
 let gistTextCache = null;
 
 /* ============ 数据模型（第五部分） ============ */
@@ -806,7 +821,7 @@ function upsertByKey(arr, rec, key) {
 function persist(opts) {
   opts = opts || {};
   D.updatedAt = new Date().toISOString();
-  if (!readOnly) {
+  {
     DB.save(D).catch(() => { toast('本地保存失败，请重试'); });
     if (!opts.noSync) { D.state.pendingSync = true; updateSyncBadge(); schedulePush(); }
   }
@@ -891,7 +906,6 @@ function syncFail(msg) {
   if (msg) toast(msg);
 }
 async function pushNow() {
-  if (readOnly) return;
   if (!TOKEN) { D.state.pendingSync = true; updateSyncBadge(); return; }
   try {
     let payload = Object.assign({}, D, { updatedAt: new Date().toISOString() });
@@ -930,7 +944,7 @@ async function pushNow() {
 function updateSyncBadge() {
   const el = document.getElementById('syncBadge');
   if (!el || !D) return;
-  if (readOnly) { el.textContent = '本机模式'; el.className = ''; return; }
+  el.textContent = '仅本机'; el.className = ''; // 931→932 分支合并：readOnly 恒 false，无令牌即仅本机
   if (!TOKEN) { el.textContent = '仅本机'; el.className = ''; return; } // 无令牌=纯本机，不是“待同步”（待同步会被读成故障）
   const last = D.state.lastSyncAt || 0;
   if (D.state.pendingSync) { el.textContent = '待同步'; el.className = 'pending'; return; }
@@ -950,7 +964,7 @@ function toast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.hidden = true; }, 3200);
 }
-window.APP_VER = '4.5.1'; // v4.5.1 隐私修复（2026-10-20 七角色审查）：出厂默认清空身高/体重/城市/伤史——源码进公开仓，个人数据仅存本机；检测来源默认去城市化 // v4.5.0：身体照顾（久坐肩颈/小腿胀硬/足底筋膜释放+晨检联动+练前热身/练后放松明确化）
+window.APP_VER = '4.5.2'; // v4.5.2 七角色审查修复批（2026-10-20 深夜）：数据口径4修+训练快照持久化+草稿保护+chip回填+按钮收敛+中断如实记录+字号三档+深色补齐+死代码清理+合规文案 · 前批 v4.5.1 隐私修复：出厂默认清空身高/体重/城市/伤史——源码进公开仓，个人数据仅存本机；检测来源默认去城市化 // v4.5.0：身体照顾（久坐肩颈/小腿胀硬/足底筋膜释放+晨检联动+练前热身/练后放松明确化）
 window.addEventListener('error', function (e) { try { if (e && e.message) toast('出了个小问题：' + String(e.message).slice(0, 60)); } catch (err) {} }); // v4.1 审查修复 B4：全局异常不再静默
 window.addEventListener('unhandledrejection', function (e) { try { const r = e && e.reason; toast('后台出了个小问题：' + String(r && r.message || r || '未知').slice(0, 60)); } catch (err) {} });
 async function checkAppUpdate() { // v4.1：一键清 SW/缓存并重载——根治"PWA 更新后吃旧缓存"（原需手动强刷）
@@ -1005,16 +1019,7 @@ function emptyCard(icon, text) {
 
 /* ============ S0 解锁 / S3 换机恢复 ============ */
 function gateMsg(s) { document.getElementById('gateMsg').textContent = s; }
-function startFresh() { // v4.1 实测修复：404 时以当前密钥新建空数据进入（老设备数据仍在旧机，联网解锁后 mergeData 合并不冲突）
-  const pass = document.getElementById('gateKey').value;
-  D = defaultData();
-  TOKEN = '';
-  try { sessionStorage.setItem('tineng_key', pass); } catch (e) {}
-  document.getElementById('gate').hidden = true;
-  document.getElementById('app').hidden = false;
-  nav('pgToday');
-  toast('新数据已就绪：晨检、记录从今天开始积累');
-}
+// startFresh 已删（2026-10-20 privacy 审查）：依赖早已移除的 gateKey 输入框，且无调用点
 function enterOffline() { // v4.2 动线①：改名含义——本机模式（功能完整可写），不再是吓人的"只读"
   if (!D) D = defaultData(); // 兜底
   // 批9走查修复：本机模式放开本地写入——山上断网必须能晨检能记录。
@@ -1029,7 +1034,6 @@ function localEmpty() { return ['daily', 'metrics', 'weekly', 'tests', 'external
 function recCount(o) { return ['daily', 'metrics', 'weekly', 'tests', 'external'].reduce((s, k) => s + ((o[k] && o[k].length) || 0), 0); }
 
 async function enterApp() {
-  readOnly = false;
   document.getElementById('gate').hidden = true;
   document.getElementById('app').hidden = false;
   nav('pgToday');
@@ -1089,7 +1093,6 @@ function afterEnter() {
   updateSyncBadge();
   renderToday();
   fetchWeather(); // 批10：进产品即拉今晨实况（异步不阻塞，断网静默）
-  if (readOnly) return;
   // 2026-10-20 体检修复：首开不再强制 4 步向导——先用默认档进今天页，档案/回填改成首页可选入口
   if (!D.state.tour7) { D.state.tour7 = { on: true, day: 1, done: [] }; D.state.updatedAt = Date.now(); persist(); } // 最终版批3⑪：首次进入开新手引导
 }
@@ -1226,7 +1229,6 @@ function finishGuide() {
 function openBackfill() { document.getElementById('backfill').hidden = false; }
 function closeBackfill() { document.getElementById('backfill').hidden = true; }
 function saveBackfill() {
-  if (readOnly) { toast('离线只读模式，不能写入'); return; }
   const sl = U.num(document.getElementById('bfSleep').value);
   const rh = U.num(document.getElementById('bfRhr').value);
   const hv = U.num(document.getElementById('bfHrv').value);
@@ -1299,9 +1301,13 @@ const M = {
     if (days.length >= CONFIG.rhrBaseMinDays) return Math.round(days.reduce((s, x) => s + x, 0) / days.length);
     return D.profile.hrvBaseline;
   },
-  weekChecked(ws) { // 休息日与病假均计为已打卡
+  weekChecked(ws) { // 休息日与病假均计为已打卡（2026-10-20 口径修复：type='无' 的纯晨检记录不算打卡——晨检只提交 chk、无训练内容，计入会让周完成率被"只做晨检"刷高）
     let n = 0;
-    for (let i = 0; i < 7; i++) if (M.dailyOn(U.addDays(ws, i))) n++;
+    for (let i = 0; i < 7; i++) {
+      const r = M.dailyOn(U.addDays(ws, i));
+      if (!r || r.type === '无') continue;
+      n++;
+    }
     return n;
   },
   weekCompletion(ws) { return M.weekChecked(ws) / (D.profile.weeklyDays || 6); },
@@ -1376,12 +1382,13 @@ const M = {
     return { ok: ok, why: ok ? '' : '闭眼单腿需每侧≥' + CONFIG.ankleFrontStand + 's（当前 左' + t.standL + 's/右' + t.standR + 's）' };
   },
   isFootAnklePain(p) { return p && p !== '无' && (String(p).indexOf('足') >= 0 || String(p).indexOf('踝') >= 0); },
-  footPainFreeDays() { // 连续无足/踝痛打卡天数（自有记录起，最多回看60天）
+  footPainFreeDays() { // 连续无足/踝痛天数（自有记录起，最多回看60天）（2026-10-20 口径修复：无当日记录=未知，不累积"无痛"——此前 14 天不开 App 会显示"连续无痛 14 天"）
     let n = 0;
     const cap = D.daily.length ? Math.min(60, U.diffDays(D.daily[0].date, U.todayStr()) + 1) : 0;
     for (let i = 0; i < cap; i++) {
       const r = M.dailyOn(U.addDays(U.todayStr(), -i));
-      if (r && M.isFootAnklePain(r.pain)) break;
+      if (!r) { if (i === 0) continue; break; } // 今天还没记录不算断；过去某天无记录=未知，停止累积
+      if (M.isFootAnklePain(r.pain)) break;
       n++;
     }
     return n;
@@ -1612,14 +1619,14 @@ function confirmGrad() { // FR-C：两项人工确认勾选后写毕业标记
   persist(); closeModal(); renderToday();
   toast('🎓 毕业：专项期就绪，转山窗口内按行前判定定行程');
 }
-function sleepDebtLine() { // 睡眠保持一行（v4.1 口径改名，原措辞作废）：近 7 天均值 vs 6.5h 底线（K9 口径）；样本 <3 天不硬算（数据不足明说）
+function sleepDebtLine() { // 睡眠保持一行（v4.1 口径改名，原措辞作废）：近 7 天均值 vs 底线（K9 口径=CONFIG.sleepFloorH）；样本 <3 天不硬算（数据不足明说）
   const days = [];
   for (let i = 1; i <= 7; i++) { const m = M.metricOn(U.addDays(U.todayStr(), -i)); if (m && m.sleepH != null) days.push(m.sleepH); }
   if (days.length < 3) return '';
   const avg = days.reduce((a, b) => a + b, 0) / days.length;
   const gap = 6.5 - avg;
-  if (gap <= 0) return '<div class="sub" style="color:var(--green-text)">睡眠保持：近 ' + days.length + ' 天均 ' + avg.toFixed(1) + 'h，守住 6.5h 底线——这是本周最值钱的资产。</div>';
-  return '<div class="sub" style="color:var(--orange-text)">睡眠保持：近 ' + days.length + ' 天均 ' + avg.toFixed(1) + 'h，低于 6.5h 底线 ' + gap.toFixed(1) + 'h/天——先睡够再谈加量（K9 第一优先；连续低于底线才提示，日常不打扰）。</div>';
+  if (gap <= 0) return '<div class="sub" style="color:var(--green-text)">睡眠保持：近 ' + days.length + ' 天均 ' + avg.toFixed(1) + 'h，守住 ' + CONFIG.sleepFloorH + 'h 底线——这是本周最值钱的资产。</div>';
+  return '<div class="sub" style="color:var(--orange-text)">睡眠保持：近 ' + days.length + ' 天均 ' + avg.toFixed(1) + 'h，低于 ' + CONFIG.sleepFloorH + 'h 底线 ' + gap.toFixed(1) + 'h/天——先睡够再谈加量（K9 第一优先；连续低于底线才提示，日常不打扰）。</div>';
 }
 function sleepCardHtml() {
   const ym = M.metricOn(U.addDays(U.todayStr(), -1));
@@ -1659,7 +1666,7 @@ function readinessEval(dateStr) { // 返回 {level:'ok'|'down'|'floor', reasons:
   let floor = false, down = false;
   if (m && m.sleepH != null) { // 睡眠（清单绝对线）
     if (m.sleepH < 5) { floor = true; reasons.push('睡眠 ' + m.sleepH + 'h（<5h）'); }
-    else if (m.sleepH < 6.5) { down = true; reasons.push('睡眠 ' + m.sleepH + 'h（5-6.5h）'); }
+    else if (m.sleepH < CONFIG.sleepFloorH) { down = true; reasons.push('睡眠 ' + m.sleepH + 'h（低于 ' + CONFIG.sleepFloorH + 'h 底线）'); }
   }
   if (m && m.rhr != null) { // 静息心率相对滚动基线
     const dev = m.rhr - M.rhrBaseline();
@@ -2063,7 +2070,6 @@ function feelChips() {
   return FEELS.map((f) => '<button class="chip' + (cur === f ? ' on' : '') + '" onclick="stFeel(\'' + f + '\')">' + f + '</button>').join('');
 }
 function stFeel(f) { // 主观点选：写当日标记并重判
-  if (readOnly) { toast('离线只读模式，改动不保存'); return; } // Codex 复核 P2-1 修复：补只读守卫
   D.state.feelMark = { date: U.todayStr(), feel: f };
   D.state.updatedAt = Date.now();
   persist();
@@ -2109,9 +2115,9 @@ function chkBarHtml() { // 晨检条：日常一行，点开 60 秒点选完成�
   return '<div class="field" style="margin-top:10px"><label>康复师晨检</label>' + head + chkAdviceHtml(c)
     + '<details class="fold" style="margin-top:6px"' + (c ? '' : ' open') + '><summary>' + (c ? '重新晨检' : '点开晨检（60 秒）') + '</summary><div class="fold-body">'
     + '<div class="sub" style="margin-bottom:4px">第 1 步：哪里不舒服？（没有就选"无"）</div>'
-    + '<div class="chips">' + CHK_PARTS.map((p) => '<button class="chip" onclick="chkPickParts(\'' + p + '\',this)">' + p + '</button>').join('') + '</div>'
+    + '<div class="chips">' + CHK_PARTS.map((p) => '<button class="chip' + (chkSel.parts.indexOf(p) >= 0 ? ' on' : '') + '" onclick="chkPickParts(\'' + p + '\',this)">' + p + '</button>').join('') + '</div>'
     + '<div class="sub" style="margin:6px 0 4px">第 2 步：什么感觉？（可多选）</div>'
-    + '<div class="chips">' + CHK_KINDS.map((k) => '<button class="chip" onclick="chkPickKinds(\'' + k + '\',this)">' + k + '</button>').join('') + '</div>'
+    + '<div class="chips">' + CHK_KINDS.map((k) => '<button class="chip' + (chkSel.kinds.indexOf(k) >= 0 ? ' on' : '') + '" onclick="chkPickKinds(\'' + k + '\',this)">' + k + '</button>').join('') + '</div>'
     + '<div class="sub" style="margin:6px 0 4px">第 3 步：动一动这些地方，会缓解还是更痛？（区分"练狠了的酸"和"伤"）</div>'
     + '<div class="chips">' + [['ease', '活动后缓解'], ['worse', '活动后更痛'], ['', '没试']].map((x) => '<button class="chip' + (chkSel.relief === x[0] && x[0] ? ' on' : '') + '" onclick="chkPickRelief(\'' + x[0] + '\',this)">' + x[1] + '</button>').join('') + '</div>'
     + '<button class="btn-primary" style="margin-top:10px" onclick="chkSubmit()">出判定</button>'
@@ -2130,7 +2136,6 @@ function chkPickParts(p, el) { chkChipToggle(chkSel.parts, p, el); }
 function chkPickKinds(k, el) { chkChipToggle(chkSel.kinds, k, el); }
 function chkPickRelief(v, el) { chkSel.relief = v; el.parentNode.querySelectorAll('.chip').forEach((b) => b.classList.remove('on')); if (v) el.classList.add('on'); }
 function chkSubmit() { // 晨检提交：写当日 daily.chk → persist → 重判（红灯自动改恢复课由 renderToday 联动）
-  if (readOnly) { toast('离线只读模式，改动不保存'); return; }
   if (chkSel.parts.length && chkSel.parts[0] !== '无' && !chkSel.kinds.length) { toast('选了部位，再点一下什么感觉'); return; }
   if (!chkSel.parts.length) chkSel.parts = ['无'];
   const ev = chkEval(chkSel.parts, chkSel.kinds, chkSel.relief);
@@ -2155,7 +2160,7 @@ function openStopCard(why) { // 统一停训卡；无参时自动取今日晨检
     + '<br>· 足/踝疼痛连续 3 天 → 运动医学科：' + U.esc(CONFIG.copy.footDoctor)
     + '<br>· 普通酸痛、24h 内不加重 → 先观察，不加重不急</div>'
     + rehabEntryHtml()
-    + '<div class="sub" style="margin-top:8px">本卡是停训提示，不是医学诊断。</div>'
+    + '<div class="sub" style="margin-top:8px">这是一次"先停下"，不是诊断。医生怎么说，就按医生说的练。</div>'
     + '<div class="m-actions"><button class="btn-primary" onclick="closeModal()">知道了</button></div>');
 }
 const GATE_LINES = [ // 毕业三线（逐字不改）：47=土路（日常 75%）/50=负重（80%）/57=转山粗筛（90%）
@@ -2284,12 +2289,13 @@ function preTripCard(id) { // 选中线路的要素卡+判定
   const r = TRIP_ROUTES.find((x) => x.id === id);
   if (!r) return '';
   const ev = preTripEval(r);
-  const MAP = { go: ['✓ 能走', 'var(--green)'], cond: ['△ 有条件能走', 'var(--orange)'], no: ['✗ 还不能走', 'var(--red)'] }[ev.out];
+  const MAP = { go: ['✓ 没有明显缺口', 'var(--green)'], cond: ['△ 有条件', 'var(--orange)'], no: ['✗ 还不够', 'var(--red)'] }[ev.out]; // U-20：去"能走"许可语感
   const lastTrip = (function () { const ds = (D.daily || []).filter((d) => d && d.trip); return ds.length ? ds[ds.length - 1].trip : null; })();
   return '<div class="body-tx" style="font-weight:600">' + U.esc(r.name) + '（' + U.esc(r.grade) + '）</div>'
     + '<div class="sub">要素：' + U.esc(r.days) + '｜' + U.esc(r.alt) + '｜出处：' + U.esc(r.src) + '</div>'
     + (lastTrip ? '<div class="sub" style="color:var(--orange-text)">上次行后复盘：' + U.esc(lastTrip.res || '') + (lastTrip.pit ? '，踩坑：' + U.esc(lastTrip.pit) : '') + '</div>' : '')
     + '<div style="margin:10px 0;padding:8px;border-radius:8px;background:color-mix(in srgb, ' + MAP[1] + ' 12%, transparent)"><b style="color:' + MAP[1] + '">' + MAP[0] + '</b>'
+    + '<div class="sub" style="margin-top:4px">能不能走，你当天说了算。</div>'
     + ev.lines.map((l) => '<div class="sub" style="margin-top:4px">' + U.esc(l) + '</div>').join('') + '</div>'
     + tripPrepHtml(r)
     + '<button class="btn-primary" onclick="closeModal();openMidTrip()">出发当天 → 行中模式</button>';
@@ -2347,7 +2353,6 @@ function openPostTrip() { // 行后复盘：一笔记录回灌引擎（daily[n].
 let tripSel = { res: '', pit: '' };
 function tripPick(k, v, el) { tripSel[k] = v; document.querySelectorAll('#modalBox .chips .chip').forEach((b) => { if (b.textContent === v) b.classList.add('on'); else if (tripSel.res !== v && tripSel.pit !== v) b.classList.remove('on'); }); }
 function tripSubmit() { // 行后复盘提交：写 daily[today].trip + 联动提示（下坡吃力→链回禁区进度）
-  if (readOnly) { toast('离线只读模式，改动不保存'); return; }
   if (!tripSel.res) { toast('先选一下结果'); return; }
   let rec = M.dailyOn(U.todayStr());
   if (!rec) { rec = recStamp(makeDailyRecord(U.todayStr())); upsertByDate(D.daily, rec); }
@@ -2390,24 +2395,23 @@ function weekReviewHtml(force) { // 周复盘卡（仅周日出现；force=测�
     if (d && CONFIG.trainTypes.indexOf(d.type) >= 0) { trained++; typeCnt[d.type] = (typeCnt[d.type] || 0) + 1; }
     if (m && m.sleepH != null) sleepArr.push(m.sleepH);
   }
-  const rate = Math.round(trained / 7 * 100);
+  const wsRv = U.weekStart(U.todayStr());
+  const rate = Math.round(M.weekChecked(wsRv) / (D.profile.weeklyDays || 6) * 100); // 2026-10-20 口径统一：与阶段晋升共用 weekChecked/应练天数（原 trained/7 把休息日算缺席，完美一周最多 86%，与晋升口径打架）
   const avgSleep = sleepArr.length ? (sleepArr.reduce((a, b) => a + b, 0) / sleepArr.length) : null;
   const plog = (D.state.progressionLog || []).filter((e) => Date.now() - e.ts < 7 * 86400000);
   let upN = 0, downN = 0; // what 格式="动作名 12→13、..."（L2202），按箭头两侧数字比大小，不猜文案
   plog.forEach((e) => { (String(e.what || '').match(/\d+→\d+/g) || []).forEach((s) => { const pr = s.split('→'); if (+pr[1] > +pr[0]) upN++; else if (+pr[1] < +pr[0]) downN++; }); });
   let concl;
   const why = [];
-  if (avgSleep != null && avgSleep < 6.5) { concl = '这周的胜负手是睡眠，不是训练量'; why.push('近 7 天均 ' + avgSleep.toFixed(1) + 'h，离 6.5h 差 ' + (6.5 - avgSleep).toFixed(1) + 'h——K9 第一优先'); }
-  else if (rate >= 80) { concl = '这周打得扎实，按这个节奏走'; why.push('训练打卡 ' + trained + '/7 次（' + rate + '%）' + (avgSleep != null ? '、睡眠均 ' + avgSleep.toFixed(1) + 'h' : '')); }
-  else if (rate >= 50) { concl = '打了大半，节奏还在，别断'; why.push('训练打卡 ' + trained + '/7 次（' + rate + '%）'); }
-  else { concl = '这周丢了不少，下周先找回习惯——每天 12 分钟每日包也算赢'; why.push('训练打卡只 ' + trained + '/7 次'); }
+  if (avgSleep != null && avgSleep < CONFIG.sleepFloorH) { concl = '这周的胜负手是睡眠，不是训练量'; why.push('近 7 天均 ' + avgSleep.toFixed(1) + 'h，离 ' + CONFIG.sleepFloorH + 'h 底线差 ' + (CONFIG.sleepFloorH - avgSleep).toFixed(1) + 'h——K9 第一优先'); }
+  else if (rate >= 80) { concl = '这周打得扎实，按这个节奏走'; why.push('训练 ' + trained + ' 练 / 应 ' + (D.profile.weeklyDays || 6) + '（' + rate + '%）' + (avgSleep != null ? '、睡眠均 ' + avgSleep.toFixed(1) + 'h' : '')); }
+  else if (rate >= 50) { concl = '打了大半，节奏还在，别断'; why.push('训练 ' + trained + ' 练 / 应 ' + (D.profile.weeklyDays || 6) + '（' + rate + '%）'); }
+  else { concl = '这周丢了不少，下周先找回习惯——每天 12 分钟每日包也算赢'; why.push('本周只练了 ' + trained + ' 练（应 ' + (D.profile.weeklyDays || 6) + '）'); }
   if (upN && !downN) why.push('力量档位在涨（本周 ' + upN + ' 项上调）');
   else if (downN) why.push('本周有 ' + downN + ' 项降档（原因在渐进记录里，别对抗黄灯）');
   const ltB2 = M.latestTest(); // FR-B2 提前达标（只提示不跳档）
   if (ltB2 && ltB2.standR != null && ltB2.standR >= 47) why.push('进度快于计划：右脚已过土路线 47s——下一步负重线 50s，课表按原计划走（提前达标只提示，不自动跳档）');
-  let trainedPrev = 0; // FR-B4 重排评估：本周+上周完成率都 <60% 才提示
-  for (let i = 7; i < 14; i++) { const dp = M.dailyOn(U.addDays(U.todayStr(), -i)); if (dp && CONFIG.trainTypes.indexOf(dp.type) >= 0) trainedPrev++; }
-  const ratePrev = Math.round(trainedPrev / 7 * 100);
+  const ratePrev = Math.round(M.weekChecked(U.addDays(wsRv, -7)) / (D.profile.weeklyDays || 6) * 100); // 口径同上：与本周一致
   if (rate < 60 && ratePrev < 60) why.push('连续两周完成率低于 60%：二选一——接下来一周全部按降档练，或去今日页点「顺延 1 周」整体后移。计划为你的真实生活让路，不是你为计划硬扛。');
   return '<div class="card"><div class="card-head"><div class="bubble bg-blue" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 19V5M4 19h16M8 15v-4M12 15V8M16 15v-6"/></svg></div>'
     + '<div style="flex:1"><div class="card-title" style="margin:0">周复盘 · 私教</div><div class="sub">只在周日出现，看完就收</div></div></div>'
@@ -2442,7 +2446,6 @@ function tour7CardHtml() { // 新手引导日卡：7 天后自动关，随时可
     + '</div></div>';
 }
 function tour7Done() { // 打标今天完成；第 7 天完成=毕业关闸
-  if (readOnly) { toast('离线只读模式，改动不保存'); return; }
   const t7 = D.state.tour7 || { on: true, day: 1, done: [] };
   t7.done = t7.done || [];
   if (t7.done.indexOf(U.todayStr()) < 0) t7.done.push(U.todayStr());
@@ -2454,7 +2457,6 @@ function tour7Done() { // 打标今天完成；第 7 天完成=毕业关闸
   renderToday();
 }
 function tour7Skip() { // 跳过：永久关闭（尊重用户，不再弹）
-  if (readOnly) { toast('离线只读模式，改动不保存'); return; }
   D.state.tour7 = { on: false, day: 0, done: [], skip: true };
   D.state.updatedAt = Date.now();
   persist();
@@ -2861,7 +2863,53 @@ function quickStart() { // 有氧日：没选方式先带到安排卡，选了�
   }
   startWorkout();
 }
+/* ===== 无障碍兜底（2026-10-20 a11y P0）：label 自动关联 + aria-live 容器 ===== */
+function a11yBindLabels() { // label 未写 for 的，自动关联同 .field 内首个可输入元素（VoiceOver/读屏报字段名）
+  try {
+    document.querySelectorAll('label:not([for])').forEach((lb) => {
+      if (lb.querySelector('input,textarea,select')) return; // 包裹式天然关联
+      const box = lb.closest('.field') || lb.parentElement;
+      if (!box) return;
+      const inp = box.querySelector('input:not([type=hidden]),textarea,select');
+      if (!inp) return;
+      if (!inp.id) inp.id = 'a11y_' + Math.random().toString(36).slice(2, 8);
+      lb.setAttribute('for', inp.id);
+    });
+  } catch (e) {}
+}
+/* ===== 表单草稿保护（2026-10-20 IX-02 修复）：任何重渲不得清空用户正在输入的内容 ===== */
+const DRAFT_IDS = ['fNote', 'fDur', 'fPainText', 'fHr', 'fSleep', 'fRhr', 'fHrv'];
+function draftMarkDirty(id) { window.__draftDirty = window.__draftDirty || {}; window.__draftDirty[id] = true; }
+function draftBind() { // 渲染后绑定：用户敲过键盘的字段才算草稿（prefill 预填不算，防旧值污染智能预填）
+  DRAFT_IDS.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el && !el.__draftBound) { el.__draftBound = true; el.addEventListener('input', () => draftMarkDirty(id)); }
+  });
+  window.__draftDirty = {};
+}
+function draftCapture() { // 重渲前抓"用户真正输入过"的字段与折叠态
+  try {
+    const vals = {};
+    (window.__draftDirty || {}).forEach ? null : null;
+    DRAFT_IDS.forEach((id) => { if ((window.__draftDirty || {})[id]) { const el = document.getElementById(id); if (el) vals[id] = el.value; } });
+    return {
+      vals: vals,
+      folds: Array.prototype.map.call(document.querySelectorAll('#todayBody details'), (d) => d.open)
+    };
+  } catch (e) { return null; }
+}
+function draftRestore(d) { // 渲染后回填（仅用户输入过的字段）
+  if (!d) return;
+  try {
+    Object.keys(d.vals || {}).forEach((id) => { const el = document.getElementById(id); if (el && d.vals[id] !== '' && d.vals[id] != null) el.value = d.vals[id]; });
+    if (d.folds && d.folds.length) {
+      const now = document.querySelectorAll('#todayBody details');
+      for (let i = 0; i < Math.min(now.length, d.folds.length); i++) now[i].open = d.folds[i];
+    }
+  } catch (e) {}
+}
 function renderToday() {
+  const __draft = draftCapture(); // IX-02：重渲前抓草稿
   updateSyncBadge();
   const t = U.todayStr();
   let h = '';
@@ -2891,6 +2939,7 @@ function renderToday() {
     + footRedCheck()
     + '<button class="' + (cta.kind === 'done' ? 'btn-ghost' : 'btn-primary') + '" id="btnStartToday" data-kind="' + cta.kind + '" style="margin-top:12px" onclick="' + cta.fn + '">' + cta.t + '</button>'
     + todayStripHtml() + '</div>';
+  h += resumeCardHtml(); // IX-01：有未完成训练时，今天页第一张卡=续练
   if (level === 'floor' || level === 'return') h += dailyPackCard(level);
   // 今日安排紧随决策卡（首屏可见主行动）
   h += '<div class="card" id="planCard">' + planHtml() + '</div>';
@@ -2898,7 +2947,7 @@ function renderToday() {
   h += '<div class="card" id="recordCard">'
     + '<div class="card-head"><div class="bubble bg-blue" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="13" cy="5" r="2.2"/><path d="M8 21l2.5-5.5L8 13l1.5-4.5L14 10l3 2M9.5 8.5L6 10l-1 3M10.5 15.5L14 21"/></svg></div>'
     + '<div class="card-title" style="margin:0">记录</div></div>'
-    + '<div class="field" style="margin-bottom:12px"><button class="btn-primary" id="btnQuick" onclick="tfQuickSave()">' + quickBtnText() + '</button>'
+    + '<div class="field" style="margin-bottom:12px"><button class="btn-ghost" id="btnQuick" onclick="tfQuickSave()" style="border-color:var(--accent);color:var(--accent-text)">' + quickBtnText() + '</button>'
     + '<div class="sub" id="quickSub" style="margin-top:6px">' + quickSubText() + '</div></div>' // 批12a：一键主入口+副行明示将存什么
     + '<div class="field"><label>训练类型</label><div class="chips" id="typeChips">' + typeChips() + '</div></div>'
     + '<div id="trainFields"' + (CONFIG.trainTypes.indexOf(tf.type) < 0 ? ' hidden' : '') + '>'
@@ -2917,7 +2966,7 @@ function renderToday() {
     + '<input id="fPainText" placeholder="部位描述" style="margin-top:8px"' + (tf.painOpt === '其他' ? '' : ' hidden') + '></div>'
     + '<div class="field"><label>主观状态（默认延续上次，可改）</label><div class="chips" id="moodChips">' + moodChips() + '</div></div>'
     + '<div class="field"><label>备注（可选）</label><textarea id="fNote" rows="2" maxlength="200" placeholder="可留空"></textarea></div>'
-    + '<button class="btn-primary" id="btnSave" onclick="tfSave()">保存今日记录</button>'
+    + '<button class="btn-ghost" id="btnSave" onclick="tfSave()">保存今日记录</button>'
     + '</div>';
   // 被动指标折叠卡
   h += '<div class="card"><div class="card-head">'
@@ -3038,6 +3087,9 @@ function renderToday() {
     + '</div>';
   document.getElementById('todayBody').innerHTML = h;
   prefillToday();
+  draftRestore(__draft); // IX-02：回填用户真正输入过的字段
+  draftBind(); // IX-02：绑定输入监听 + 清空 dirty 标记（prefill 不算用户输入）
+  a11yBindLabels(); // a11y：label 兜底关联
 }
 
 function typeChips() {
@@ -3120,7 +3172,7 @@ function planHtml(dateStr) {
       h += '<div class="sub" style="margin-top:12px;color:var(--green-text)">✓ 今天已完成；想加练再点下面。</div>'
         + '<div style="margin-top:8px"><button class="btn-ghost" onclick="startWorkout()">再练一次</button></div>';
     } else {
-      h += '<button class="btn-primary" style="margin-top:12px" onclick="startWorkout()">开始训练</button>';
+      // IX-04：删除——决策卡已有唯一主按钮（startCta），课卡内不再放第二颗同权重的
       h += '<div style="margin-top:10px"><button class="btn-ghost" id="btnQuick2" onclick="tfQuickSave()">' + quickBtnText() + '</button>'
         + '<div class="sub" id="quickSub2" style="margin-top:6px">' + quickSubText() + '</div></div>'; // 批12a：练完顺手存（第二入口，副行同源实时）
     }
@@ -3190,7 +3242,7 @@ function wxFromCode(code, appMax, windKmh) { // WMO weather code → 产品天�
   return ['好天', code === 0 ? '晴' : (code <= 3 ? '多云' : '雾/霾')];
 }
 async function fetchWeather() { // 批10：接入 Open-Meteo 实况（免费无 key，已真机验证）——有网自动、断网静默回退手动点选
-  if (readOnly || !navigator.onLine) return;
+  if (!navigator.onLine) return; // readOnly 死变量已清（2026-10-20 QA）：本机模式全功能可写
   const c = CONFIG.CITY_COORDS[D.profile.city]; // 隐私修复：城市未设置时不回退到任何默认坐标（不暗示用户所在地），天气走手动点选
   if (!c) return;
   try {
@@ -3467,7 +3519,6 @@ function tfSave() {
   const b = document.getElementById('btnSave');
   if (b && b.disabled) return; // 防重复点击
   const fail = (m) => { if (b) { b.disabled = false; b.textContent = '保存今日记录'; } toast(m); };
-  if (readOnly) { fail('离线只读模式，不能保存'); return; }
   if (b) { b.disabled = true; b.textContent = '保存中…'; }
   const rec = makeDailyRecord(U.todayStr());
   const fromWk = !!tf.fromWorkout; tf.fromWorkout = false; // N2：跟练流保存标志（用后即清）
@@ -3752,7 +3803,7 @@ function renderTrend() {
         const d = U.addDays(t, -i); const m = M.metricOn(d);
         if (m && m.sleepH != null) bars.push({ x: U.fmtShort(d), y: m.sleepH, warn: m.sleepH < CONFIG.sleepShortH });
       }
-      return chartBars(bars, { refY: CONFIG.sleepRefH, refLabel: '7h', colorVar: 'var(--purple)' });
+      return chartBars(bars, { refY: CONFIG.sleepGoalH, refLabel: CONFIG.sleepGoalH + 'h', colorVar: 'var(--purple)' });
     }],
     ['chRhr', () => {
       const pts = [];
@@ -3908,7 +3959,7 @@ function showDaySummary(ds) {
   }
   b += '</div>';
   // 过去日期（不含今天与未来）且非只读模式时，提供补录/修改入口
-  const canEdit = !readOnly && ds < U.todayStr();
+  const canEdit = ds < U.todayStr();
   const hasRec = !!(r || m);
   showModal('<div class="card-title" style="margin-bottom:8px">' + ds + ' · 当天记录</div>' + b
     + '<div class="m-actions">'
@@ -3923,7 +3974,7 @@ const ANCHORS = {
   climb: { name: '爬升肌耐力', unit: '深蹲最多次数', map: CONFIG.mapSquat },
   downhill: { name: '下坡单侧控制', unit: '闭眼单腿站立秒数（左右取较差侧）', map: CONFIG.mapStand },
   core: { name: '核心负重稳定', unit: '平板支撑秒数', map: CONFIG.mapPlank },
-  recovery: { name: '恢复力', text: '近28天 RHR超基线+5天数 与 睡眠≥7h占比（两指标均需≥14天数据激活，估算值）：L5=超标0天且占比≥85%；L4=超标0天且占比≥70%；L3=超标≤1天且占比≥70%；L2=占比40-69%；L1=占比<40% 或 超标≥5天。' },
+  recovery: { name: '恢复力', text: '近28天 RHR超基线+5天数 与 睡眠≥'+CONFIG.sleepGoalH+'h占比（两指标均需≥14天数据激活，估算值）：L5=超标0天且占比≥85%；L4=超标0天且占比≥70%；L3=超标≤1天且占比≥70%；L2=占比40-69%；L1=占比<40% 或 超标≥5天。' },
   pace: { name: '配速纪律', text: '近4周有平均心率记录≥8次后激活（估算值）：avgHr≤' + CONFIG.zone2Cap + ' 占比≥90% → L4；70-89% → L3；<70% → L2；样本不足 → 数据不足，无法评估。' }
 };
 function lvFrom(map, v) {
@@ -3936,7 +3987,7 @@ function recoveryLevel() {
   if (st.withData < CONFIG.recoveryNeed || rd < CONFIG.recoveryNeed) return { lv: null, src: '近28天：睡眠 ' + st.withData + ' 天 / 静息心率 ' + rd + ' 天有数据，激活需各≥' + CONFIG.recoveryNeed + ' 天' };
   const pct = Math.round(st.ge7 / st.withData * 100);
   const T = CONFIG.recovery;
-  const src = '近28天：RHR超标 ' + over + ' 天，睡眠≥7h占比 ' + pct + '%';
+  const src = '近28天：RHR超标 ' + over + ' 天，睡眠≥' + CONFIG.sleepGoalH + 'h占比 ' + pct + '%';
   if (over === 0 && pct >= T.L5.sleepPct) return { lv: 5, src: src };
   if (over === 0 && pct >= T.L4.sleepPct) return { lv: 4, src: src };
   if (over <= T.L3.over && pct >= T.L3.sleepPct) return { lv: 3, src: src };
@@ -4154,12 +4205,12 @@ function renderGoal() {
     + '<div class="card-title" style="margin:0">睡眠保持</div></div>'
     + '<div style="display:flex;align-items:center;gap:14px" onclick="showK(\'K9\')">'
     + ringSvg(sl7 / 7, 'var(--purple)')
-    + '<div style="flex:1"><div class="big-num" id="gSleep"><span></span></div><div class="sub">近7天睡眠≥7h 天数 / 7</div></div>'
+    + '<div style="flex:1"><div class="big-num" id="gSleep"><span></span></div><div class="sub">近7天睡眠≥'+CONFIG.sleepGoalH+'h 天数 / 7</div></div>'
     + '<div class="sub" style="text-align:right">本周' + slWeek + ' 天<br>累计' + M.sleepTotalDays() + ' 天</div></div>'
     // v4.2 动线⑤：出厂默认 5.4 不是"近3月平均"——没设置过基线时说人话，不冒充统计结论
     + '<div class="sub" style="margin-top:8px">' + (D.profile.sleepBaselineSet
-      ? '基线 ' + D.profile.sleepBaseline + 'h（近3月平均）→ 目标 7h+ · 点卡片展开睡眠修复方案'
-      : '目标 7h+ · 连续记录几天睡眠后，这里会换成你的真实基线 · 点卡片展开睡眠修复方案') + '</div></div>';
+      ? '基线 ' + D.profile.sleepBaseline + 'h（近3月平均）→ 目标 ' + CONFIG.sleepGoalH + 'h+ · 点卡片展开睡眠修复方案'
+      : '目标 ' + CONFIG.sleepGoalH + 'h+ · 连续记录几天睡眠后，这里会换成你的真实基线 · 点卡片展开睡眠修复方案') + '</div></div>';
   h += '<div class="card"><div class="card-head"><div class="bubble bg-orange" aria-hidden="true"><svg viewBox="0 0 24 24"><ellipse cx="10" cy="14" rx="4" ry="6"/><circle cx="16.5" cy="7.5" r="1.4"/><circle cx="18.5" cy="11" r="1.4"/><circle cx="18.5" cy="15" r="1.4"/></svg></div>'
     + '<div class="card-title" style="margin:0">右足康复</div></div>'
     + '<div style="display:flex;align-items:center;gap:14px" onclick="showK(\'K7\')">'
@@ -4315,7 +4366,6 @@ function renderTest() {
   document.getElementById('testBody').innerHTML = h;
 }
 function saveTest() {
-  if (readOnly) { toast('离线只读模式，不能保存'); return; }
   const date = document.getElementById('tDate').value || U.todayStr();
   const g = (id) => U.num(document.getElementById(id).value);
   const rec = recStamp({
@@ -4367,7 +4417,6 @@ function lastStepHrTip() {
 }
 
 function saveExternal() {
-  if (readOnly) { toast('离线只读模式，不能保存'); return; }
   const date = document.getElementById('eDate').value || U.todayStr();
   const src = document.getElementById('eSource').value.trim() || '当地国民体质监测中心';
   const items = {};
@@ -4484,7 +4533,6 @@ function generateScheduleText() { // 由现行生效课表生成文本（组次�
   return t;
 }
 function applySchedule() {
-  if (readOnly) { toast('离线只读模式，不能修改'); return; }
   const ta = document.getElementById('schedText');
   const text = ta ? ta.value : '';
   let sec;
@@ -4506,7 +4554,6 @@ function applySchedule() {
   toast(changed.length ? '课表已生效：' + changed.join('、') : '课表已生效');
 }
 function resetSchedule() {
-  if (readOnly) { toast('离线只读模式，不能修改'); return; }
   D.state.scheduleText = null;
   rebuildSched();
   D.state.updatedAt = Date.now();
@@ -4518,7 +4565,6 @@ function resetSchedule() {
 /* 历史补录：独立表单状态 __bf；保存走与 tfSave 相同的规则引擎（踝痛降级/阶段机/就医提醒），
    但不动 applyProgression 与 strengthFails（用户拍板：渐进只由当天真实训练驱动） */
 function bfOpen(dateStr) {
-  if (readOnly) { toast('离线只读模式，不能补录'); return; }
   // 可选参数 dateStr：从日历 / 每日汇总直接带日期进来，省掉重复选日期这一步。
   // 只接受「今天之前」的合法日期，其余一律退回空白表单（不抛错、不误导）。
   const preset = (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateStr) && dateStr < U.todayStr()) ? dateStr : '';
@@ -4592,7 +4638,6 @@ function bfMood(m) { window.__bf.mood = m; const el = document.getElementById('b
 function bfFlag(k, v) { window.__bf[k] = v; }
 function bfField(k, v) { window.__bf[k] = v; }
 function bfSave() {
-  if (readOnly) { toast('离线只读模式，不能保存'); return; }
   const s = window.__bf;
   if (!s || !s.date) { toast('请先选择日期'); return; }
   if (s.date >= U.todayStr()) { toast('补录日期必须是今天之前'); return; }
@@ -4832,6 +4877,8 @@ function renderProfile() {
   h += '<div class="card"><div class="card-title" style="margin-bottom:8px">外观</div>'
     + '<div class="chips">'
     + [['auto', '跟随系统'], ['light', '浅色'], ['dark', '深色']].map((x) => '<button class="chip' + (D.state.theme === x[0] ? ' on' : '') + '" onclick="setTheme(\'' + x[0] + '\')">' + x[1] + '</button>').join('')
+    + '<div class="field" style="margin-top:12px"><label>字号（特大=放大 30%）</label><div class="chips">'
+    + [['md', '标准'], ['lg', '大'], ['xl', '特大']].map((x) => '<button class="chip' + ((D.state.fontScale || 'md') === x[0] ? ' on' : '') + '" onclick="setFontScale(\'' + x[0] + '\')">' + x[1] + '</button>').join('') + '</div></div>'
     + '</div></div>';
   // 补录历史（使用期打磨：哪天忘了记，补一条；渐进不补算，灯色/连续打卡自然消化）
   h += '<div class="card"><div class="row-between"><div><div class="card-title" style="margin:0">补录历史</div><div class="sub">哪天忘了记，补一条；只补数据，不重算渐进</div></div>'
@@ -4864,7 +4911,6 @@ function applyNewInjury() { // P0-1：旧文案一键更新（用户主动触发
   toast('伤病描述已更新');
 }
 function saveProfileEdit() {
-  if (readOnly) { toast('离线只读模式，不能保存'); return; }
   const p = D.profile;
   const h = U.num(document.getElementById('pHeight').value);
   const w = U.num(document.getElementById('pWeight0').value);
@@ -4894,7 +4940,6 @@ function saveProfileEdit() {
   toast('档案已保存');
 }
 function saveAnchor() {
-  if (readOnly) { toast('离线只读模式，不能保存'); return; }
   const v = document.getElementById('pAnchor').value;
   if (!v) { toast('请选择时间'); return; }
   D.profile.sleepAnchor = v;
@@ -4903,7 +4948,6 @@ function saveAnchor() {
   toast('睡眠锚点已设为 ' + v + '（K9：先守21天）');
 }
 function saveWeight() {
-  if (readOnly) { toast('离线只读模式，不能保存'); return; }
   const v = U.num(document.getElementById('pWeightKg').value);
   if (v == null) { toast('请填写体重'); return; }
   upsertByKey(D.weekly, recStamp({ weekStart: U.weekStart(U.todayStr()), weightKg: v }), 'weekStart');
@@ -4934,7 +4978,6 @@ function promoteFootModal() {
     + '<button class="btn-ghost" onclick="closeModal()">取消</button></div>');
 }
 function promoteFoot() {
-  if (readOnly) { toast('离线只读模式，改动不保存'); return; } // Codex 复核 P2-1 修复：补只读守卫
   const st = D.state.footStage;
   if (st >= 3) { closeModal(); return; }
   if (st === 0) {
@@ -4980,7 +5023,15 @@ function configRows() {
     ['同步超期', '> ' + CONFIG.syncStaleDays + ' 天标红']
   ];
 }
-function exportData() {
+function exportData() { // U-19（2026-10-20）：导出的是明文全量，先说清后果再放行
+  showModal('<div class="card-title" style="margin-bottom:8px">导出的是明文</div>'
+    + '<div class="body-tx">生日、伤病、每天哪疼，都在这个文件里。</div>'
+    + '<div class="body-tx" style="margin-top:6px">存到「文件」就等于进了 iCloud，发出去收不回。</div>'
+    + '<div class="m-actions"><button class="btn-primary" onclick="exportDataGo()">知道了，导出</button>'
+    + '<button class="btn-ghost" onclick="closeModal()">取消</button></div>');
+}
+function exportDataGo() {
+  closeModal();
   const payload = Object.assign({}, D, { updatedAt: new Date().toISOString() });
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
@@ -4992,6 +5043,7 @@ function exportData() {
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   toast('备份已导出');
 }
+var __exportDataGoWrapped = true;
 function importData(input) {
   const f = input.files && input.files[0];
   input.value = '';
@@ -5159,7 +5211,6 @@ function ic(name, sz) {
 
 /* ============ 外观设置（P1-3） ============ */
 function setTheme(t) {
-  if (readOnly) { toast('离线只读模式，改动不保存'); return; } // Codex 复核 P2-1 修复：补只读守卫
   D.state.theme = t;
   D.state.updatedAt = Date.now();
   applyTheme();
@@ -5173,6 +5224,19 @@ function applyTheme() {
   else document.documentElement.setAttribute('data-theme', t);
   const c = t === 'dark' ? '#000000' : '#F2F2F7';
   document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute('content', c));
+}
+function setFontScale(f) { // 字号三档（2026-10-20 视觉/a11y 批：40+ 把字调大是基本权利）
+  D.state.fontScale = f;
+  D.state.updatedAt = Date.now();
+  applyFontScale();
+  persist();
+  renderProfile();
+  toast('字号：' + (f === 'md' ? '标准' : (f === 'lg' ? '大' : '特大')));
+}
+function applyFontScale() {
+  const f = D.state.fontScale || 'md';
+  if (f === 'md') document.documentElement.removeAttribute('data-fs');
+  else document.documentElement.setAttribute('data-fs', f);
 }
 
 /* ============ 阶段升级动画（P2-4） ============ */
@@ -5311,6 +5375,7 @@ function startWorkout() {
     wk = { kind: type, mode: 'solo', list: [{ name: type === '有氧' ? tf.cardioChoice : '长时活动', unit: '分钟', repsKey: null, sets: 1, secs: 0 }], idx: 0, set: 1, phase: 'work', left: 0, phaseDur: 0, phaseStartTs: startTs, startTs: startTs, pausedTotal: 0, pausedAt: null, elapsed: 0, done: null, spoken10: false, targetDur: __c ? __c.dur : '' }; // v4.1：目标时长参照
     document.getElementById('workout').hidden = false;
     wk.timer = setInterval(wkTick, 1000);
+    wkSave(); // IX-01 训练快照
     acquireWakeLock(); // 跟练期间保持屏幕常亮
     SPEAK('开始');
     renderWorkout();
@@ -5331,14 +5396,70 @@ function startWorkout() {
     + '<div class="m-actions"><button class="btn-primary" onclick="confirmCourse()">确认，开始</button>'
     + '<button class="btn-ghost" onclick="closeModal()">再等等</button></div>');
 }
+/* ===== 训练中断恢复（2026-10-20 IX-01 修复）：训练态快照进 localStorage，页面被 iOS 回收后可续 ===== */
+function wkSave() { // 关键节点（进入/换相/完成一组/暂停恢复）覆盖写快照；wk 为空时清快照
+  if (!wk) { try { localStorage.removeItem('tineng_wk'); } catch (e) {} return; }
+  try {
+    localStorage.setItem('tineng_wk', JSON.stringify({
+      ts: Date.now(), kind: wk.kind, mode: wk.mode, ci: wk.ci, phase: wk.phase,
+      setsDone: wk.setsDone, setsPer: wk.setsPer, totalSets: wk.totalSets, yellow: wk.yellow,
+      startTs: wk.startTs, pausedTotal: wk.pausedTotal, pausedAt: wk.pausedAt,
+      reduced: !!wk.reduced, cardioChoice: (wk.kind === '有氧' && tf.cardioChoice) ? tf.cardioChoice : ''
+    }));
+  } catch (e) {}
+}
+function wkLoadSnap() { try { return JSON.parse(localStorage.getItem('tineng_wk') || 'null'); } catch (e) { return null; } }
+function wkClear() { try { localStorage.removeItem('tineng_wk'); } catch (e) {} }
+function pendingResume() { // 5 秒前 ~ 24 小时内的有效快照（刚创建的不算"中断"）
+  const s = wkLoadSnap();
+  const age = s && s.ts ? Date.now() - s.ts : Infinity;
+  return (s && age > 5000 && age < 24 * 3600000) ? s : null;
+}
+function resumeWorkoutSnap() { // 从快照重建训练态：课程按当天课表重算（组数对不上=课表变了，不硬续）
+  const s = pendingResume();
+  if (!s) { toast('没有可续的训练'); return; }
+  const now = Date.now();
+  if (s.mode === 'course') {
+    const course = buildCourse(s.reduced);
+    const totalSets = course.filter((p) => p.kind === 'set').length;
+    if (totalSets !== s.totalSets) { wkClear(); toast('课表已更新，旧的练不完就翻篇，按新课表来'); renderToday(); return; }
+    wk = { kind: '力量', mode: 'course', course: course, ci: Math.min(s.ci || 0, course.length - 1), phase: s.phase || 'warm', left: 0, phaseDur: 0, phaseStartTs: now, startTs: s.startTs || now, pausedTotal: s.pausedTotal || 0, pausedAt: null, elapsed: 0, setsDone: CONFIG.actions.map((x, i) => (s.setsDone && s.setsDone[i]) || 0), setsPer: s.setsPer || CONFIG.actions.map((a) => effSets(a.repsKey)), totalSets: totalSets, yellow: !!s.yellow, lastPerf: lastPerfTxt(), spoken10: false, spoken30: false, lastSpokenNum: -1, timer: null, reduced: !!s.reduced, resumed: true };
+  } else {
+    const st = s.startTs || now;
+    wk = { kind: s.kind, mode: 'solo', list: [{ name: s.kind === '有氧' ? (s.cardioChoice || '有氧') : '长时活动', unit: '分钟', repsKey: null, sets: 1, secs: 0 }], idx: 0, set: 1, phase: 'work', left: 0, phaseDur: 0, phaseStartTs: st, startTs: st, pausedTotal: s.pausedTotal || 0, pausedAt: null, elapsed: 0, done: null, spoken10: false, targetDur: '', timer: null, resumed: true };
+    if (s.kind === '有氧' && s.cardioChoice) tf.cardioChoice = s.cardioChoice;
+  }
+  if (s.pausedAt) wk.pausedTotal += now - s.pausedAt; // 暂停中被回收：断掉的时间补进暂停
+  wkSave();
+  document.getElementById('workout').hidden = false;
+  wk.timer = setInterval(wkTick, 1000);
+  acquireWakeLock();
+  if (s.mode === 'course') { enterPhase(wk.ci); } // 恢复相位：重报数并重置当前相位计时（不追旧秒，防倒计时跳变）；已完成组数保留
+  SPEAK('接着练');
+  renderWorkout();
+}
+function discardResume() { wkClear(); renderToday(); }
+function resumeCardHtml() { // 今天页顶部恢复卡（只在有未完成快照时出现）
+  const s = pendingResume(); if (!s) return '';
+  const mins = Math.max(0, Math.round((Date.now() - s.startTs - (s.pausedTotal || 0) - (s.pausedAt ? Date.now() - s.pausedAt : 0)) / 60000));
+  const setsN = (s.mode === 'course' && s.setsDone) ? s.setsDone.reduce((a, b) => a + b, 0) : 0;
+  const d = new Date(s.ts);
+  const hm = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+  const name = s.kind === '力量' ? '力量课' : (s.kind === '有氧' ? (s.cardioChoice || '有氧') : s.kind);
+  return '<div class="card" style="border:2px solid var(--accent)" id="resumeCard"><div class="card-title" style="margin:0 0 6px">上次没练完 · 续上？</div>'
+    + '<div class="sub">' + U.esc(name) + ' · 已练 ' + mins + ' 分钟' + (setsN ? ' · 完成 ' + setsN + ' 组' : '') + ' · ' + hm + ' 开始的</div>'
+    + '<div style="display:flex;gap:8px;margin-top:10px"><button class="btn-primary" style="flex:2" onclick="resumeWorkoutSnap()">继续练</button>'
+    + '<button class="btn-ghost" style="flex:1" onclick="discardResume()">不留了</button></div></div>';
+}
 function confirmCourse() {
   if (!pendingCourse) return;
   closeModal();
   const startTs = Date.now();
-  wk = { kind: '力量', mode: 'course', course: pendingCourse, ci: 0, phase: 'warm', left: 0, phaseDur: 0, phaseStartTs: startTs, startTs: startTs, pausedTotal: 0, pausedAt: null, elapsed: 0, setsDone: CONFIG.actions.map(() => 0), setsPer: CONFIG.actions.map((a) => effSets(a.repsKey)), totalSets: pendingCourse.filter((p) => p.kind === 'set').length, yellow: pendingYellow, lastPerf: lastPerfTxt(), spoken10: false, spoken30: false, lastSpokenNum: -1, timer: null };
+  wk = { kind: '力量', mode: 'course', course: pendingCourse, ci: 0, phase: 'warm', left: 0, phaseDur: 0, phaseStartTs: startTs, startTs: startTs, pausedTotal: 0, pausedAt: null, elapsed: 0, setsDone: CONFIG.actions.map(() => 0), setsPer: CONFIG.actions.map((a) => effSets(a.repsKey)), totalSets: pendingCourse.filter((p) => p.kind === 'set').length, yellow: pendingYellow, lastPerf: lastPerfTxt(), spoken10: false, spoken30: false, lastSpokenNum: -1, timer: null, reduced: pendingYellow };
   pendingCourse = null;
   document.getElementById('workout').hidden = false;
   wk.timer = setInterval(wkTick, 1000);
+  wkSave(); // IX-01 训练快照
   acquireWakeLock(); // 跟练期间保持屏幕常亮
   SPEAK('开始训练，先热身');
   renderWorkout();
@@ -5354,14 +5475,16 @@ function enterPhase(i) { // 进入课单第 i 项：重置计时三件套与播�
   else if (p.kind === 'set') { wk.phaseDur = p.timed ? p.secs : 0; wk.left = wk.phaseDur; wk.phaseStartTs = now; SPEAK(p.name + '，第' + p.set + '组，目标' + p.target + p.unit); }
   else if (p.kind === 'warm') { wk.phaseDur = 0; wk.left = 0; wk.phaseStartTs = now; }
   else { wk.phaseDur = 0; wk.left = 0; wk.phaseStartTs = now; SPEAK('最后，放松拉伸'); }
+  wkSave(); // IX-01 训练快照（换相即存）
   renderWorkout();
 }
 function wkAdvance() { if (wk && wk.ci + 1 < wk.course.length) enterPhase(wk.ci + 1); else finishWorkout(); }
-function pauseWorkout() { if (wk && !wk.pausedAt) { wk.pausedAt = Date.now(); renderWorkout(); } }
+function pauseWorkout() { if (wk && !wk.pausedAt) { wk.pausedAt = Date.now(); wkSave(); renderWorkout(); } }
 function resumeWorkout() { // 暂停补偿：把暂停时长从计时三件套里平移掉
   if (wk && wk.pausedAt) {
     const d = Date.now() - wk.pausedAt;
     wk.pausedTotal += d; wk.phaseStartTs += d; wk.startTs += d; wk.pausedAt = null;
+    wkSave();
     renderWorkout();
   }
 }
@@ -5398,6 +5521,7 @@ function completeSet() {
   if (p.kind !== 'set') return;
   SPEAK('本组完成');
   wk.setsDone[p.actionIdx]++;
+  wkSave(); // IX-01：组数变化即存
   wkAdvance();
 }
 function skipRest() {
@@ -5426,6 +5550,7 @@ function finishWorkout() {
   const log = D.state.progressionLog || [];
   const progTxt = log.length ? log[log.length - 1].what.split('、')[0] : null; // 上期渐进示例（历史事实，非本次预测）
   wk = null;
+  wkClear(); // IX-01：训练结束清快照
   document.getElementById('workout').hidden = true;
   nav('pgToday');
   tfType(kind); // nav 重建页面后再设类型，避免被 prefill 重置
@@ -5437,7 +5562,9 @@ function finishWorkout() {
   const fd = document.getElementById('fDur');
   if (fd) fd.value = mins;
   setRpeUI(5); // 滑块与文字一起重置为建议默认 5，用户按真实体感拖动确认
-  if (kind === '力量' && mode === 'course' && setsDone > 0) {
+  if (kind === '力量' && mode === 'course' && setsDone === 0) {
+    showWorkoutReport({ mins: mins, interrupted: true }); // IX-14：一组没完成=中断，不算一次力量训练（不脏第N练/依从率）
+  } else if (kind === '力量' && mode === 'course' && setsDone > 0) {
     showWorkoutReport({ mins: mins, setsDone: setsDone, totalSets: totalSets, yellow: yellow, progTxt: progTxt });
   } else { // v4.1 好用度修复：有氧/长时也出课结报告（正反馈闭环不断裂）
     const cname = (kind === '有氧' && tf.cardioChoice) ? tf.cardioChoice : kind;
@@ -5449,6 +5576,16 @@ function showWorkoutReport(d) {
   window.__wrMood = '';
   window.__wrFeel = '';      // v3.3：训练感受三键（轻松/刚好/很累）
   window.__wrPain = '无';    // v3.3：疼痛部位点选，默认无
+  if (d.interrupted) { // IX-14 中断报告：如实、不算一练、不代勾任何动作
+    window.__wrMins = d.mins;
+    showModal('<div style="text-align:center">'
+      + '<div class="wr-badge" style="background:var(--orange)"><svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg></div>'
+      + '<div class="card-title" style="text-align:center">这次没练成，也记下来</div></div>'
+      + '<div class="body-tx" style="text-align:center">热身/中断 ' + d.mins + ' 分钟。算来了，没算练——记下来不丢人，硬记成练完才丢人。</div>'
+      + '<div class="m-actions"><button class="btn-primary" onclick="saveInterrupted()">记一笔 ' + d.mins + ' 分钟（不算训练）</button>'
+      + '<button class="btn-ghost" onclick="closeModal();renderToday()">不留记录</button></div>');
+    return;
+  }
   const isSolo = !!d.soloLabel;
   const full = d.setsDone >= d.totalSets;
   const badge = isSolo
@@ -5523,6 +5660,20 @@ function saveFromReport() { // 把报告卡的 RPE/状态写进已预填的表�
   tf.fromWorkout = true; // 跟练流保存：部分完成不拦截，照实记录
   closeModal();
   tfSave();
+}
+function saveInterrupted() { // IX-14：中断记录——type='无' 与晨检同口径，不计入训练打卡/完成率/第N练，但"来了"有痕
+  const mins = window.__wrMins || 0;
+  let rec = M.dailyOn(U.todayStr());
+  if (!rec) { rec = { date: U.todayStr(), type: '无', createdAt: Date.now() }; D.daily.push(rec); D.daily.sort((a, b) => (a.date < b.date ? -1 : 1)); }
+  rec.type = '无';
+  rec.durationMin = (rec.durationMin || 0) + mins;
+  rec.note = '力量中断（一组没完成，热身 ' + mins + ' 分钟）';
+  rec.updatedAt = Date.now();
+  D.state.updatedAt = Date.now();
+  persist();
+  closeModal();
+  renderToday();
+  toast('记下了 ' + mins + ' 分钟——来了就算数');
 }
 function renderWorkout() {
   const el = document.getElementById('wkBody');
@@ -5606,7 +5757,7 @@ function bindUI() {
   document.getElementById('modalWrap').onclick = (e) => { if (e.target.id === 'modalWrap') closeModal(); };
   // 同步时机=切回前台（不做后台定时同步）
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && D && D.state.pendingSync && TOKEN && !readOnly) pushNow();
+    if (!document.hidden && D && D.state.pendingSync && TOKEN) pushNow();
   });
 }
 async function init() {
@@ -5623,6 +5774,7 @@ async function init() {
   }
   rebuildSched(); // N5：恢复自定义课表生效缓存
   applyTheme();
+  applyFontScale(); // 启动时应用字号档
   updateSyncBadge();
   const savedToken = (function () { try { return localStorage.getItem('tineng_token') || ''; } catch (e) { return ''; } })();
   if (savedToken) {

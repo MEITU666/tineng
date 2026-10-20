@@ -694,12 +694,13 @@ check('⑬ P1-3 导入/恢复路径重建课表缓存（结构性）', () => {
   if (String(w.eval('askRestore')).indexOf('rebuildSched') < 0) throw new Error('askRestore 未调 rebuildSched');
   return '两条恢复路径都含 rebuildSched';
 });
-check('⑬ P2-1 只读守卫在位：stFeel/promoteFoot/setTheme', () => {
+check('⑬ P2-1（2026-10-20 改行为断言）：本机模式可写——stFeel 落盘、无只读拦截', () => {
   if (loadErr) throw loadErr;
-  ['stFeel', 'promoteFoot', 'setTheme'].forEach((fn) => {
-    if (String(w.eval(fn)).indexOf('readOnly') < 0) throw new Error(fn + ' 缺只读守卫');
-  });
-  return '三函数守卫齐';
+  if (w.eval('typeof readOnly') !== 'undefined') throw new Error('readOnly 死变量应已移除');
+  w.eval('D.state.feelMark = null; stFeel("正常")');
+  const fm = w.eval('JSON.stringify(D.state.feelMark || null)');
+  if (fm.indexOf('正常') < 0) throw new Error('stFeel 未落盘：' + fm);
+  return '行为断言：可写 ✓（原文本断言是假绿——readOnly 从不置真，守卫不可达）';
 });
 check('⑬ P2-3 有氧首句口径：未选方式→提示先选，不默认快走', () => {
   if (loadErr) throw loadErr;
@@ -784,11 +785,11 @@ check('⑭ 禁区解锁：K23 两把闸门标"待确认"，踝门条件自动判
   for (const k of ['踝毕业评审通过', '医生放行', '待确认', '✗ 未到', '越野跑 R1']) if (h.indexOf(k) < 0) throw new Error('缺「' + k + '」');
   return '禁区条件可视 ✓';
 });
-check('⑭ 统一停训卡：openStopCard 弹"不是医学诊断"+红线就医线', () => {
+check('⑭ 统一停训卡：openStopCard 弹"先停下/医生优先"+红线就医线', () => {
   if (loadErr) throw loadErr;
   w.eval('openStopCard("测试停训理由")');
   const h = w.eval('document.getElementById("modalBox").innerHTML');
-  for (const k of ['今天停训', '不是医学诊断', '红线信号', '运动医学科']) if (h.indexOf(k) < 0) throw new Error('缺「' + k + '」');
+  for (const k of ['今天停训', '不是诊断', '医生怎么说，就按医生说的练', '红线信号', '运动医学科']) if (h.indexOf(k) < 0) throw new Error('缺「' + k + '」');
   w.eval('closeModal()');
   return '停训卡 ✓';
 });
@@ -868,7 +869,7 @@ check('⑮ preTripPick：写 state.preTrip 缓存并重开默认选中', () => {
   const rid = w.eval('D.state.preTrip && D.state.preTrip.routeId');
   if (rid !== 'gangrenboqi') throw new Error('preTrip.routeId=' + rid);
   const h = w.eval('document.getElementById("modalBox").innerHTML');
-  if (h.indexOf('chip on') < 0 || h.indexOf('还不能走') < 0) throw new Error('重开后无选中态或无判定卡（踝门50 vs 57 应为 no）');
+  if (h.indexOf('chip on') < 0 || h.indexOf('还不够') < 0 || h.indexOf('能不能走，你当天说了算') < 0) throw new Error('重开后无选中态或无判定卡（踝门50 vs 57 应为 no·U-20 新文案）');
   w.eval('closeModal()');
   return '缓存+重渲 ✓';
 });
@@ -1122,7 +1123,7 @@ check('⑲ 备注信号引擎：抽筋/疲劳/心率词命中给反馈，红线�
 check('⑲ 离线模式可写（走查发现的重大缺陷修复）：enterOffline 不再锁只读，晨检/记录本地可存待同步', () => {
   if (loadErr) throw loadErr;
   w.eval('D = defaultData(); enterOffline()');
-  if (w.eval('readOnly') !== false) throw new Error('离线模式仍锁只读——山上无法记录');
+  if (w.eval('typeof readOnly') !== 'undefined') throw new Error('readOnly 死变量残留');
   w.eval('chkSel = { parts: ["肩"], kinds: ["酸胀"], relief: "ease" }; chkSubmit()');
   const c = w.eval('JSON.stringify((M.dailyOn(U.todayStr())||{}).chk||null)');
   if (JSON.parse(c).out !== 'ok') throw new Error('离线晨检未写入：' + c);
@@ -1990,6 +1991,29 @@ check('62 久坐释放与晨检联动：肩颈/小腿/足底都有动作，练�
   if (th.indexOf('id="releaseCard"') < 0) throw new Error('今天页缺释放卡');
   if (th.indexOf('练前热身 5 分钟 / 练后放松 5 分钟') < 0) throw new Error('课表未标明练前/练后');
   return '释放卡 + 晨检联动 + 练前练后 ✓';
+});
+/* ---------- 63 数据口径四修（2026-10-20 七角色审查批①） ---------- */
+check('63 数据口径：晨检不算打卡、无记录≠无痛、完成率同源、睡眠线单一来源', () => {
+  if (loadErr) throw loadErr;
+  // a) weekChecked：纯晨检记录（type='无'）不计入，训练与休息日照计
+  const a = w.eval('(function(){ const ws = U.weekStart(U.todayStr()); D.daily = D.daily.filter(r => r.date < ws || r.date > U.addDays(ws,6)); '
+    + 'D.daily.push({date:ws, type:"无", chk:{out:"green"}}); D.daily.push({date:U.addDays(ws,1), type:"休息日"}); D.daily.push({date:U.addDays(ws,2), type:"力量", durationMin:40, rpe:6}); '
+    + 'return M.weekChecked(ws); })()');
+  if (a !== 2) throw new Error('weekChecked 应=2（晨检不算/休+力算），实得 ' + a);
+  // b) footPainFreeDays：过去某天无记录=未知，停止累积；今天未记录不判断
+  const b = w.eval('(function(){ D.daily = D.daily.filter(r => r.date !== U.addDays(U.todayStr(),-1) && r.date !== U.addDays(U.todayStr(),-2)); '
+    + 'D.daily.push({date:U.todayStr(), type:"力量", durationMin:30, pain:"无"}); D.daily.push({date:U.addDays(U.todayStr(),-2), type:"力量", durationMin:30, pain:"无"}); '
+    + 'return M.footPainFreeDays(); })()');
+  if (b !== 1) throw new Error('footPainFreeDays 应=1（昨天无记录=未知不累积），实得 ' + b);
+  // c) 完成率同源：周复盘 rate 必须来自 M.weekChecked（不再 trained/7）
+  const html = require('fs').readFileSync(require('path').join(DIR, 'index.html'), 'utf8');
+  if (html.indexOf('Math.round(trained / 7 * 100)') >= 0) throw new Error('周复盘仍在用 trained/7 旧口径');
+  if (html.indexOf('Math.round(M.weekChecked(wsRv) / (D.profile.weeklyDays || 6) * 100)') < 0) throw new Error('周复盘未接 weekChecked 口径');
+  // d) 睡眠线单一来源：6.5/7 判断处必须走 CONFIG.sleepFloorH / CONFIG.sleepGoalH
+  if (html.indexOf('avgSleep < 6.5') >= 0 || html.indexOf('m.sleepH < 6.5') >= 0) throw new Error('仍有硬编码 6.5 睡眠判断');
+  if (html.indexOf("refLabel: '7h'") >= 0) throw new Error('趋势图参考线仍硬编码 7h');
+  if (html.indexOf('sleepFloorH: 6.5') < 0 || html.indexOf('sleepGoalH: 7') < 0) throw new Error('睡眠线常量缺失');
+  return '晨检不计打卡 · 无记录≠无痛 · 完成率同源 · 睡眠线常量化 ✓';
 });
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);
