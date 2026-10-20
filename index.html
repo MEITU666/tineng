@@ -456,10 +456,11 @@ const CONFIG = {
     naEval: '数据不足，无法评估',
     phase: ['习惯建立+有氧起步+足底康复基础', '有氧容量扩展+下肢肌耐力', '爬升与负重', '户外长时活动'],
     tokenExpired: '令牌失效或过期：到档案页底部「数据同步令牌」重新粘贴一次新令牌即可（30 秒）。',
-    footDoctor: '足部疼痛持续3天，建议运动医学科就诊，明确软组织挫伤的具体位置与程度',
+    footDoctor: '足部疼痛持续3天，建议运动医学科就诊，明确疼痛的具体原因',
     guideTestCard: '建议本周末完成家庭体测，建立你的基线。',
-    injuryPreset: '右足软组织挫伤（脚掌疼痛，走路可感）；不平路面易崴脚',
-    oldInjury: '右踝软组织挫伤未愈；平时走路正常，不平路面易崴脚，崴后轻微疼痛'
+    // 隐私（2026-10-20 审查P0修复）：出厂默认不再携带任何真实伤情——源码进公开仓，个人伤史只存本机档案
+    injuryPreset: '足部旧伤（脚掌疼痛，行走可感）',
+    oldInjury: '踝部旧伤未愈；不平路面易崴脚'
   },
 
   typeList: ['无', '八段锦', '有氧', '力量', '长时活动', '休息日', '病假'],
@@ -627,7 +628,7 @@ const CONFIG = {
       '软垫单腿站+抛接干扰（扰动平衡，防崴脚复发的 RCT 级证据项）' ],
       promo: '毕业：单腿提踵连续≥15/侧 且 负重下台阶训练次晨无痛不肿（48小时原则）。疼痛规则：练时痛≤2/10 放心做；2-5 可继续但次晨必须消退、周趋势不升；≥8 立即停' }
   ],
-  footNote: '你的问题分两个：①右足软组织挫伤=脚掌疼（平时走路可感）②不平路面易崴脚=踝的问题。本模块以足底康复为主线，防崴平衡训练在 Stage 2 加入。疼痛位置不确定属于正常——本方案只含低风险动作；若 4 周无改善或疼痛加重，去运动医学科/骨科明确诊断，不要拖。',
+  footNote: '本模块以足底康复为主线，防崴平衡训练在 Stage 2 加入。疼痛位置不确定属于正常——本方案只含低风险动作；若 4 周无改善或疼痛加重，去运动医学科/骨科明确诊断，不要拖。',
   footLinks: [
     { t: '📺 足底筋膜炎康复', u: 'https://search.bilibili.com/all?keyword=足底筋膜炎康复' },
     { t: '📺 短足运动', u: 'https://search.bilibili.com/all?keyword=短足运动' },
@@ -656,8 +657,8 @@ const CONFIG = {
 
   /* K12 备战卡（逐字） */
   k12: [
-    '9/23 武汉国民体质监测中心检测：当场出报告，带身份证',
-    '检测当日早上不训练；前一天(9/22)只做八段锦+散步',
+    '当地国民体质监测中心检测：当场出报告，带身份证',
+    '检测当日早上不训练；前一天只做八段锦+散步',
     '可对比项：俯卧撑/闭眼单脚站立/坐位体前屈（家庭体测对齐）',
     '检测后当晚把报告录入"体测页-外部检测"',
     '18天收益预期（诚实文案）：平衡+柔韧+俯卧撑进步最快；心肺轻微改善不保证；体重不掉就是赢'
@@ -743,10 +744,11 @@ function defaultData() {
     updatedAt: null,
     profile: {
       birthday: '', // 隐私（审查P0-1修复）：出厂默认不带生辰（源码进公开仓），真实生日由首启向导/档案页录入、仅存本机
-      gender: '男', height: 176, weight0: 60,
+      // 隐私（2026-10-20 审查修复）：身高/体重/城市出厂默认清空——此前硬编码真实值进公开仓；真实值由首启向导/档案页录入、仅存本机
+      gender: '男', height: '', weight0: '',
       weeklyDays: 6, stairs: true, gear: '背包、登山杖（无重装背包）',
       injury: CONFIG.copy.injuryPreset, targetWindow: null, createdAt: null,
-      rhrBaseline: 60, hrvBaseline: 50, sleepBaseline: 5.4, sleepAnchor: '23:30', city: '武汉',
+      rhrBaseline: 60, hrvBaseline: 50, sleepBaseline: 5.4, sleepAnchor: '23:30', city: '',
       updatedAt: 0
     },
     daily: [], metrics: [], weekly: [], tests: [], external: [],
@@ -948,7 +950,7 @@ function toast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.hidden = true; }, 3200);
 }
-window.APP_VER = '4.5.0'; // v4.5.0：身体照顾（久坐肩颈/小腿胀硬/足底筋膜释放+晨检联动+练前热身/练后放松明确化） // v4.2.1：足踝重装专项批（Stage3 脚趾分控/离心提踵/抗阻/负重下台阶）。注：产品对外名以主人拍板为准（PRD :15），代码层不使用任何未经拍板的人格名
+window.APP_VER = '4.5.1'; // v4.5.1 隐私修复（2026-10-20 七角色审查）：出厂默认清空身高/体重/城市/伤史——源码进公开仓，个人数据仅存本机；检测来源默认去城市化 // v4.5.0：身体照顾（久坐肩颈/小腿胀硬/足底筋膜释放+晨检联动+练前热身/练后放松明确化）
 window.addEventListener('error', function (e) { try { if (e && e.message) toast('出了个小问题：' + String(e.message).slice(0, 60)); } catch (err) {} }); // v4.1 审查修复 B4：全局异常不再静默
 window.addEventListener('unhandledrejection', function (e) { try { const r = e && e.reason; toast('后台出了个小问题：' + String(r && r.message || r || '未知').slice(0, 60)); } catch (err) {} });
 async function checkAppUpdate() { // v4.1：一键清 SW/缓存并重载——根治"PWA 更新后吃旧缓存"（原需手动强刷）
@@ -1128,7 +1130,7 @@ function renderGuide() {
     h = guideShell(
       '<div class="card-title" style="margin-bottom:8px">伤病确认</div>'
       + '<div class="sub" style="margin-bottom:14px">选一个最接近的情况；足/踝是两个不同部位的问题，系统会分开处理。</div>'
-      + '<button class="opt-card' + (c === 'foot' ? ' on' : '') + '" onclick="wizInjury(\'foot\')"><div><div class="oc-t">右足软组织挫伤（已预填）</div><div class="oc-d">脚掌疼痛 + 不平路面易崴脚</div></div></button>'
+      + '<button class="opt-card' + (c === 'foot' ? ' on' : '') + '" onclick="wizInjury(\'foot\')"><div><div class="oc-t">足部旧伤（预填康复方案）</div><div class="oc-d">具体症状可在下一步修改</div></div></button>'
       + '<button class="opt-card' + (c === 'other' ? ' on' : '') + '" onclick="wizInjury(\'other\')"><div><div class="oc-t">其他旧伤</div><div class="oc-d">自行描述部位与情况</div></div></button>'
       + '<button class="opt-card' + (c === 'none' ? ' on' : '') + '" onclick="wizInjury(\'none\')"><div><div class="oc-t">无旧伤</div><div class="oc-d">当前没有需要管理的伤病</div></div></button>'
       + (c === 'other' ? '<div class="field" style="margin-top:12px"><label>旧伤描述</label><textarea id="wInjuryText" rows="2" placeholder="部位与情况">' + U.esc(wizData.injuryText || '') + '</textarea></div>' : '')
@@ -2582,7 +2584,7 @@ function buildContext() { // 上下文最小集（工单5.2）：生日/城市/�
     if (ms.sleepH != null) c += '\n【昨夜身体】睡眠 ' + ms.sleepH + 'h' + (ms.rhr != null ? ' 静息心率 ' + ms.rhr : '') + (ms.hrv != null ? ' HRV ' + ms.hrv : '');
   }
   const wt = latestWeight();
-  c += '\n【档案】身高 ' + (D.profile.height || '未填') + 'cm' + (wt != null ? ' · 最近体重 ' + wt + 'kg' : '') + ' · 年龄 ' + M.age() + ' 岁 · 右足康复期';
+  c += '\n【档案】身高 ' + (D.profile.height || '未填') + 'cm' + (wt != null ? ' · 最近体重 ' + wt + 'kg' : '') + ' · 年龄 ' + M.age() + ' 岁';
   return c;
 }
 let qaHistory = []; // 仅内存，最近 5 轮（刷新即失，不落盘）
@@ -3050,7 +3052,7 @@ function moodChips() {
 
 /* 今日安排卡：按周模板（CONFIG可改），力量/有氧展开对应知识 */
 function curWx() { const w = D.state.weather; return (w && w.date === U.todayStr() && w.wx) ? w.wx : (tf.weather || ''); }
-function weatherLabel() { const w = D.state.weather; return (w && w.date === U.todayStr()) ? '今晨实况：' + U.esc(D.profile.city || '武汉') + ' ' + U.esc(w.desc || '') + ' → 按「' + U.esc(w.wx) + '」安排（可手改）' : '今天天气（联网后自动获取，或点选）'; }
+function weatherLabel() { const w = D.state.weather; return (w && w.date === U.todayStr()) ? '今晨实况：' + U.esc(D.profile.city || '未设置城市') + ' ' + U.esc(w.desc || '') + ' → 按「' + U.esc(w.wx) + '」安排（可手改）' : '今天天气（联网后自动获取，或点选）'; }
 function planHtml(dateStr) {
   const dayIdx = new Date().getDay();
   const dayType = effTemplate()[dayIdx];
@@ -3187,9 +3189,10 @@ function wxFromCode(code, appMax, windKmh) { // WMO weather code → 产品天�
   if (appMax != null && appMax >= 33) return ['闷热', '体感' + Math.round(appMax) + '°C'];
   return ['好天', code === 0 ? '晴' : (code <= 3 ? '多云' : '雾/霾')];
 }
-async function fetchWeather() { // 批10：接入 Open-Meteo 实况（免费无 key，已真机验证武汉返回）——有网自动、断网静默回退手动点选
+async function fetchWeather() { // 批10：接入 Open-Meteo 实况（免费无 key，已真机验证）——有网自动、断网静默回退手动点选
   if (readOnly || !navigator.onLine) return;
-  const c = CONFIG.CITY_COORDS[D.profile.city] || CONFIG.CITY_COORDS['武汉'];
+  const c = CONFIG.CITY_COORDS[D.profile.city]; // 隐私修复：城市未设置时不回退到任何默认坐标（不暗示用户所在地），天气走手动点选
+  if (!c) return;
   try {
     const acWx = new AbortController(); const toWx = setTimeout(() => acWx.abort(), 5000); // v4.1 UX 补缺：天气请求 5s 超时取消
     const r = await fetch('https://api.open-meteo.com/v1/forecast?latitude=' + c[0] + '&longitude=' + c[1] + '&daily=weather_code,apparent_temperature_max,wind_speed_10m_max,sunrise,sunset&hourly=temperature_2m,apparent_temperature,precipitation_probability,wind_speed_10m,wind_gusts_10m,weather_code,relative_humidity_2m,is_day&timezone=auto&forecast_days=1', { cache: 'no-store', signal: acWx.signal });
@@ -4303,9 +4306,9 @@ function renderTest() {
     h += '</div>';
   });
   h += '<button class="btn-primary" onclick="saveTest()">保存本次体测</button></div>';
-  h += '<div class="card"><details class="fold" style="margin:0;background:transparent;padding:0"><summary>外部检测录入（常驻，来源默认武汉国民体质监测中心）</summary><div class="fold-body">'
+  h += '<div class="card"><details class="fold" style="margin:0;background:transparent;padding:0"><summary>外部检测录入（常驻，来源默认当地国民体质监测中心）</summary><div class="fold-body">'
     + '<div class="field"><label>检测日期</label><input id="eDate" type="date" value="' + U.todayStr() + '"></div>'
-    + '<div class="field"><label>来源</label><input id="eSource" value="武汉国民体质监测中心"></div>'
+    + '<div class="field"><label>来源</label><input id="eSource" value="" placeholder="如：当地国民体质监测中心"></div>'
     + CONFIG.externalItems.map((k) => '<div class="field"><label>' + U.esc(k) + '</label><input id="e_' + U.esc(k) + '" placeholder="可留空"></div>').join('')
     + '<button class="btn-primary" onclick="saveExternal()">保存外部检测</button></div></details></div>';
   h += '<div class="card">' + testHistoryHtml() + '</div>';
@@ -4366,7 +4369,7 @@ function lastStepHrTip() {
 function saveExternal() {
   if (readOnly) { toast('离线只读模式，不能保存'); return; }
   const date = document.getElementById('eDate').value || U.todayStr();
-  const src = document.getElementById('eSource').value.trim() || '武汉国民体质监测中心';
+  const src = document.getElementById('eSource').value.trim() || '当地国民体质监测中心';
   const items = {};
   let any = false;
   CONFIG.externalItems.forEach((k) => {

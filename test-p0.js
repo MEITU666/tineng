@@ -1166,7 +1166,7 @@ check('⑳ 天气键防线：state.weather 缺键 normalize/merge 补 null；城
 });
 check('⑳ 今日安排实况展示：state.weather 当日 → 标签显示实况+自动选中+雨雪出替代方案', () => {
   if (loadErr) throw loadErr;
-  w.eval('D = defaultData(); D.state.weather = { date: U.todayStr(), wx: "雨雪", desc: "降水·28°C" }; tf.type = "有氧"; tf.cardioChoice = "快走"');
+  w.eval('D = defaultData(); D.profile.city = "武汉"; D.state.weather = { date: U.todayStr(), wx: "雨雪", desc: "降水·28°C" }; tf.type = "有氧"; tf.cardioChoice = "快走"');
   const h = w.eval('planHtml()');
   if (h.indexOf('今晨实况：武汉') < 0 || h.indexOf('降水·28°C') < 0) throw new Error('实况标签缺失');
   if (h.indexOf('室内原地快走') < 0) throw new Error('雨雪替代方案未触发');
