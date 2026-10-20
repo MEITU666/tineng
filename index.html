@@ -918,7 +918,7 @@ function toast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.hidden = true; }, 3200);
 }
-window.APP_VER = '4.4.0'; // v4.4.0：好用度增强（天气时段推荐/冬季室内/冷天热身/喝水记录+日历提醒） // v4.2.1：足踝重装专项批（Stage3 脚趾分控/离心提踵/抗阻/负重下台阶）。注：产品对外名以主人拍板为准（PRD :15），代码层不使用任何未经拍板的人格名
+window.APP_VER = '4.4.1'; // v4.4.1：好用度增强（天气时段推荐/冬季室内/冷天热身/喝水记录+日历提醒；休息日只给散步窗口） // v4.2.1：足踝重装专项批（Stage3 脚趾分控/离心提踵/抗阻/负重下台阶）。注：产品对外名以主人拍板为准（PRD :15），代码层不使用任何未经拍板的人格名
 window.addEventListener('error', function (e) { try { if (e && e.message) toast('出了个小问题：' + String(e.message).slice(0, 60)); } catch (err) {} }); // v4.1 审查修复 B4：全局异常不再静默
 window.addEventListener('unhandledrejection', function (e) { try { const r = e && e.reason; toast('后台出了个小问题：' + String(r && r.message || r || '未知').slice(0, 60)); } catch (err) {} });
 async function checkAppUpdate() { // v4.1：一键清 SW/缓存并重载——根治"PWA 更新后吃旧缓存"（原需手动强刷）
@@ -2717,7 +2717,12 @@ function whenToTrainHtml() { // 今天页一行入口：天气 + 最适合时段
   const w = D.state.weather;
   const hasHourly = !!(w && w.date === U.todayStr() && w.hourly && w.hourly.length);
   const dayType = effTemplate()[new Date().getDay()];
-  const indoor = dayType === '力量';
+  const lv = todayLevelInfo().level;
+  const indoor = dayType === '力量' || lv === 'floor' || lv === 'return' || lv === 'rest';
+  if (dayType === '休息日') { // 休息日不推训练时段，只给散步/拉伸窗口
+    const rw = trainingWindows(hasHourly ? w.hourly : null, month, false)[0];
+    return '<details class="fold" style="margin-top:6px;background:transparent;padding:0"><summary style="min-height:44px;font-size:13px;color:var(--text2)"><b style="color:var(--text)">今天休息</b> · 想散步选 ' + fmtHour(rw.start) + '-' + fmtHour(rw.end) + '</summary><div class="fold-body"><div class="sub" style="line-height:1.9">今天不练；想活动就散步或拉伸，避开饭后 1 小时和睡前 2 小时。恢复也是训练的一部分。</div></div></details>';
+  }
   const wins = trainingWindows(hasHourly ? w.hourly : null, month, indoor);
   const a = wins[0];
   const nowH = new Date().getHours();
