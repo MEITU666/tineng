@@ -110,6 +110,7 @@ main{padding:16px 16px 24px;max-width:600px;margin:0 auto}
 .row-between>label{margin:0}
 /* 开关 */
 .switch{position:relative;display:inline-block;width:46px;height:28px;flex:none}
+.switch::after{content:'';position:absolute;inset:-8px;border-radius:999px} /* IX-21：热区 44 高，视觉不变 */
 .switch input{opacity:0;width:0;height:0}
 .switch .sl{position:absolute;inset:0;background:var(--ctrl-line, var(--line));border-radius:999px;transition:.15s}
 .switch .sl:before{content:'';position:absolute;width:24px;height:24px;border-radius:50%;background:var(--card);top:2px;left:2px;box-shadow:0 1px 2px rgba(0,0,0,.15);transition:.15s}
@@ -643,7 +644,7 @@ const CONFIG = {
       '软垫单腿站+抛接干扰（扰动平衡，防崴脚复发的 RCT 级证据项）' ],
       promo: '毕业：单腿提踵连续≥15/侧 且 负重下台阶训练次晨无痛不肿（48小时原则）。疼痛规则：练时痛≤2/10 放心做；2-5 可继续但次晨必须消退、周趋势不升；≥8 立即停' }
   ],
-  footNote: '本模块以足底康复为主线，防崴平衡训练在 Stage 2 加入。疼痛位置不确定属于正常——本方案只含低风险动作；若 4 周无改善或疼痛加重，去运动医学科/骨科明确诊断，不要拖。',
+  footNote: '本模块以足底康复为主线，防崴平衡训练在 第 3 步加入。疼痛位置不确定属于正常——本方案只含低风险动作；若 4 周无改善或疼痛加重，去运动医学科/骨科明确诊断，不要拖。',
   footLinks: [
     { t: '📺 足底筋膜炎康复', u: 'https://search.bilibili.com/all?keyword=足底筋膜炎康复' },
     { t: '📺 短足运动', u: 'https://search.bilibili.com/all?keyword=短足运动' },
@@ -960,11 +961,12 @@ const PAGE_TITLES = { pgProfile: '档案与设置', pgTest: '家庭体测' };
 let toastTimer = 0;
 function toast(msg) {
   const el = document.getElementById('toastBox');
+  el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); // a11y：读屏播报提示
   el.textContent = msg; el.hidden = false;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.hidden = true; }, 3200);
 }
-window.APP_VER = '4.6.0'; // v4.6.0 拉伸并入每日课（三阶段/恢复课/起床档/规则引擎/当天冻结）· 前批 v4.5.2：数据口径4修+训练快照持久化+草稿保护+chip回填+按钮收敛+中断如实记录+字号三档+深色补齐+死代码清理+合规文案 · 前批 v4.5.1 隐私修复：出厂默认清空身高/体重/城市/伤史——源码进公开仓，个人数据仅存本机；检测来源默认去城市化 // v4.5.0：身体照顾（久坐肩颈/小腿胀硬/足底筋膜释放+晨检联动+练前热身/练后放松明确化）
+window.APP_VER = '4.6.1'; // v4.6.1 闭环批（IXD P1全清+术语统一+行话改人话+K28去标识化+手动完成计数修复） · 前批 v4.6.0 拉伸并入每日课（三阶段/恢复课/起床档/规则引擎/当天冻结）· 前批 v4.5.2：数据口径4修+训练快照持久化+草稿保护+chip回填+按钮收敛+中断如实记录+字号三档+深色补齐+死代码清理+合规文案 · 前批 v4.5.1 隐私修复：出厂默认清空身高/体重/城市/伤史——源码进公开仓，个人数据仅存本机；检测来源默认去城市化 // v4.5.0：身体照顾（久坐肩颈/小腿胀硬/足底筋膜释放+晨检联动+练前热身/练后放松明确化）
 window.addEventListener('error', function (e) { try { if (e && e.message) toast('出了个小问题：' + String(e.message).slice(0, 60)); } catch (err) {} }); // v4.1 审查修复 B4：全局异常不再静默
 window.addEventListener('unhandledrejection', function (e) { try { const r = e && e.reason; toast('后台出了个小问题：' + String(r && r.message || r || '未知').slice(0, 60)); } catch (err) {} });
 async function checkAppUpdate() { // v4.1：一键清 SW/缓存并重载——根治"PWA 更新后吃旧缓存"（原需手动强刷）
@@ -1540,7 +1542,7 @@ function nightHintHtml(hr) { // FR-D 时段感知（v4.1）：21 点后打开→
   return '<div class="card"><div class="card-head"><div class="bubble bg-blue" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M17 12a5 5 0 1 1-7-4.6M21 12.8A9 9 0 1 1 11.2 3"/></svg></div><div style="flex:1"><div class="card-title" style="margin:0">今晚收操 · 明晨预告</div></div></div>'
     + '<div class="body-tx">今天的事翻篇了。明早醒来第一件事：60 秒晨检（哪里不舒服→什么感觉→出判定）——明天的安排让引擎用新鲜数据重算，别拖到晚上。</div></div>';
 }
-function dailyPackCard(level) { // v4.1 挖掘修复 P0：每日包动线组装——恢复档/回归课/休息日时，把散落的每日练习聚成一张可执行卡
+function dailyPackCard(level) { // 每日包（足底康复+八段锦）动线组装——恢复档/回归档/休息日聚成一张可执行卡
   const rec = M.dailyOn(U.todayStr()) || {};
   const fr = !!rec.footRehab, bd = !!rec.baduanjin;
   const done = fr && bd;
@@ -2040,7 +2042,7 @@ function todayActionLine(level) { // 引擎输出首句=今天干嘛（开工单
   const dayType = effTemplate()[new Date().getDay()];
   if (level === 'return') return '回归课：今天只做每日包 12 分钟（或 15 分钟散步），做完就是赢。'; // FR-G 断档回归首练
   if (level === 'rest') return '今天按完全休息档：不练，复盘睡眠与负荷。';
-  if (level === 'floor') return '今天按恢复档：只做每日包（足底康复+八段锦这类固定组合）12 分钟，其他全免。';
+  if (level === 'floor') return '今天按恢复档：只做每日包（足底康复 + 八段锦）12 分钟，其他全免。';
   if (CONFIG.trainTypes.indexOf(dayType) < 0) return '今天按正常档：休息日，可做八段锦与足底康复（不计负荷）。';
   if (dayType === '力量') {
     const list = todaysActions();
@@ -2241,7 +2243,7 @@ function preTripEval(r) { // 三档判定：go 能走 / cond 有条件能走 / n
   if (r.aeroNeed != null) { // 批9 实测反馈：心肺维度接入判定（能力雷达同源 dimLevel）
     const aeroLv = dimLevel('有氧底盘');
     if (aeroLv == null) lines.push('有氧底盘未评（能力雷达缺数据）——补录有氧日记录后判定更准');
-    else if (aeroLv < r.aeroNeed) gaps.push('有氧底盘 L' + aeroLv + '，这条线建议 L' + r.aeroNeed + '+——有氧日把 Zone2 单次拉到 ' + (r.aeroNeed >= 3 ? '60 分钟以上' : '40 分钟以上'));
+    else if (aeroLv < r.aeroNeed) gaps.push('有氧底盘 L' + aeroLv + '，这条线建议 L' + r.aeroNeed + '+——有氧日把 能说话的强度单次拉到 ' + (r.aeroNeed >= 3 ? '60 分钟以上' : '40 分钟以上'));
   }
   const wk = cycleWeekOf(U.todayStr());
   if (r.grade === 'L3' && wk < 36) lines.push('周期计划当前第 ' + (wk >= 1 ? wk : 0) + '/36 周——L3 线按专项期检阅周过了再定行程');
@@ -2521,7 +2523,7 @@ const COACH_QA = [ // 问教练：高频追问的离线直答，全部产品既�
   { q: '鳌太到底能不能走？', a: '这个问题产品永远答"不做可行性判定"——技术探险线（L5），2018 年起明令禁止穿越，只做风险认知。', src: 'K22' },
   { q: '体重就是不涨怎么办？', a: '看周复盘的体重账：持平=每天加一碗饭+一个蛋；掉了=热量缺口在偷肌肉，先加餐；涨太快超 0.5%/周带=收到带内。', src: 'K11/体重账' },
   { q: '没有心率带，RPE 怎么用准？', a: '三道说话测试当心率表：能聊整句=强度≤6（Zone2 安全区）；只能说短语=7-8（有氧上限附近，少待）；说不出话=9-10（别在长走用）。RPE 的价值在"同一动作跨周对比"，单次打分漂着看就行。偶尔抄一次平均心率，RPE 6-7 对应的心率记住它，以后就用自己的体感标尺。', src: 'K2/K3' },
-  { q: '武汉没山，怎么备 4600m 的海拔？', a: '先说真话：低地模拟不了高海拔睡眠，"海拔模拟面罩/低氧帐篷"证据不足别花钱。低地能练的三样：①有氧底盘（Zone2 长走=红细胞与毛细血管的账，8-12 周才见数）②腿部耐力（台阶堆爬升、喻家山/八分山重复上下）③下坡离心（Stage3 足踝专项+负重下台阶）。睡眠海拔靠行程设计解决：到达后缓冲 2-3 天、第一天只走不背、全程高走低睡——这些已写进行前判定与 K20。', src: 'K3/K20/K22' }
+  { q: '住在平原城市，怎么备 4600m 的海拔？', a: '先说真话：低地模拟不了高海拔睡眠，"海拔模拟面罩/低氧帐篷"证据不足别花钱。低地能练的三样：①有氧底盘（能说话的强度长走=红细胞与毛细血管的账，8-12 周才见数）②腿部耐力（台阶堆爬升、找座小山重复上下）③下坡离心（足踝专项第 4 步+负重下台阶）。睡眠海拔靠行程设计解决：到达后缓冲 2-3 天、第一天只走不背、全程高走低睡——这些已写进行前判定与 K20。', src: 'K3/K20/K22' }
 ];
 /* ============ 批12a 问答实时化（设计工单1④⑤）：三态（实时/离线/未配置）+ 预埋 8 问永久底座 ============
    CORS 一手实测 2026-09-28：智谱回显 Origin、硅基流动 ACAO:*，浏览器可直连。
@@ -2821,7 +2823,7 @@ function whenToTrainHtml() { // 今天页一行入口：天气 + 最适合时段
   }
   if (w && w.wx === '雨雪' && !indoor) body += '<b>雨雪：</b>改室内三选一（楼梯只上不下/跟练加长/每日包加量）。<br>';
   if (month >= 11 || month <= 2) {
-    body += '<b>武汉冬天室内没空调：</b>先穿三层热身到出汗再脱外层（棉内衣不行，汗湿不保温）；脚别直接踩瓷砖，垫子+鞋+厚袜；手先搓热再握器械；组间开窗对流 3-5 分钟；湿度 >80% 先除湿；练完 5 分钟内换干衣再做拉伸；冷天心率会骗人，用“能说完整句子”定强度；温水 200-300ml。<br>';
+    body += '<b>冬天屋里没空调（室内练）：</b><br>· 穿三层，热身到出汗再脱外层；别穿棉内衣（汗湿不保温）。<br>· 脚别直接踩瓷砖：垫子 + 鞋 + 厚袜。<br>· 组间开窗对流 3-5 分钟；湿度 >80% 先除湿。<br>· 练完 5 分钟内换干衣，再拉伸。<br>· 冷天心率会骗人，用"能说完整句子"定强度；温水 200-300ml。<br>';
     body += '<b>旧伤前置：</b>踝泵 20 次 + 提踵 15 次 + 靠墙静蹲 30 秒×2，再进主课；冷天不安排爆发跳、变向、长下坡。<br>';
   } else if (month >= 6 && month <= 8) {
     body += '<b>夏天：</b>避开 11-16 点；室内开窗对流，补水比平时多一杯。<br>';
@@ -2846,11 +2848,30 @@ function startCta(level) { // 今天页唯一主按钮：按当日类型与状�
 }
 function scrollToPack() { const el = document.getElementById('dayPackCard'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
 function scrollToRecord() { const el = document.getElementById('recordCard'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
-function quickStart() { // 有氧日：没选方式先带到安排卡，选了直接开练
+function quickStart() { // 有氧日：没选方式就地展开 3 个 chip（IX-19：不再"点一次弹提示、点第二次才开练"）
   const dayType = effTemplate()[new Date().getDay()];
   if (dayType === '有氧' || dayType === '长时活动') {
-    if (!tf.cardioChoice) { const el = document.getElementById('planCard'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); toast('先选有氧方式（3选1）'); return; }
+    if (!tf.cardioChoice) {
+      let box = document.getElementById('cardioPickInline');
+      if (!box) {
+        box = document.createElement('div');
+        box.id = 'cardioPickInline';
+        box.className = 'chips';
+        box.style.marginTop = '10px';
+        const btn = document.getElementById('btnStartToday');
+        if (btn && btn.parentNode) btn.parentNode.insertBefore(box, btn.nextSibling);
+      }
+      box.innerHTML = '<div class="sub" style="width:100%;margin-bottom:4px">今天练哪种？点一下就开始：</div>'
+        + CONFIG.cardio.map((c) => '<button class="chip" onclick="pickCardioInline(\'' + c.name + '\')">' + c.name + ' · ' + c.dur + '</button>').join('');
+      const el = document.getElementById('btnStartToday');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
   }
+  startWorkout();
+}
+function pickCardioInline(name) { // IX-19：点方式即选中→按钮变"开始训练"→直接开练
+  tf.cardioChoice = name;
   startWorkout();
 }
 /* ===== 无障碍兜底（2026-10-20 a11y P0）：label 自动关联 + aria-live 容器 ===== */
@@ -2864,6 +2885,20 @@ function a11yBindLabels() { // label 未写 for 的，自动关联同 .field 内
       if (!inp) return;
       if (!inp.id) inp.id = 'a11y_' + Math.random().toString(36).slice(2, 8);
       lb.setAttribute('for', inp.id);
+    });
+  } catch (e) {}
+}
+function a11yBindClickables() { // a11y：div/span onclick 补 role=button + tabindex + 键盘 Enter/Space
+  try {
+    document.querySelectorAll('[onclick]').forEach((el) => {
+      const tag = el.tagName;
+      if (tag === 'BUTTON' || tag === 'A' || tag === 'INPUT' || tag === 'LABEL' || tag === 'SUMMARY') return;
+      if (!el.getAttribute('role')) el.setAttribute('role', 'button');
+      if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '0');
+      if (!el.__kbBound) {
+        el.__kbBound = true;
+        el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); } });
+      }
     });
   } catch (e) {}
 }
@@ -2907,9 +2942,9 @@ function renderToday() {
   const rdNow = __info.rdNow;
   let level = __info.level;
   const RD = {
-    ok:   ['正常练', 'var(--green)', '身体状态够，按下方"今日安排"执行（休息日就做休息日内容）；建议放在傍晚 17-19 点。'],
+    ok:   ['正常练', 'var(--green)', '身体状态够，按下方"今日安排"执行（休息日就做恢复课）；建议放在傍晚 17-19 点。'],
     down: ['降档练', 'var(--orange)', '强度降一档：力量每组少做一点、留 2-3 次余力，有氧时长打七折。'],
-    floor: ['恢复档 · 只做每日包', 'var(--red)', '每日包=足底康复+八段锦这类每日固定小组合，12-15 分钟做完就收，其他全免——做完就是赢。'],
+    floor: ['恢复档 · 只做每日包', 'var(--red)', '每日包 = 足底康复 + 八段锦，12-15 分钟做完就收，其他全免——做完就是赢。'],
     rest: ['完全休息', 'var(--red)', '连续两天身体报警：今天完全休息，复盘睡眠与负荷，明天再战。'],
     return: ['回归课', 'var(--blue)', '断档后的第一步：每日包 12 分钟或 15 分钟散步，做完即闭环——不追溯，不补量。']
   }[level];
@@ -2918,10 +2953,12 @@ function renderToday() {
   const hasSleep = lastMet.sleepH != null || todayMet.sleepH != null;
   // 决策卡（2026-10-20 体检修复）：只留“今天做什么 + 为什么 + 一个按钮”，晨检表单下沉
   const cta = startCta(level);
-  h += '<div class="card" id="readinessCard"><div class="card-head"><div class="bubble" style="background:' + RD[1] + '" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.6-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.4-9 9-9 9z"/></svg></div>'
+  const __rdInk = RD[1] === 'var(--green)' ? 'var(--green-text)' : (RD[1] === 'var(--red)' ? 'var(--red-text)' : 'var(--orange-text)'); // a11y：彩底白图标 2.22:1 → 淡底深图标 ≥4.5
+  h += '<div class="card" id="readinessCard"><div class="card-head"><div class="bubble" style="background:color-mix(in srgb, ' + RD[1] + ' 18%, transparent)" aria-hidden="true"><svg viewBox="0 0 24 24" style="stroke:' + __rdInk + '"><path d="M12 20s-7-4.6-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.4-9 9-9 9z"/></svg></div>'
     + '<div style="flex:1"><div class="card-title" style="margin:0">今日状态 · ' + RD[0] + '</div><div class="sub">' + RD[2] + '</div></div></div>'
     + '<div class="body-tx" style="margin-top:6px;font-weight:600">' + todayActionLine(level) + '</div>'
     + '<div class="sub" style="margin-top:4px">理由：' + (rdNow.reasons.length ? rdNow.reasons.map(U.esc).join('；') : '各项信号正常') + (level === 'rest' ? '；昨日同样触发降档' : '') + '</div>'
+    + ((function () { const LL = allEmpty() ? null : R.todayLight(); if (!LL || LL.level === 'green') return ''; return '<div class="sub" style="margin-top:2px;color:' + (LL.level === 'red' ? 'var(--red-text)' : 'var(--orange-text)') + '">灯色：' + (LL.level === 'red' ? '红灯' : '黄灯') + '——' + U.esc(LL.reason) + '。建议：' + U.esc(R.advice(LL)) + '</div>'; })())
     + '<div class="sub" style="margin-top:2px">' + U.esc(lastTrainingLine()) + '</div>'
     + (hasSleep ? '' : '<div class="sub" style="color:var(--orange-text);margin-top:4px">昨夜睡眠未记录——有数就填，判定更准。</div>')
     + weatherCoachLine()
@@ -2938,12 +2975,13 @@ function renderToday() {
   h += '<div class="card" id="recordCard">'
     + '<div class="card-head"><div class="bubble bg-blue" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="13" cy="5" r="2.2"/><path d="M8 21l2.5-5.5L8 13l1.5-4.5L14 10l3 2M9.5 8.5L6 10l-1 3M10.5 15.5L14 21"/></svg></div>'
     + '<div class="card-title" style="margin:0">记录</div></div>'
+    + '<div class="sub" id="saveStateLine" style="margin-bottom:8px">' + saveStateText() + '</div>'
     + '<div class="field" style="margin-bottom:12px"><button class="btn-ghost" id="btnQuick" onclick="tfQuickSave()" style="border-color:var(--accent);color:var(--accent-text)">' + quickBtnText() + '</button>'
     + '<div class="sub" id="quickSub" style="margin-top:6px">' + quickSubText() + '</div></div>' // 批12a：一键主入口+副行明示将存什么
     + '<div class="field"><label>训练类型</label><div class="chips" id="typeChips">' + typeChips() + '</div></div>'
     + '<div id="trainFields"' + (CONFIG.trainTypes.indexOf(tf.type) < 0 ? ' hidden' : '') + '>'
     + '  <div class="field"><label>时长（分钟）<b style="color:var(--red-text)">*</b></label><input id="fDur" type="number" min="1" max="600" inputmode="numeric" placeholder="如 45"></div>'
-    + '  <div class="field"><label>体感强度 RPE（1-10）<b style="color:var(--red-text)">*</b>'
+    + '  <div class="field"><label>这次有多累（1 很轻松 · 10 到极限）<b style="color:var(--red-text)">*</b>'
     + '    <button class="ci-btn" style="min-height:44px;padding:6px 10px;margin-left:6px" onclick="showRpeModal()" aria-label="RPE锚定表">?</button>'
     + '    <span id="rpeVal" style="float:right;color:var(--accent-text);font-weight:600"></span></label>'
     + '    <input id="fRpe" type="range" min="1" max="10" step="1" value="5" oninput="rpeSlide(this.value)">'
@@ -3011,21 +3049,11 @@ function renderToday() {
   if (wd && wd.drop > CONFIG.weightDropKg) {
     h += '<div class="bannercard">本周体重较上次下降 ' + wd.drop.toFixed(1) + ' kg（超过 ' + CONFIG.weightDropKg + ' kg）。K11 提醒：目标不是减重，是体重稳定或缓升——记得加餐。</div>';
   }
-  // 状态卡（首日空状态：第一天，从记录开始）
+  // IX-07：有数据时的重复灯色卡已删（并入决策卡，顶栏灯保留全局指示）；首日空态仍给一张引导卡
   const L = allEmpty() ? null : R.todayLight();
   if (!L) {
-    h += '<div class="card light-card"><div class="lamp" style="background:var(--line);box-shadow:none"></div><div class="light-main">'
-      + '<div class="light-name">第一天，从记录开始</div>'
-      + '<div class="sub">' + U.esc(CONFIG.copy.green) + '</div>'
-      + '</div></div>';
-  } else {
-    h += '<div class="card light-card lv-' + (L.level === 'red' ? 'red' : (L.level === 'yellow' ? 'yel' : 'grn')) + '">'
-      + '<div class="lamp"></div><div class="light-main">'
-      + '<div class="light-name">' + (L.level === 'red' ? '红灯' : (L.level === 'yellow' ? '黄灯' : '绿灯')) + '</div>'
-      + '<div class="sub">' + U.esc(L.reason) + '</div>'
-      + (L.ev && L.ev.length ? '<div class="sub" style="margin-top:4px">依据：' + L.ev.map((x) => U.esc(x)).join(' · ') + '</div>' : '')
-      + '<div class="body-tx" style="margin-top:8px;font-weight:500">今日建议：' + U.esc(R.advice(L)) + '</div>'
-      + '</div></div>';
+    h += '<div class="card"><div class="card-title" style="margin:0 0 4px">第一天，从记录开始</div>'
+      + '<div class="sub">' + U.esc(CONFIG.copy.green) + '</div></div>';
   }
   // B-1 睡眠锚点主动干预卡（昨日不足警示 / 晚间锚点倒计时）
   h += sleepCardHtml();
@@ -3081,8 +3109,17 @@ function renderToday() {
   draftRestore(__draft); // IX-02：回填用户真正输入过的字段
   draftBind(); // IX-02：绑定输入监听 + 清空 dirty 标记（prefill 不算用户输入）
   a11yBindLabels(); // a11y：label 兜底关联
+  a11yBindClickables(); // a11y：非按钮可点元素补 role/tabindex/键盘
 }
 
+function saveStateText() { // IX-15：常驻保存状态（事实陈述，不问责）
+  const rec = M.dailyOn(U.todayStr());
+  if (!rec || !rec.updatedAt) return '今天还没保存';
+  const d = new Date(rec.updatedAt);
+  const hm = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+  const sync = D.state.pendingSync ? '待同步' : '仅本机';
+  return '今天 ' + hm + ' 已存 · ' + sync;
+}
 function typeChips() {
   return CONFIG.typeList.map((t) => '<button class="chip' + (t === tf.type ? ' on' : '') + '" onclick="tfType(\'' + t + '\')">' + t + '</button>').join('');
 }
@@ -3323,7 +3360,7 @@ function setRpeUI(v) {
   const fr = document.getElementById('fRpe');
   if (fr) fr.value = v;
   const rv = document.getElementById('rpeVal');
-  if (rv) rv.textContent = 'RPE ' + v;
+  if (rv) rv.textContent = '累度 ' + v;
 }
 function rpeSlide(v) { setRpeUI(v); tf.rpeTouched = true; tf.rpeTag = null; updateQuickSub(); } // 批12a：用户动过滑块=显式改值，模板不再覆盖
 
@@ -3521,7 +3558,7 @@ function tfSave() {
     const dur = U.num((document.getElementById('fDur') || {}).value);
     const rpe = U.num((document.getElementById('fRpe') || {}).value);
     if (!dur || dur <= 0) { fail('请填写时长（分钟）'); return; }
-    if (rpe == null || rpe < 1 || rpe > 10) { fail('请填写体感强度 RPE（1-10）'); return; }
+    if (rpe == null || rpe < 1 || rpe > 10) { fail('请填这次有多累（1-10）'); return; }
     rec.durationMin = dur;
     rec.rpe = rpe;
     const hr = U.num((document.getElementById('fHr') || {}).value);
@@ -4263,7 +4300,7 @@ CONFIG.knowledge = [
   { id: 'K4', group: '训练', title: 'K4 热身与放松', body: '<b>热身(5分钟)：</b>' + U.esc(CONFIG.warmup) + '<br><b>放松(5分钟)：</b>' + U.esc(CONFIG.cooldown) + '<br><b>雨雪/闷热替代：</b>有氧日改室内原地快走/踏步，或爬楼梯（楼道闷热时缩短至15分钟并补水）<br><span class="sub">每个训练日卡片的"热身与放松"折叠区内嵌同样内容。</span>' },
   { id: 'K5', group: '训练', title: 'K5 力量动作库', bodyFn: function () { return CONFIG.actions.map((a, i) => '<div style="padding:8px 0;border-bottom:0.5px solid var(--line)"><b>' + (i + 1) + '.' + U.esc(a.name) + '</b>｜' + U.esc(a.part) + '｜3×' + D.state.strengthReps[a.repsKey] + U.esc(a.unit) + '<br>要领：' + U.esc(a.guide) + '<br>代偿自查：' + U.esc(a.comp) + '<br>纠正：' + U.esc(a.fix) + '<br><button class="ci-btn" style="margin-top:4px" onclick="window.open(\'' + a.link + '\')">📺教学</button></div>').join('') + '<div class="sub" style="margin-top:8px">' + U.esc(CONFIG.progressionCopy) + '</div>'; } },
   { id: 'K6', group: '训练', title: 'K6 有氧选项库', body: CONFIG.cardio.map((c) => '<b>' + c.name + '</b>｜' + U.esc(c.dur) + '｜' + U.esc(c.tip) + ' <button class="ci-btn" style="min-height:44px;padding:6px 10px" onclick="window.open(\'' + c.link + '\')">📺教学</button><br>').join('') + '<b>足底提示：</b>' + U.esc(CONFIG.cardioFootTip) + '<br><b>长时活动(单独类型)：</b>' + U.esc(CONFIG.longCopy) },
-  { id: 'K7', group: '康复', title: 'K7 足底康复与防崴模块', body: U.esc(CONFIG.footNote) + '<br><br>' + CONFIG.footStages.map((s, i) => '<b>Stage ' + i + ' ' + U.esc(s.name) + '（' + U.esc(s.mins) + '）</b><br>' + s.items.map((x) => '· ' + U.esc(x)).join('<br>') + '<br><span class="sub">' + U.esc(s.promo) + '</span><br>').join('<br>') + '<b>疼痛规则：</b>疼痛含"足"→黄灯+足底减负（Stage不变）；疼痛含"踝"→黄灯+防崴训练降一级；膝/腰/其他→红灯（停训，仅八段锦/足康复放松类）；Stage 0 不再降；连续3天足痛或踝痛打卡→就医提示。' },
+  { id: 'K7', group: '康复', title: 'K7 足底康复与防崴模块', body: U.esc(CONFIG.footNote) + '<br><br>' + CONFIG.footStages.map((s, i) => '<b>第 ' + (i + 1) + ' 步 · ' + U.esc(s.name) + '（' + U.esc(s.mins) + '）</b><br>' + s.items.map((x) => '· ' + U.esc(x)).join('<br>') + '<br><span class="sub">' + U.esc(s.promo) + '</span><br>').join('<br>') + '<b>疼痛规则：</b>疼痛含"足"→黄灯+足底减负（Stage不变）；疼痛含"踝"→黄灯+防崴训练降一级；膝/腰/其他→红灯（停训，仅八段锦/足康复放松类）；第 1 步不再降；连续3天足痛或踝痛打卡→就医提示。' },
   { id: 'K8', group: '训练', title: 'K8 八段锦模块', body: U.esc(CONFIG.baduanjin.note) + '<br><br>' + CONFIG.baduanjin.forms.map((f, i) => (i + 1) + ' ' + U.esc(f)).join('<br>') + '<br><br>' + U.esc(CONFIG.baduanjin.timing) + '<br><button class="ci-btn" style="margin-top:6px" onclick="window.open(\'' + CONFIG.baduanjin.teach + '\')">' + CONFIG.baduanjin.teachLabel + '</button> <button class="ci-btn" onclick="window.open(\'' + CONFIG.baduanjin.follow + '\')">' + CONFIG.baduanjin.followLabel + '</button>' },
   { id: 'K9', group: '康复', title: 'K9 睡眠保持（底线 6.5h）', bodyFn: function () {
     const arr = (D.metrics || []).filter((m) => m.sleepH != null).slice(-90).map((m) => m.sleepH);
@@ -4290,11 +4327,11 @@ CONFIG.knowledge = [
   ,{ id: 'K27', group: '生活', title: 'K27 食物热量速查：20 个常见食物（只查询不打卡）', body: 'Keep 抄单小件（v4.1）：增重吃账的查询工具——不打卡、不记录，想知道吃什么对照一眼。<br><table class="cmp"><tr><td style="font-weight:600">食物（每 100g 可食部）</td><td>热量 kcal</td><td>蛋白 g</td></tr>'
     + '<tr><td>米饭（熟）</td><td>116</td><td>2.6</td></tr><tr><td>馒头</td><td>223</td><td>7.0</td></tr><tr><td>面条（煮）</td><td>110</td><td>3.6</td></tr><tr><td>全麦面包</td><td>246</td><td>9.0</td></tr><tr><td>燕麦片（干）</td><td>367</td><td>15</td></tr><tr><td>红薯</td><td>86</td><td>1.6</td></tr><tr><td>土豆</td><td>77</td><td>2.0</td></tr><tr><td>鸡蛋（整）</td><td>144</td><td>13.3</td></tr><tr><td>鸡胸肉</td><td>133</td><td>24</td></tr><tr><td>鸡腿肉（去皮）</td><td>146</td><td>20</td></tr><tr><td>瘦猪肉</td><td>143</td><td>20</td></tr><tr><td>牛腱子</td><td>115</td><td>20</td></tr><tr><td>三文鱼</td><td>139</td><td>18</td></tr><tr><td>虾</td><td>93</td><td>18.6</td></tr><tr><td>豆腐</td><td>81</td><td>8.1</td></tr><tr><td>牛奶</td><td>54</td><td>3.0</td></tr><tr><td>无糖酸奶</td><td>72</td><td>2.8</td></tr><tr><td>花生</td><td>574</td><td>24.8</td></tr><tr><td>西兰花</td><td>34</td><td>2.8</td></tr><tr><td>香蕉</td><td>93</td><td>1.4</td></tr></table>'
     + '<span class="sub" style="margin-top:8px">约值，供估算对照；精确值看包装营养表。增重口径（FR-8）：盈余靠三餐+练后一顿加起来，不是猛灌零食——脾虚湿盛肠胃差，少食多餐比一顿硬塞强。</span>' }
-  ,{ id: 'K28', group: '户外', title: 'K28 武汉训练场地与室内替代（冬训主场指南）', body: '冬训期（2026-10~2027-03）去哪练、什么天气换什么课、负重怎么背不出事。检索级口径（2026-09-30），数字打架处保留待实地核实。<br><b>一、户外场地速查</b><br><table class="cmp"><tr><td style="font-weight:600;white-space:nowrap">情况</td><td>去哪</td><td>练什么</td></tr><tr><td>天气好</td><td>汉口/青山江滩、东湖绿道</td><td>Zone2 长走+负重适应（青山江滩 7.5km 两来源一致；汉口江滩约 8km 含四期，一二期 3.4km 为官方旧口径）</td></tr><tr><td>想加爬升</td><td>喻家山 149.5m / 珞珈山 118.5m / 磨山 116.3m / 八分山 272.3m / 马鞍山约 136m</td><td>一山上一下×N 组，组数堆爬升不硬撑单次</td></tr><tr><td>小雨</td><td>青山江滩（透水铺装）或绿道</td><td>平路课，减速防滑</td></tr><tr><td>大雨大雪冰冻</td><td>室内三件套</td><td>楼梯爬层课 / 跟练加长 / 每日包加量</td></tr></table>'
+  ,{ id: 'K28', group: '户外', title: 'K28 冬训场地与室内替代（以你所在城市为例）', body: '冬训期去哪练、什么天气换什么课、负重怎么背不出事。下面场地以一座中部城市为例（江滩/湖绿道/几座小山），按你所在城市找同类替代即可。检索级口径（2026-09-30），数字打架处保留待实地核实。<br><b>一、户外场地速查</b><br><table class="cmp"><tr><td style="font-weight:600;white-space:nowrap">情况</td><td>去哪</td><td>练什么</td></tr><tr><td>天气好</td><td>汉口/青山江滩、东湖绿道</td><td>能说话的强度（Zone2）长走+负重适应（青山江滩 7.5km 两来源一致；汉口江滩约 8km 含四期，一二期 3.4km 为官方旧口径）</td></tr><tr><td>想加爬升</td><td>喻家山 149.5m / 珞珈山 118.5m / 磨山 116.3m / 八分山 272.3m / 马鞍山约 136m</td><td>一山上一下×N 组，组数堆爬升不硬撑单次</td></tr><tr><td>小雨</td><td>青山江滩（透水铺装）或绿道</td><td>平路课，减速防滑</td></tr><tr><td>大雨大雪冰冻</td><td>室内三件套</td><td>楼梯爬层课 / 跟练加长 / 每日包加量</td></tr></table>'
     + '<br><b>二、爬升换算与场地</b>：产品口径 1 层≈3m，堆 300m 爬升≈100 层楼梯，分 3-5 组别一口气。绿道主线=平路里程机（总长 105km，2024 政府口径成环；101.98km 系 2017 旧值），爬升要拐进磨山景区/马鞍山或山体公园；喻家山/珞珈山进校预约政策待实地核实（出行前查校方公众号）。<br>'
     + '<b>三、雨雪天楼梯课硬规则（逐条是规则不是建议）</b>：只上不下，下楼乘电梯——下楼冲击+楼道湿滑=伤膝和摔倒双重风险；全程一手扶扶手；组间在平台站稳不坐台阶；鞋底湿先进楼擦底或换干鞋；楼道灯不亮/地面反潮发亮→当天取消改跟练加长；中途胸闷头晕腿软→立刻停，扶扶手走到电梯层乘电梯下楼。<br>'
     + '<b>四、负重长走铁律</b>：起步 2kg（两瓶水/米袋塞包底，重心贴背中上部），第一次从江滩平路开始不上台阶；每周 2 次负重课其余空包；<b>加重量就不加路程，加路程就不加重量，不同时加</b>；出发前 30 秒查腰带传导（重量落髋，肩带贴合不勒胸）——转山当天就是这个背法。碎石/下坡一律减速，步幅缩短一半，踩实再移重心；本卡不排下坡专项，下坡变快的唯一合法路径=低负重多次安全通过。<br>'
-    + '<b>五、武汉湿冷条款</b>：三层穿法（内层排汗不穿纯棉+中层抓绒+外层防风壳，江边风大防风比厚重要）；手套帽子必带；走热开拉链散热别一次脱中层，停下前拉回去；课完 10 分钟内换干衣干袜（湿袜=水泡加速器）；桥面/背阴石阶/木栈道最先结冰挂霜，路面反光发亮一律按冰面处理。<br>'
+    + '<b>五、湿冷天气条款</b>：三层穿法（内层排汗不穿纯棉+中层抓绒+外层防风壳，江边风大防风比厚重要）；手套帽子必带；走热开拉链散热别一次脱中层，停下前拉回去；课完 10 分钟内换干衣干袜（湿袜=水泡加速器）；桥面/背阴石阶/木栈道最先结冰挂霜，路面反光发亮一律按冰面处理。<br>'
     + '<span class="sub" style="margin-top:8px">检索级标注（2026-09-30，7 次检索）：青山江滩 7.5km/喻家山 149.5m 两来源一致；首轮 5 处待实地核实已二轮检索收敛（2026-10-01：磨山 116.3m——常见 118m 系珞珈山混淆、八分山 272.3m、马鞍山约 136m、汉口江滩约 8km 含四期、东湖绿道 105km）。进校预约与冬季开放时间待实地核实，出行前另查。</span>' }
 ];
 const K_GROUPS = ['理念', '训练', '康复', '生活', '户外', '路线'];
@@ -4337,7 +4374,7 @@ function renderTest() {
     { name: '① 静息心率', hint: '方法：取近7天静息心率均值，从健康App抄录。', fields: [['tRhr7', '近7天静息心率均值', '如 60']] },
     { name: '② 台阶试验', hint: '方法：30-40cm台阶，60步/分，3分钟，佩戴Apple Watch，结束后从健康App抄峰值心率+结束后1分钟下降值。', fields: [['tStepPeak', '台阶峰值心率', '如 132'], ['tStepDrop', '结束后1分钟下降值', '如 28']] },
     { name: '③ 力量', hint: '方法：深蹲、俯卧撑各做到力竭，记最多次数（动作标准优先）。', fields: [['tSquat', '深蹲最多次数', '如 30'], ['tPushup', '俯卧撑最多次数', '如 20']] },
-    { name: '④ 闭眼单腿站立', hint: '安全提示：站在墙或椅旁；右足疼痛日改睁眼并标注；建议足康复 Stage 1 完成后再测闭眼项目。', fields: [['tStandL', '左侧秒数', '如 25'], ['tStandR', '右侧秒数', '如 18']] },
+    { name: '④ 闭眼单腿站立', hint: '安全提示：站在墙或椅旁；右足疼痛日改睁眼并标注；建议足底康复第 2 步完成后再测闭眼项目。', fields: [['tStandL', '左侧秒数', '如 25'], ['tStandR', '右侧秒数', '如 18']] },
     { name: '⑤ 核心', hint: '方法：平板支撑与左右侧支撑各记最长坚持秒数。', fields: [['tPlank', '平板支撑秒数', '如 75'], ['tSideL', '左侧支撑秒数', '如 40'], ['tSideR', '右侧支撑秒数', '如 38']] },
     { name: '⑥ 柔韧性备注', hint: '方法：主观记录活动度受限情况（可选文字）。', fields: [['tMobility', '柔韧性备注', '如 腘绳肌紧']] }
   ];
@@ -4608,7 +4645,7 @@ function bfRenderFields() {
   }
   if (hasTrain) {
     h += '<div class="field"><label>时长（分钟）<b style="color:var(--red-text)">*</b></label><input id="bfDur" type="number" min="1" max="600" inputmode="numeric" value="' + U.esc(s.dur) + '" onchange="bfField(\'dur\',this.value)"></div>'
-      + '<div class="field"><label>体感强度 RPE（1-10）<b style="color:var(--red-text)">*</b></label><input id="bfRpe" type="number" min="1" max="10" inputmode="numeric" value="' + U.esc(s.rpe) + '" onchange="bfField(\'rpe\',this.value)"></div>'
+      + '<div class="field"><label>这次有多累（1 很轻松 · 10 到极限）<b style="color:var(--red-text)">*</b></label><input id="bfRpe" type="number" min="1" max="10" inputmode="numeric" value="' + U.esc(s.rpe) + '" onchange="bfField(\'rpe\',this.value)"></div>'
       + '<div class="field"><label>平均心率（可选）</label><input type="number" min="60" max="220" inputmode="numeric" value="' + U.esc(s.hr) + '" onchange="bfField(\'hr\',this.value)"></div>';
   }
   h += '<div class="field"><label>疼痛</label><div class="chips" id="bfPainChips">' + bfChips(s.painOpt, CONFIG.painOptions, 'bfPain') + '</div>'
@@ -4826,7 +4863,7 @@ function renderProfile() {
   const stg = CONFIG.footStages[s.footStage];
   h += '<div class="card"><div class="card-title" style="margin-bottom:8px">足康复 Stage：' + s.footStage + '（' + U.esc(stg.name) + '）</div>'
     + '<div class="sub">' + U.esc(stg.promo) + '</div>'
-    + '<div class="sub" style="margin-top:6px">当前连续无足/踝痛：' + M.footPainFreeDays() + ' 天；踝痛打卡自动降一级（Stage 0 不再降）。</div>'
+    + '<div class="sub" style="margin-top:6px">当前连续无足/踝痛：' + M.footPainFreeDays() + ' 天；踝痛打卡自动降一级（第 1 步不再降）。</div>'
     + (s.footStage < 3 ? '<button class="btn-mini" style="margin-top:10px" onclick="promoteFootModal()">Stage 晋级测评</button>' : '')
     + '</div>';
   // 睡眠锚点
@@ -4951,7 +4988,7 @@ function saveWeight() {
 /* 足康复 Stage 晋级测评（K7 晋级条件） */
 function promoteFootModal() {
   const st = D.state.footStage;
-  if (st >= 3) { toast('已到最高 Stage 3（重装足踝专项，练到毕业线即随课表走）'); return; }
+  if (st >= 3) { toast('已到最高一步（重装足踝专项，练到毕业线即随课表走）'); return; }
   let body = '';
   if (st === 0) {
     body = '<div class="sub" style="margin-bottom:10px">晋级条件：连续7天日常行走疼痛≤2/10。系统已核对连续无足/踝痛打卡 ' + M.footPainFreeDays() + ' 天。请自我确认后提交。</div>'
@@ -5003,7 +5040,7 @@ function configRows() {
     ['心率硬上限', cap != null ? cap + ' = 180 - 周岁' + M.age() : '—'],
     ['红灯', '疼痛为膝/腰/其他；或 RHR连续' + CONFIG.rhrRedDays + '天>基线+' + CONFIG.rhrRedDelta + ' 且当日状态差'],
     ['黄灯', '连续' + CONFIG.sleepShortDays + '天睡眠<' + CONFIG.sleepShortH + 'h；RHR连续' + CONFIG.rhrYelDays + '天>基线+' + CONFIG.rhrYelDelta + '；状态差连续' + CONFIG.moodBadDays + '天；足痛；踝痛'],
-    ['踝痛规则', '黄灯 + footStage 自动-1（Stage 0 不再降）'],
+    ['踝痛规则', '黄灯 + footStage 自动-1（第 1 步不再降）'],
     ['RHR基线', '手动 > 近' + CONFIG.rhrBaseWindow + '天均值(≥' + CONFIG.rhrBaseMinDays + '天) > 预填60'],
     ['周体重横幅', '较前值降>' + CONFIG.weightDropKg + 'kg（不变灯色）'],
     ['复测周期', CONFIG.retestDays + ' 天'],
@@ -5481,6 +5518,9 @@ function startWorkout() {
     + '<div class="body-tx" style="line-height:1.8">' + U.esc(names) + '</div>'
     + '<div class="sub" style="margin-top:8px">含激活与收尾拉伸 · 全程约 ' + estimateMin(pendingCourse) + ' 分钟（估算）</div>'
     + (isColdDay() ? '<div class="sub" style="color:var(--orange-text);margin-top:6px">今天冷：热身按弹窗里的冷天版做满 5 分钟，手脚发热再脱外层。</div>' : '')
+    + '<div class="field" style="margin-top:10px"><label>收尾拉伸做多久</label><div class="chips">'
+    + [['short', '3 分钟'], ['full', '8 分钟'], ['long', '15 分钟']].map((m) => '<button class="chip' + ((D.state.stretchMode || 'full') === m[0] ? ' on' : '') + '" onclick="pickStretchMode(\'' + m[0] + '\')">' + m[1] + '</button>').join('') + '</div>'
+    + '<div class="sub" style="margin-top:4px">收尾按今天练的和晨检的主诉算；做满 2/3 就算完成，不卡今天打卡。</div></div>'
     + '<div class="m-actions"><button class="btn-primary" onclick="confirmCourse()">确认，开始</button>'
     + '<button class="btn-ghost" onclick="closeModal()">再等等</button></div>');
 }
@@ -5578,6 +5618,29 @@ function resumeCardHtml() { // 今天页顶部恢复卡（只在有未完成快�
     + '<div style="display:flex;gap:8px;margin-top:10px"><button class="btn-primary" style="flex:2" onclick="resumeWorkoutSnap()">继续练</button>'
     + '<button class="btn-ghost" style="flex:1" onclick="discardResume()">不留了</button></div></div>';
 }
+function pickStretchMode(m) { // E 批：时长三档（重开确认弹窗，课单随之重算）
+  D.state.stretchMode = m;
+  D.state.updatedAt = Date.now();
+  persist();
+  const keep = pendingYellow;
+  closeModal();
+  pendingYellow = keep;
+  startWorkout();
+}
+function startCooldown() { // 完成页接力：只跑收尾段（练完顺手做，不用重新开始一节课）
+  closeModal();
+  if (wk) return;
+  const plan = stretchPlanFor(U.todayStr());
+  const c = stretchItems(plan, 'release');
+  if (!c.length) { toast('今天没有排收尾动作'); return; }
+  const startTs = Date.now();
+  wk = { kind: '收尾拉伸', mode: 'course', course: c, ci: 0, phase: 'stretch', left: 0, phaseDur: 0, phaseStartTs: startTs, startTs: startTs, pausedTotal: 0, pausedAt: null, elapsed: 0, setsDone: CONFIG.actions.map(() => 0), setsPer: CONFIG.actions.map(() => 0), totalSets: 0, yellow: false, lastPerf: '', spoken10: false, spoken30: false, lastSpokenNum: -1, timer: null, recovery: true, cooldownOnly: true, reduced: false };
+  document.getElementById('workout').hidden = false;
+  wk.timer = setInterval(wkTick, 1000);
+  wkSave();
+  enterPhase(0);
+  renderWorkout();
+}
 function confirmCourse() {
   if (!pendingCourse) return;
   closeModal();
@@ -5606,7 +5669,14 @@ function enterPhase(i) { // 进入课单第 i 项：重置计时三件套与播�
   wkSave(); // IX-01 训练快照（换相即存）
   renderWorkout();
 }
-function wkAdvance() { if (wk && wk.ci + 1 < wk.course.length) enterPhase(wk.ci + 1); else finishWorkout(); }
+function wkAdvance() {
+  // v4.6 修复：手动点"做完了"同样计入完成（此前只有倒计时自然走完才记，按钮点了等于白做）
+  if (wk && wk.course[wk.ci] && wk.course[wk.ci].kind === 'stretch' && !wk.course[wk.ci].__logged) {
+    wk.course[wk.ci].__logged = true;
+    stretchLog(wk.course[wk.ci], false);
+  }
+  if (wk && wk.ci + 1 < wk.course.length) enterPhase(wk.ci + 1); else finishWorkout();
+}
 function pauseWorkout() { if (wk && !wk.pausedAt) { wk.pausedAt = Date.now(); wkSave(); renderWorkout(); } }
 function resumeWorkout() { // 暂停补偿：把暂停时长从计时三件套里平移掉
   if (wk && wk.pausedAt) {
@@ -5636,7 +5706,7 @@ function wkTick() {
     if (wk.left <= 0) { wkAdvance(); return; }
   } else if (p.kind === 'stretch') {
     wk.left = Math.max(0, wk.phaseDur - passed);
-    if (wk.left <= 0) { stretchLog(p, false); wkAdvance(); return; }
+    if (wk.left <= 0) { if (!p.__logged) { p.__logged = true; stretchLog(p, false); } wkAdvance(); return; }
   } else if (p.kind === 'set' && p.timed) {
     wk.left = Math.max(0, wk.phaseDur - passed);
     if (wk.left <= 10 && wk.left > 0 && !wk.spoken10) { wk.spoken10 = true; SPEAK('还剩10秒'); }
@@ -5656,7 +5726,16 @@ function stretchSkip() { // 跳过要落 skipped（数据上分清"没时间"和
   if (!wk || wk.mode !== 'course') return;
   const p = wk.course[wk.ci];
   if (p.kind !== 'stretch') return;
+  p.__logged = true;
   stretchLog(p, true);
+  wkAdvance();
+}
+function skipSet() { // IX-12：跳过这组——不计完成、留痕，可继续下一组（不适/没空间时的出口）
+  if (!wk || wk.mode !== 'course') return;
+  const p = wk.course[wk.ci];
+  if (p.kind !== 'set') return;
+  wk.skippedSets = (wk.skippedSets || 0) + 1;
+  wkSave();
   wkAdvance();
 }
 function completeSet() {
@@ -5761,7 +5840,12 @@ function showWorkoutReport(d) {
     : '<div class="wr-badge" style="background:var(--orange)"><svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.5"/></svg></div><div class="card-title" style="text-align:center">完成 ' + d.setsDone + ' / ' + d.totalSets + ' 组</div>');
   const prog = d.progTxt ? U.esc(d.progTxt) : '首期';
   const big = (v, l) => '<div class="wr-num"><div class="wr-v">' + v + '</div><div class="wr-l">' + l + '</div></div>';
-  showModal('<div style="text-align:center">' + badge + '</div>'
+  const __sl = D.state.pendingStretch;
+  const __cdLine = (__sl && __sl.rTotal)
+    ? '<div class="sub" style="text-align:center;color:var(--green-text);margin-bottom:6px">收尾 ' + __sl.r + '/' + __sl.rTotal + ' 个动作 ✓</div>'
+    : '<div class="sub" style="text-align:center;color:var(--orange-text);margin-bottom:6px">收尾还没做——最该松的那几个动作，两分钟就能补上</div>';
+  showModal('<div style="text-align:center">' + badge + '</div>' + __cdLine
+    + (!__sl || !__sl.rTotal ? '<div style="text-align:center;margin-bottom:8px"><button class="btn-ghost" onclick="startCooldown()">补做收尾（' + estimateMin(stretchItems(stretchPlanFor(U.todayStr()), 'release')) + ' 分钟）</button></div>' : '')
     + '<div class="wr-grid">'
     + big(d.mins + '<span style="font-size:13px;font-weight:400"> 分钟</span>', '实际时长')
     + big(isSolo ? '✓' : d.setsDone + '/' + d.totalSets, isSolo ? '今天这一练' : '完成组数')
@@ -5771,7 +5855,7 @@ function showWorkoutReport(d) {
     + (d.yellow ? '<div class="sub" style="color:var(--orange-text);margin-bottom:6px">已按黄灯自动减量 30%（估算）。</div>' : '')
     + '<div class="sub" style="margin-bottom:6px">先点感受（自动定 RPE，可再微调）；保存后按 RPE 自动渐进：≤7 上调 / 8 持平 / ≥9 减10%</div>'
     + '<div class="field"><label>训练感受</label><div class="chips" id="wrFeelChips">' + wrFeelChips() + '</div></div>'
-    + '<div class="field"><label>体感强度 RPE（1-10，可微调）<span id="wrRpeVal" style="float:right;color:var(--accent-text);font-weight:600">RPE 5</span></label>'
+    + '<div class="field"><label>这次有多累（1-10，可微调）<span id="wrRpeVal" style="float:right;color:var(--accent-text);font-weight:600">累度 5</span></label>'
     + '<input id="wrRpe" type="range" min="1" max="10" step="1" value="5" oninput="wrSetRpe(this.value)"></div>'
     + '<div class="field"><label>主观状态</label><div class="chips" id="wrMoodChips"></div></div>'
     + '<div class="field"><label>疼痛部位（如实点选）</label><div class="chips" id="wrPainChips">' + wrPainChips() + '</div></div>'
@@ -5784,7 +5868,7 @@ function renderWorkoutMoodChips() {
   const el = document.getElementById('wrMoodChips');
   if (el) el.innerHTML = CONFIG.moods.map((m) => '<button class="chip' + (window.__wrMood === m ? ' on' : '') + '" onclick="wrSetMood(\'' + m + '\')">' + m + '</button>').join('');
 }
-function wrSetRpe(v) { const r = document.getElementById('wrRpe'); if (r) r.value = v; const t = document.getElementById('wrRpeVal'); if (t) t.textContent = 'RPE ' + v; }
+function wrSetRpe(v) { const r = document.getElementById('wrRpe'); if (r) r.value = v; const t = document.getElementById('wrRpeVal'); if (t) t.textContent = '累度 ' + v; }
 function wrSetMood(m) { window.__wrMood = m; renderWorkoutMoodChips(); }
 /* v3.3 训练感受三键：一键定 RPE（轻松=6 有余力上调 / 刚好=8 持平 / 很累=9 减10%），滑块仍可微调 */
 const WR_FEELS = [['轻松', 6], ['刚好', 8], ['很累', 9]];
@@ -5898,7 +5982,9 @@ function renderWorkout() {
       + '<div class="wt">' + shown + (p.timed ? '<span style="font-size:14px;color:var(--text2)"> 秒</span>' : '') + '</div></div>'
       + (p.timed ? '' : '<div class="wk-goal" style="margin-top:6px">目标 ' + p.target + ' ' + U.esc(p.unit) + '</div>')
       + '<div class="wk-tip" style="margin:2px 0 16px">' + U.esc(wk.lastPerf) + '</div>'
-      + '<div class="wk-btns"><button class="btn-primary" onclick="completeSet()">完成本组</button>' + pauseBtn + '<button class="btn-ghost" onclick="exitWorkout()">结束训练</button></div>'
+      + '<div class="wk-btns"><button class="btn-primary" onclick="completeSet()">完成本组</button>' + pauseBtn
+      + '<button class="btn-ghost" onclick="skipSet()">跳过这组</button>'
+      + '<button class="btn-ghost" onclick="exitWorkout()">结束训练</button></div>'
       + '<div class="wk-tip" style="margin-top:10px">' + U.esc(a.guide) + '</div>'
       + (function () { // 最终版批3⑩：组执行时的"之后"预告（不碰计时，纯渲染）
           const nx = wk.course.slice(wk.ci + 1).find((q) => q.kind === 'set');
@@ -5911,7 +5997,8 @@ function renderWorkout() {
       + '<div class="wk-ring"><svg viewBox="0 0 220 220"><circle cx="110" cy="110" r="96" fill="none" style="stroke:var(--line)" stroke-width="10"/>'
       + '<circle cx="110" cy="110" r="96" fill="none" style="stroke:var(--orange)" stroke-width="10" stroke-linecap="round" stroke-dasharray="' + (C * frac).toFixed(1) + ' ' + C.toFixed(1) + '" transform="rotate(-90 110 110)"/></svg>'
       + '<div class="wt">' + wk.left + '<span style="font-size:14px;color:var(--text2)"> 秒</span></div></div>'
-      + '<div class="wk-btns"><button class="btn-primary" onclick="skipRest()">跳过休息</button></div>';
+      + '<div class="wk-btns"><button class="btn-primary" onclick="skipRest()">跳过休息</button>' + pauseBtn
+      + '<button class="btn-ghost" onclick="exitWorkout()">结束训练</button></div>';
   } else { // cooldown 放松
     h = bar + '<div class="wk-name">放松</div><div class="wk-tip">' + U.esc(CONFIG.cooldown) + '</div>'
       + '<div class="wk-ring" style="width:170px;height:170px"><div class="wt" style="font-size:38px">' + clock(wk.elapsed) + '</div></div>'

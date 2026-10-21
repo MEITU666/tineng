@@ -479,7 +479,7 @@ check('㊳ v4.2.1 足踝重装专项批：footStages 三级升四级（分控/�
   const tp3 = w.eval('document.getElementById("toastBox").textContent');
   const pm3 = w.eval('document.getElementById("modalBox").innerHTML');
   w.eval('closeModal()');
-  if (tp3.indexOf('最高 Stage 3') < 0) throw new Error('Stage3 应 toast 顶格提示：' + tp3);
+  if (tp3.indexOf('最高一步') < 0) throw new Error('顶格提示（编号已统一为步）：' + tp3);
   if (pm3.indexOf('晋级测评（') >= 0) throw new Error('Stage3 不应再弹测评表');
   // K7 卡自动带出
   w.eval('showK("K7")');
@@ -2044,6 +2044,29 @@ check('63 数据口径：晨检不算打卡、无记录≠无痛、完成率同�
   if (html.indexOf("refLabel: '7h'") >= 0) throw new Error('趋势图参考线仍硬编码 7h');
   if (html.indexOf('sleepFloorH: 6.5') < 0 || html.indexOf('sleepGoalH: 7') < 0) throw new Error('睡眠线常量缺失');
   return '晨检不计打卡 · 无记录≠无痛 · 完成率同源 · 睡眠线常量化 ✓';
+});
+/* ---------- 65 全课单跑通（v4.6 三阶段端到端） ---------- */
+check('65 全课单跑通：激活→主练→收尾全程无异常，收尾写入 pendingStretch 并出报告', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval(`(function(){
+    D = defaultData(); D.state.profileDone = true; D.state.stretchMode = 'full'; D.state.pendingStretch = null;
+    pendingYellow = false; pendingCourse = buildCourse(false);
+    confirmCourse();
+    let guard = 0;
+    while (wk && guard++ < 600) {
+      const p = wk.course[wk.ci];
+      if (p.kind === 'set') completeSet();
+      else if (p.kind === 'rest') skipRest();
+      else wkAdvance();
+    }
+    const report = (document.getElementById('modalBox')||{}).innerHTML || '';
+    return JSON.stringify({ ended: !wk, guard: guard, hasReport: report.indexOf('保存并结束') >= 0, ps: D.state.pendingStretch || null });
+  })()`);
+  const o = JSON.parse(r);
+  if (!o.ended) throw new Error('课单未跑完（guard=' + o.guard + '）');
+  if (!o.hasReport) throw new Error('结束时未出课结报告');
+  if (!o.ps || !o.ps.rTotal || o.ps.r < 1) throw new Error('收尾未落 pendingStretch：' + JSON.stringify(o.ps));
+  return '三阶段全流程贯通 · 激活 ' + o.ps.a + '/' + o.ps.aTotal + ' · 收尾 ' + o.ps.r + '/' + o.ps.rTotal + ' ✓';
 });
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);
