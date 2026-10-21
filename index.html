@@ -966,7 +966,7 @@ function toast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.hidden = true; }, 3200);
 }
-window.APP_VER = '4.6.1'; // v4.6.1 闭环批（IXD P1全清+术语统一+行话改人话+K28去标识化+手动完成计数修复） · 前批 v4.6.0 拉伸并入每日课（三阶段/恢复课/起床档/规则引擎/当天冻结）· 前批 v4.5.2：数据口径4修+训练快照持久化+草稿保护+chip回填+按钮收敛+中断如实记录+字号三档+深色补齐+死代码清理+合规文案 · 前批 v4.5.1 隐私修复：出厂默认清空身高/体重/城市/伤史——源码进公开仓，个人数据仅存本机；检测来源默认去城市化 // v4.5.0：身体照顾（久坐肩颈/小腿胀硬/足底筋膜释放+晨检联动+练前热身/练后放松明确化）
+window.APP_VER = '4.6.2'; // v4.6.2 有氧日也走三阶段（激活→主计时→收尾，此前有氧练完没有拉伸） · 前批 v4.6.1 闭环批（IXD P1全清+术语统一+行话改人话+K28去标识化+手动完成计数修复） · 前批 v4.6.0 拉伸并入每日课（三阶段/恢复课/起床档/规则引擎/当天冻结）· 前批 v4.5.2：数据口径4修+训练快照持久化+草稿保护+chip回填+按钮收敛+中断如实记录+字号三档+深色补齐+死代码清理+合规文案 · 前批 v4.5.1 隐私修复：出厂默认清空身高/体重/城市/伤史——源码进公开仓，个人数据仅存本机；检测来源默认去城市化 // v4.5.0：身体照顾（久坐肩颈/小腿胀硬/足底筋膜释放+晨检联动+练前热身/练后放松明确化）
 window.addEventListener('error', function (e) { try { if (e && e.message) toast('出了个小问题：' + String(e.message).slice(0, 60)); } catch (err) {} }); // v4.1 审查修复 B4：全局异常不再静默
 window.addEventListener('unhandledrejection', function (e) { try { const r = e && e.reason; toast('后台出了个小问题：' + String(r && r.message || r || '未知').slice(0, 60)); } catch (err) {} });
 async function checkAppUpdate() { // v4.1：一键清 SW/缓存并重载——根治"PWA 更新后吃旧缓存"（原需手动强刷）
@@ -5452,6 +5452,16 @@ function buildCourse(reduced, dateStr) { // 课单：v4.6 三阶段——激活�
   stretchItems(plan, 'release', maxIds).forEach((it) => { if (mode === 'long') it.secs = Math.round(it.secs * 1.5); c.push(it); }); // Phase 2 收尾（15 分钟档单次加长 50%）
   return c;
 }
+function buildCardioCourse(type, choice) { // v4.6：有氧/长时同样三阶段——激活 → 主计时 → 收尾（此前有氧日练完没有拉伸）
+  const plan = stretchPlanFor(U.todayStr());
+  const mode = D.state.stretchMode || 'full';
+  const maxIds = mode === 'short' ? 2 : (mode === 'long' ? 99 : 5);
+  const c = stretchItems(plan, 'activate');
+  const cd = CONFIG.cardio.find((x) => x.name === choice);
+  c.push({ kind: 'cardio', name: type === '有氧' ? (choice || '有氧') : '长时活动', targetDur: cd ? cd.dur : (type === '长时活动' ? '2-3 小时' : '') });
+  stretchItems(plan, 'release', maxIds).forEach((it) => { if (mode === 'long') it.secs = Math.round(it.secs * 1.5); c.push(it); });
+  return c;
+}
 function restSecOf(a) { // FR-4 组间休息差异化（v4.1）：大肌群力量 90s、其余 60s、计时类 45s——不再固定 60s
   if (a.unit.indexOf('秒') >= 0) return 45;
   return (a.part === '下肢推' || a.part === '上肢推' || a.part === '后链' || a.part === '后链/核心稳定') ? 90 : 60;
@@ -5494,15 +5504,16 @@ function startWorkout() {
   const type = CONFIG.trainTypes.indexOf(tf.type) >= 0 ? tf.type : dayType;
   if (CONFIG.trainTypes.indexOf(type) < 0) { toast('休息日没有训练安排'); return; }
   if (type === '有氧' && !tf.cardioChoice) { toast('请先选择有氧方式（3选1）'); return; }
-  if (type !== '力量') { // 有氧/长时活动：单动作正计时
+  if (type !== '力量') { // v4.6：有氧/长时也走三阶段课单（激活 → 主计时 → 收尾拉伸）
     const startTs = Date.now();
-    const __c = (type === '有氧' && tf.cardioChoice) ? CONFIG.cardio.find((x) => x.name === tf.cardioChoice) : null;
-    wk = { kind: type, mode: 'solo', list: [{ name: type === '有氧' ? tf.cardioChoice : '长时活动', unit: '分钟', repsKey: null, sets: 1, secs: 0 }], idx: 0, set: 1, phase: 'work', left: 0, phaseDur: 0, phaseStartTs: startTs, startTs: startTs, pausedTotal: 0, pausedAt: null, elapsed: 0, done: null, spoken10: false, targetDur: __c ? __c.dur : '' }; // v4.1：目标时长参照
+    const course = buildCardioCourse(type, tf.cardioChoice);
+    wk = { kind: type, mode: 'course', course: course, ci: 0, phase: 'stretch', left: 0, phaseDur: 0, phaseStartTs: startTs, startTs: startTs, pausedTotal: 0, pausedAt: null, elapsed: 0, setsDone: CONFIG.actions.map(() => 0), setsPer: CONFIG.actions.map(() => 0), totalSets: 0, yellow: false, lastPerf: '', spoken10: false, spoken30: false, lastSpokenNum: -1, timer: null, cardioOnly: true, reduced: false };
     document.getElementById('workout').hidden = false;
     wk.timer = setInterval(wkTick, 1000);
     wkSave(); // IX-01 训练快照
     acquireWakeLock(); // 跟练期间保持屏幕常亮
-    SPEAK('开始');
+    enterPhase(0);
+    SPEAK('开始，先激活');
     renderWorkout();
     return;
   }
@@ -5548,7 +5559,7 @@ function resumeWorkoutSnap() { // 从快照重建训练态：课程按当天课�
   if (!s) { toast('没有可续的训练'); return; }
   const now = Date.now();
   if (s.mode === 'course') {
-    const course = buildCourse(s.reduced);
+    const course = (s.kind === '力量') ? buildCourse(s.reduced) : buildCardioCourse(s.kind, s.cardioChoice);
     const totalSets = course.filter((p) => p.kind === 'set').length;
     if (totalSets !== s.totalSets) { wkClear(); toast('课表已更新，旧的练不完就翻篇，按新课表来'); renderToday(); return; }
     wk = { kind: '力量', mode: 'course', course: course, ci: Math.min(s.ci || 0, course.length - 1), phase: s.phase || 'warm', left: 0, phaseDur: 0, phaseStartTs: now, startTs: s.startTs || now, pausedTotal: s.pausedTotal || 0, pausedAt: null, elapsed: 0, setsDone: CONFIG.actions.map((x, i) => (s.setsDone && s.setsDone[i]) || 0), setsPer: s.setsPer || CONFIG.actions.map((a) => effSets(a.repsKey)), totalSets: totalSets, yellow: !!s.yellow, lastPerf: lastPerfTxt(), spoken10: false, spoken30: false, lastSpokenNum: -1, timer: null, reduced: !!s.reduced, resumed: true };
@@ -5664,6 +5675,7 @@ function enterPhase(i) { // 进入课单第 i 项：重置计时三件套与播�
   else if (p.kind === 'rest') { wk.phaseDur = p.sec || 60; wk.left = p.sec || 60; wk.phaseStartTs = now; SPEAK('休息一下，下一个：' + p.nextName); }
   else if (p.kind === 'set') { wk.phaseDur = p.timed ? p.secs : 0; wk.left = wk.phaseDur; wk.phaseStartTs = now; SPEAK(p.name + '，第' + p.set + '组，目标' + p.target + p.unit); }
   else if (p.kind === 'stretch') { wk.phaseDur = p.secs || 30; wk.left = wk.phaseDur; wk.phaseStartTs = now; SPEAK(p.phase === 'activate' ? '激活：' + p.name : '收尾：' + p.name); }
+  else if (p.kind === 'cardio') { wk.phaseDur = 0; wk.left = 0; wk.phaseStartTs = now; SPEAK((p.name || '有氧') + '开始，全程能说话'); }
   else if (p.kind === 'warm') { wk.phaseDur = 0; wk.left = 0; wk.phaseStartTs = now; }
   else { wk.phaseDur = 0; wk.left = 0; wk.phaseStartTs = now; SPEAK('最后，放松拉伸'); }
   wkSave(); // IX-01 训练快照（换相即存）
@@ -5949,7 +5961,16 @@ function renderWorkout() {
   const bar = '<div class="wk-bar"><div style="width:' + Math.round(100 * doneSets / wk.totalSets) + '%"></div></div>';
   const pauseBtn = '<button class="btn-ghost" onclick="' + (wk.pausedAt ? 'resumeWorkout()' : 'pauseWorkout()') + '">' + (wk.pausedAt ? '继续' : '暂停') + '</button>';
   let h = '';
-  if (p.kind === 'stretch') {
+  if (p.kind === 'cardio') {
+    const C0 = 2 * Math.PI * 96;
+    h = bar + '<div class="wk-name">' + U.esc(p.name) + '</div>'
+      + '<div class="wk-set">低强度持续 · 全程能说话' + (p.targetDur ? ' · 建议 ' + U.esc(p.targetDur) : '') + '</div>'
+      + '<div class="wk-ring"><svg viewBox="0 0 220 220"><circle cx="110" cy="110" r="96" fill="none" style="stroke:var(--line)" stroke-width="10"/><circle cx="110" cy="110" r="96" fill="none" style="stroke:var(--accent)" stroke-width="10" stroke-linecap="round" stroke-dasharray="' + (C0 * Math.min(1, (wk.elapsed % 60) / 60)).toFixed(1) + ' ' + C0.toFixed(1) + '" transform="rotate(-90 110 110)"/></svg>'
+      + '<div class="wt">' + clock(wk.elapsed) + '</div></div>'
+      + '<div class="wk-btns"><button class="btn-primary" onclick="wkAdvance()">练完了，去收尾</button>' + pauseBtn
+      + '<button class="btn-ghost" onclick="exitWorkout()">结束训练</button></div>'
+      + '<div class="wk-tip" style="margin-top:10px">之后：收尾拉伸（练完顺手做，别省）</div>';
+  } else if (p.kind === 'stretch') {
     const frac = Math.max(0, Math.min(1, wk.phaseDur ? wk.left / wk.phaseDur : 0));
     const C = 2 * Math.PI * 96;
     const shown = p.mode === 'rep' ? Math.max(1, Math.ceil(wk.left / (p.secs / (p.reps || 1)))) + ' 次' : wk.left + ' 秒';
