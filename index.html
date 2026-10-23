@@ -966,7 +966,7 @@ function toast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.hidden = true; }, 3200);
 }
-window.APP_VER = '4.6.2'; // v4.6.2 有氧日也走三阶段（激活→主计时→收尾，此前有氧练完没有拉伸） · 前批 v4.6.1 闭环批（IXD P1全清+术语统一+行话改人话+K28去标识化+手动完成计数修复） · 前批 v4.6.0 拉伸并入每日课（三阶段/恢复课/起床档/规则引擎/当天冻结）· 前批 v4.5.2：数据口径4修+训练快照持久化+草稿保护+chip回填+按钮收敛+中断如实记录+字号三档+深色补齐+死代码清理+合规文案 · 前批 v4.5.1 隐私修复：出厂默认清空身高/体重/城市/伤史——源码进公开仓，个人数据仅存本机；检测来源默认去城市化 // v4.5.0：身体照顾（久坐肩颈/小腿胀硬/足底筋膜释放+晨检联动+练前热身/练后放松明确化）
+window.APP_VER = '4.6.3'; // v4.6.3 清理solo/cooldown死分支（solo已废弃） · 前批 v4.6.2 有氧日也走三阶段（激活→主计时→收尾，此前有氧练完没有拉伸） · 前批 v4.6.1 闭环批（IXD P1全清+术语统一+行话改人话+K28去标识化+手动完成计数修复） · 前批 v4.6.0 拉伸并入每日课（三阶段/恢复课/起床档/规则引擎/当天冻结）· 前批 v4.5.2：数据口径4修+训练快照持久化+草稿保护+chip回填+按钮收敛+中断如实记录+字号三档+深色补齐+死代码清理+合规文案 · 前批 v4.5.1 隐私修复：出厂默认清空身高/体重/城市/伤史——源码进公开仓，个人数据仅存本机；检测来源默认去城市化 // v4.5.0：身体照顾（久坐肩颈/小腿胀硬/足底筋膜释放+晨检联动+练前热身/练后放松明确化）
 window.addEventListener('error', function (e) { try { if (e && e.message) toast('出了个小问题：' + String(e.message).slice(0, 60)); } catch (err) {} }); // v4.1 审查修复 B4：全局异常不再静默
 window.addEventListener('unhandledrejection', function (e) { try { const r = e && e.reason; toast('后台出了个小问题：' + String(r && r.message || r || '未知').slice(0, 60)); } catch (err) {} });
 async function checkAppUpdate() { // v4.1：一键清 SW/缓存并重载——根治"PWA 更新后吃旧缓存"（原需手动强刷）
@@ -5700,11 +5700,7 @@ function resumeWorkout() { // 暂停补偿：把暂停时长从计时三件套�
 }
 function wkTick() {
   if (!wk || wk.pausedAt) return;
-  wk.elapsed = Math.floor((Date.now() - wk.startTs - wk.pausedTotal) / 1000);
-  if (wk.mode !== 'course') { // 有氧/长时：正计时，无自动流转
-    renderWorkout();
-    return;
-  }
+  wk.elapsed = Math.floor((Date.now() - wk.startTs - wk.pausedTotal) / 1000); // v4.6.2：solo 死分支已删（全部 course）
   // A-2：显示值一律由时间戳差值算出，setInterval 仅作刷新触发器（防 iOS 锁屏后计时漂移）
   const p = wk.course[wk.ci];
   const passed = Math.floor((Date.now() - wk.phaseStartTs) / 1000);
@@ -5943,19 +5939,7 @@ function renderWorkout() {
   const el = document.getElementById('wkBody');
   if (!el || !wk) return;
   const clock = (s) => Math.floor(s / 60) + ':' + U.pad(s % 60);
-  if (wk.mode !== 'course') { // 有氧/长时：单动作正计时
-    const it = wk.list[wk.idx];
-    const C0 = 2 * Math.PI * 96;
-    el.innerHTML = '<div class="wk-name">' + U.esc(it.name) + '</div>'
-      + '<div class="wk-set">低强度持续输出 · 全程能说话' + (wk.targetDur ? ' · 建议 ' + wk.targetDur : '') + '</div>'
-      + '<div class="wk-ring"><svg viewBox="0 0 220 220"><circle cx="110" cy="110" r="96" fill="none" style="stroke:var(--line)" stroke-width="10"/><circle cx="110" cy="110" r="96" fill="none" style="stroke:var(--accent)" stroke-width="10" stroke-linecap="round" stroke-dasharray="' + (C0 * Math.min(1, (wk.elapsed % 60) / 60)).toFixed(1) + ' ' + C0.toFixed(1) + '" transform="rotate(-90 110 110)"/></svg>'
-      + '<div class="wt">' + clock(wk.elapsed) + '</div></div>'
-      + '<div class="wk-btns"><button class="btn-primary" onclick="finishWorkout()">完成训练</button>'
-      + '<button class="btn-ghost" onclick="pauseWorkout()">' + (wk.pausedAt ? '继续' : '暂停') + '</button>'
-      + '<button class="btn-ghost" onclick="exitWorkout()">结束训练</button></div>'
-      + (wk.pausedAt ? '<div class="sub" style="margin-top:12px">已暂停</div>' : '');
-    return;
-  }
+  // v4.6.2 清理：solo 死分支已删（所有训练都是 course 三阶段）
   const p = wk.course[wk.ci];
   const doneSets = wk.setsDone.reduce((a, b) => a + b, 0);
   const bar = '<div class="wk-bar"><div style="width:' + Math.round(100 * doneSets / wk.totalSets) + '%"></div></div>';
@@ -6020,11 +6004,7 @@ function renderWorkout() {
       + '<div class="wt">' + wk.left + '<span style="font-size:14px;color:var(--text2)"> 秒</span></div></div>'
       + '<div class="wk-btns"><button class="btn-primary" onclick="skipRest()">跳过休息</button>' + pauseBtn
       + '<button class="btn-ghost" onclick="exitWorkout()">结束训练</button></div>';
-  } else { // cooldown 放松
-    h = bar + '<div class="wk-name">放松</div><div class="wk-tip">' + U.esc(CONFIG.cooldown) + '</div>'
-      + '<div class="wk-ring" style="width:170px;height:170px"><div class="wt" style="font-size:38px">' + clock(wk.elapsed) + '</div></div>'
-      + '<div class="wk-btns"><button class="btn-primary" onclick="finishWorkout()">完成训练</button>' + pauseBtn + '<button class="btn-ghost" onclick="exitWorkout()">结束训练</button></div>';
-  }
+  } // v4.6.2 清理：cooldown 死分支已删（收尾改为课单里的 stretch 条目）
   if (wk.pausedAt) h += '<div style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:46;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px"><div class="wk-name" style="color:#fff">已暂停</div><button class="btn-primary" style="max-width:220px" onclick="resumeWorkout()">继续训练</button><button class="btn-ghost" style="max-width:220px;background:transparent" onclick="resumeWorkout();exitWorkout()">结束训练</button></div>';
   el.innerHTML = h;
 }
