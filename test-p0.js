@@ -2068,6 +2068,28 @@ check('65 全课单跑通：激活→主练→收尾全程无异常，收尾写�
   if (!o.ps || !o.ps.rTotal || o.ps.r < 1) throw new Error('收尾未落 pendingStretch：' + JSON.stringify(o.ps));
   return '三阶段全流程贯通 · 激活 ' + o.ps.a + '/' + o.ps.aTotal + ' · 收尾 ' + o.ps.r + '/' + o.ps.rTotal + ' ✓';
 });
+/* ---------- 66 有氧日也有三阶段（v4.6.2） ---------- */
+check('66 有氧课单：激活 5 条 → 主计时 → 收尾≥4 条；solo 模式已废弃', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval(`(function(){
+    D = defaultData(); D.state.profileDone = true; D.state.stretchMode = 'full';
+    const c = buildCardioCourse('有氧', '快走');
+    return JSON.stringify({
+      act: c.filter(p=>p.kind==='stretch'&&p.phase==='activate').length,
+      card: c.filter(p=>p.kind==='cardio').length,
+      rel: c.filter(p=>p.kind==='stretch'&&p.phase==='release').length,
+      first: c[0].kind, last: c[c.length-1].kind,
+      soloLeft: (String(startWorkout).indexOf("mode: 'solo'") < 0)
+    });
+  })()`);
+  const o = JSON.parse(r);
+  if (o.act !== 5) throw new Error('有氧激活应 5 条，实得 ' + o.act);
+  if (o.card !== 1) throw new Error('应有 1 个主计时相位，实得 ' + o.card);
+  if (o.rel < 4) throw new Error('有氧收尾应 ≥4 条，实得 ' + o.rel);
+  if (o.first !== 'stretch' || o.last !== 'stretch') throw new Error('课单首尾都应是拉伸（激活/收尾）');
+  if (!o.soloLeft) throw new Error('startWorkout 仍残留 solo 分支');
+  return '有氧三阶段：激活 ' + o.act + ' → 主计时 → 收尾 ' + o.rel + ' ✓';
+});
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);
 console.log('================ P0 jsdom 断言报告（node ' + process.version + ' · jsdom ' + require(require.resolve('jsdom/package.json', { paths: [DIR] })).version + '） ================');
