@@ -2167,6 +2167,27 @@ check('69 F3 SW 健康数据零缓存：api.github.com 走 networkOnly（源码�
   if (idxSrc.indexOf("APP_VER = '4.6.4'") < 0) throw new Error('APP_VER 应已 bump 到 4.6.4');
   return 'SW 隐私：networkOnly 隔离 + v27 缓存代际 ✓';
 });
+check('70 M2 转型六键：出厂默认/类型防线/planLog滚动7天/lastOpen日活写入', () => {
+  if (loadErr) throw loadErr;
+  // ① 出厂默认：六键存在且形态正确
+  const d = w.eval('JSON.stringify((function(){ D = defaultData(); return { todayPlan: D.state.todayPlan, planLog: D.state.planLog, folds: D.state.folds, lastOpen: D.state.lastOpen, coursePref: D.state.coursePref, enteredOnce: D.state.enteredOnce }; })())');
+  const o = JSON.parse(d);
+  if (o.todayPlan !== null || o.folds !== null || o.lastOpen !== null || o.coursePref !== null) throw new Error('对象族键出厂应 null：' + d);
+  if (!Array.isArray(o.planLog) || o.planLog.length !== 0) throw new Error('planLog 出厂应空数组');
+  if (o.enteredOnce !== false) throw new Error('enteredOnce 出厂应 false');
+  // ② 类型防线：脏数据（字符串/数字）进来被归一
+  const dirty = w.eval('JSON.stringify((function(){ const x = defaultData(); x.state.todayPlan = "垃圾"; x.state.planLog = "不是数组"; x.state.coursePref = 3; const n = normalizeData(x); return { tp: n.state.todayPlan, pl: JSON.stringify(n.state.planLog), cp: n.state.coursePref }; })())');
+  const dobj = JSON.parse(dirty);
+  if (dobj.tp !== null || dobj.pl !== '[]' || dobj.cp !== null) throw new Error('类型防线失效：' + dirty);
+  // ③ planLog 滚动 7 天：塞 9 条 → normalize 后剩 7
+  const rolled = w.eval('JSON.stringify((function(){ const x = defaultData(); x.state.planLog = Array.from({length: 9}, (_, i) => ({ date: "d" + i, courseIds: [] })); return normalizeData(x).state.planLog.length; })())');
+  if (rolled !== '7') throw new Error('planLog 应滚动到 7，实得 ' + rolled);
+  // ④ lastOpen 日活写入：清空 → enterOffline → lastOpen.date=今天
+  w.eval('D = defaultData(); D.state.lastOpen = null; enterOffline();');
+  const lo = w.eval('D.state.lastOpen ? D.state.lastOpen.date : null');
+  if (lo !== w.eval('U.todayStr()')) throw new Error('lastOpen 应写今日，实得 ' + lo);
+  return '六键：出厂/防线/滚动/日活 ✓';
+});
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);
 console.log('================ P0 jsdom 断言报告（node ' + process.version + ' · jsdom ' + require(require.resolve('jsdom/package.json', { paths: [DIR] })).version + '） ================');

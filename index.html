@@ -775,6 +775,8 @@ function defaultData() {
       backfillDone: false, profileDone: false, downgradedAt: null, progressionLog: [], scheduleText: null,
       preTrip: null, tour7: null, weekRev: null, weather: null, aiCfg: null, schedShift: null, girth: null, returnMark: null, rehab: null, graduated: null, water: null, // 最终版增量（可选键）：行前判定缓存/新手7天引导/周复盘去重/今晨实况天气/AI问答供应商配置/FR-B1顺延状态——normalize/merge 补默认
       enteredOnce: false, // F1（2026-10-26）：用过标记——启动判据=令牌||enteredOnce，与备份配置解耦
+      // M2 转型批（2026-10-26）：新方向六键——todayPlan 当日计划留痕 / planLog 近7天课程历史（3天不重推数据源）/ folds 折叠区展开计数 / lastOpen 日活 / coursePref 单双节偏好
+      todayPlan: null, planLog: [], folds: null, lastOpen: null, coursePref: null,
       updatedAt: 0
     }
   };
@@ -794,6 +796,13 @@ function normalizeData(o) {
   if (!Array.isArray(out.state.progressionLog)) out.state.progressionLog = [];
   out.state.scheduleText = (typeof out.state.scheduleText === 'string') ? out.state.scheduleText : null; // N5
   if (['auto', 'light', 'dark'].indexOf(out.state.theme) < 0) out.state.theme = 'auto';
+  // M2 转型批（2026-10-26）：新键类型防线——对象族键必须是对象或 null，planLog 必须是数组（防远端脏数据）
+  if (out.state.todayPlan && typeof out.state.todayPlan !== 'object') out.state.todayPlan = null;
+  if (out.state.folds && typeof out.state.folds !== 'object') out.state.folds = null;
+  if (out.state.lastOpen && typeof out.state.lastOpen !== 'object') out.state.lastOpen = null;
+  if (out.state.coursePref && typeof out.state.coursePref !== 'object') out.state.coursePref = null;
+  if (!Array.isArray(out.state.planLog)) out.state.planLog = [];
+  if (out.state.planLog.length > 7) out.state.planLog = out.state.planLog.slice(-7); // 滚动 7 天（3天不重推数据源）
   ['daily', 'metrics', 'weekly', 'tests', 'external'].forEach((k) => {
     out[k] = Array.isArray(o[k]) ? o[k].filter((x) => x && typeof x === 'object') : [];
   });
@@ -885,9 +894,7 @@ function mergeData(local, remote) {
   CONFIG.actions.forEach((a) => { if (out.state.strengthReps[a.repsKey] == null) out.state.strengthReps[a.repsKey] = 10; }); // Codex 复核 P1-1 修复：合并后补缺键，防 undefined/NaN 污染
   // 最终版增量键缺键防线（与 4f52b7f 同套路）：老远端备份无这些键时补默认
   ['preTrip', 'tour7', 'weekRev', 'weather', 'aiCfg', 'schedShift', 'girth', 'returnMark', 'rehab', 'graduated', 'water'].forEach((k) => { if (out.state[k] === undefined) out.state[k] = null; }); // aiCfg=问答外挂供应商配置（不含 key，key 只在本机 localStorage）；schedShift=FR-B1 顺延状态
-  // F1/转型批（2026-10-26）：enteredOnce 出厂值已入 defaultData.state（上方 777 行），normalizeData 的 Object.assign 自动兜底；
-  // mergeData 的远端合并走同一套 normalizeData，无需在此重复。转型期新键（planLog/folds/lastOpen 等）随 M2 在 defaultData 扩展
-  if (out.state.enteredOnce === undefined) out.state.enteredOnce = false; // 双保险：防远端备份里显式 undefined 覆盖
+  // F1/转型批（2026-10-26）：enteredOnce 与 M2 新键的类型防线已入 normalizeData 本体（781 行函数内）——mergeData 走同一套，无需重复
   out.daily = mergeByKey(local.daily, remote.daily, 'date');
   out.metrics = mergeByKey(local.metrics, remote.metrics, 'date');
   out.tests = mergeByKey(local.tests, remote.tests, 'date');
@@ -1050,6 +1057,8 @@ function enterOffline() { // v4.2 动线①：改名含义——本机模式（�
   if (!D) D = defaultData(); // 兜底
   // F1（2026-10-26）：进入即记"用过"，此后启动直达今天页（判据见启动链）；persist 由后续流程顺带落盘
   if (!D.state.enteredOnce) { D.state.enteredOnce = true; persist(); }
+  // M2：日活留痕（阶段2"打开率"指标数据源；仅日期无内容）
+  if (!D.state.lastOpen || D.state.lastOpen.date !== U.todayStr()) { D.state.lastOpen = { date: U.todayStr() }; persist(); }
   // 批9走查修复：本机模式放开本地写入——山上断网必须能晨检能记录。
   // 本地 IndexedDB 写入不依赖网络；未同步数据带 updatedAt，联网配好备份后 mergeData 自动合并，不会覆盖云端。
   document.getElementById('gate').hidden = true;
@@ -1830,7 +1839,7 @@ function mountainGoalHtml(dateStr) { // 今日页"周期进度"卡（M6 目标�
     prompt = '<div class="sub" style="margin-top:6px">顺延缓冲已用尽（≤2 周）：行程按能力档重新评估，行前判定会如实给档。</div>';
   }
   return '<div class="card"><div class="card-head"><div class="bubble bg-purple" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 20l6-11 4 7 3-5 5 9z"/></svg></div>'
-    + '<div style="flex:1"><div class="card-title" style="margin:0">' + head + '</div><div class="sub">目标：2027 转山窗口冈仁波齐 52km/5630m/3 天</div></div></div>'
+    + '<div style="flex:1"><div class="card-title" style="margin:0">' + head + '</div><div class="sub">目标：冈仁波齐转山（愿望·按能力发展走，出发前核当季公告与身体准备度）</div></div></div>'
     + '<div class="sub" style="margin-top:6px">' + body + '</div>' + prompt
     + '<button class="ci-btn" style="margin-top:10px" onclick="openPreTrip()">🧭 行前选线判定：想走哪条，先对一遍</button></div>';
 }
@@ -4874,7 +4883,7 @@ function renderProfile() {
     + '<div class="field"><label>每周可练天数</label><input id="pWeekly" type="number" min="1" max="7" inputmode="numeric" value="' + (p.weeklyDays || 6) + '"></div>'
     + '<div class="field row-between"><label>可爬楼梯（1-10楼，电梯下楼）</label><label class="switch"><input type="checkbox" id="pStairs"' + (p.stairs ? ' checked' : '') + '><span class="sl"></span></label></div>'
     + '<div class="field"><label>装备</label><input id="pGear" value="' + U.esc(p.gear) + '"></div>'
-    + '<div class="field"><label>伤病描述</label><textarea id="pInjury" rows="2">' + U.esc(p.injury) + '</textarea></div>'
+    + '<div class="field"><label>伤病描述（状态变化请更新——这里的描述是训练建议的依据）</label><textarea id="pInjury" rows="2">' + U.esc(p.injury) + '</textarea></div>'
     + '<div class="field"><label>目标时间窗（可留空）</label><input id="pTarget" value="' + U.esc(p.targetWindow || '') + '" placeholder="如：2027年6月前完成转山"></div>'
     + '<div class="field"><label>静息心率基线（手动修改后自动校准将关闭）</label><input id="pRhr" type="number" inputmode="numeric" value="' + (p.rhrBaseline != null ? p.rhrBaseline : 60) + '"></div>'
     + '<div class="field"><label>HRV 基线（毫秒）</label><input id="pHrv" type="number" inputmode="numeric" value="' + (p.hrvBaseline != null ? p.hrvBaseline : 50) + '"></div>'
