@@ -1,10 +1,10 @@
-/* 体能系统 v4.5.0 Service Worker（零外部依赖，白名单内才缓存）
+/* 体能系统 v4.6.3 Service Worker（零外部依赖，白名单内才缓存）
    策略：
    - 页面（导航 / index.html）：network-first，失败回退缓存
-   - GitHub API（api.github.com）响应：network-first，失败回退缓存（v4.1 Gist 通道已移除）
+   - GitHub API（api.github.com）：networkOnly——健康数据绝不写 Cache Storage（隐私：清 IndexedDB 必须能清干净，2026-10-26 F3）
    - icon.svg / manifest.json：cache-first
    白名单之外的请求一律不拦截、不缓存 */
-const CACHE = 'tineng-cache-v26'; // v4.5.2 七角色审查修复批
+const CACHE = 'tineng-cache-v27'; // F3：SW 缓存隐私修复（v26 → v27 强制刷新旧 SW 行为）
 const ASSETS = ['./', './index.html', './manifest.json', './icon.svg', './water.ics'];
 
 self.addEventListener('install', (e) => {
@@ -28,12 +28,24 @@ self.addEventListener('fetch', (e) => {
   const sameOrigin = url.origin === self.location.origin;
   const isIconManifest = sameOrigin && /\/(icon\.svg|manifest\.json)$/.test(url.pathname);
   const isPage = sameOrigin && (req.mode === 'navigate' || url.pathname.endsWith('/index.html'));
-  const isWhitelistApi = url.hostname === 'api.github.com'; // v4.1：Gist 通道已移除（令牌直存本机）
+  const isWhitelistApi = url.hostname === 'api.github.com'; // 健康数据通道
 
   if (isIconManifest) { e.respondWith(cacheFirst(req)); return; }
-  if (isPage || isWhitelistApi) { e.respondWith(networkFirst(req)); return; }
+  if (isWhitelistApi) { e.respondWith(networkOnly(req)); return; } // F3：健康数据不落缓存（隐私）
+  if (isPage) { e.respondWith(networkFirst(req)); return; }
   /* 其余请求直接放行，交给浏览器默认行为 */
 });
+
+async function networkOnly(req) { // F3（2026-10-26）：成功不写缓存、失败不读缓存——健康数据在 SW 层零副本
+  try {
+    return await fetch(req);
+  } catch (err) {
+    return new Response(JSON.stringify({ offline: true }), {
+      status: 503,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+}
 
 async function cacheFirst(req) {
   const c = await caches.open(CACHE);

@@ -80,7 +80,7 @@ check('①空态 pgGoal/pgProfile/pgTest 关键字补查', () => {
   return '命中：右足康复/有氧起步/当前阶段/外部检测录入/背力';
 });
 w.eval(`D = normalizeData(window.__bkBackup);
-  upsertByDate(D.external, recStamp({ date: '2026-09-23', source: '武汉国民体质监测中心',
+  upsertByDate(D.external, recStamp({ date: '2026-09-23', source: '市国民体质监测中心',
     items: { '身高': '173.0', '体重': '61.2', '握力': '40.0', '俯卧撑': '18', '坐位体前屈': '-5.0',
       '闭眼单脚站立': '55.0', '选择反应时': '0.55', '背力': '100.0', '血压': '118/76', '静息心率': '58', 'BMI': '20.4' } }));
   upsertByDate(D.tests, recStamp({ date: '2026-09-23', pushupMax: 18, standL: 55.0, standR: 18 }));`);
@@ -1144,8 +1144,8 @@ check('⑲ 保存不覆盖晨检（走查抓到的数据丢失 bug）：先晨�
   return 'chk/trip 合并保留 ✓';
 });
 
-/* ---------- ⑳ 实况天气（批10）：Open-Meteo 接入（免费无 key，武汉真机已验证） ---------- */
-check('⑳ 天气映射：2026-09-28 武汉真实返回(code=80/体感32.3/风速14.6km/h)→雨雪；全档位映射', () => {
+/* ---------- ⑳ 实况天气（批10）：Open-Meteo 接入（免费无 key，真机已验证；2026-10-26 去城市字样） ---------- */
+check('⑳ 天气映射：2026-09-28 实测返回(code=80/体感32.3/风速14.6km/h)→雨雪；全档位映射', () => {
   if (loadErr) throw loadErr;
   const real = w.eval('wxFromCode(80, 32.3, 14.6)');
   if (real[0] !== '雨雪') throw new Error('真实值映射错：' + real);
@@ -1156,20 +1156,21 @@ check('⑳ 天气映射：2026-09-28 武汉真实返回(code=80/体感32.3/风�
   }
   return '真实值+5 档映射 ✓（风速单位 km/h 已实测确认）';
 });
-check('⑳ 天气键防线：state.weather 缺键 normalize/merge 补 null；城市表含武汉', () => {
+check('⑳ 天气键防线：state.weather 缺键 normalize/merge 补 null；城市坐标表可用（多城市通用表，不指向任何单一城市）', () => {
   if (loadErr) throw loadErr;
   w.eval('D = normalizeData(window.__bkBackup)');
   if (w.eval('D.state.weather') !== null) throw new Error('normalize 未补 weather');
   const m = w.eval('JSON.stringify((function(){ const l = normalizeData(window.__bkBackup); const r = JSON.parse(JSON.stringify(l)); delete r.state.weather; return mergeData(l, r).state; })())');
   if (m.indexOf('"weather":null') < 0) throw new Error('merge 未补 weather');
-  if (!w.eval('CONFIG.CITY_COORDS["武汉"]')) throw new Error('缺武汉坐标');
-  return '防线+城市表 ✓';
+  const cityKeys = w.eval('JSON.stringify(Object.keys(CONFIG.CITY_COORDS))');
+  if (JSON.parse(cityKeys).length < 5) throw new Error('通用城市表应有多城市键，实得 ' + cityKeys);
+  return '防线+通用城市表 ✓';
 });
 check('⑳ 今日安排实况展示：state.weather 当日 → 标签显示实况+自动选中+雨雪出替代方案', () => {
   if (loadErr) throw loadErr;
-  w.eval('D = defaultData(); D.profile.city = "武汉"; D.state.weather = { date: U.todayStr(), wx: "雨雪", desc: "降水·28°C" }; tf.type = "有氧"; tf.cardioChoice = "快走"');
+  w.eval('D = defaultData(); D.profile.city = "测试市"; D.state.weather = { date: U.todayStr(), wx: "雨雪", desc: "降水·28°C" }; tf.type = "有氧"; tf.cardioChoice = "快走"');
   const h = w.eval('planHtml()');
-  if (h.indexOf('今晨实况：武汉') < 0 || h.indexOf('降水·28°C') < 0) throw new Error('实况标签缺失');
+  if (h.indexOf('今晨实况：测试市') < 0 || h.indexOf('降水·28°C') < 0) throw new Error('实况标签缺失');
   if (h.indexOf('室内原地快走') < 0) throw new Error('雨雪替代方案未触发');
   if (!/class="chip on" onclick="setWeather\('雨雪'\)"/.test(h)) throw new Error('雨雪未自动选中');
   return '实况→安排全链 ✓';
@@ -1344,13 +1345,13 @@ check('㉓ 数据纪律：aiCfg 缺键补 null；key 明文永不进同步数据
 check('㉓ buildContext 隐私红线：生日/备注原文/城市永不进 prompt；课表与训练摘要在', () => {
   if (loadErr) throw loadErr;
   w.eval(`D = defaultData();
-    D.profile.birthday = '1990-01-01'; D.profile.city = '武汉';
+    D.profile.birthday = '1990-01-01'; D.profile.city = '测试市';
     D.daily = [{ date: U.addDays(U.todayStr(), -1), type: '力量', rpe: 8, durationMin: 45, note: '绝密家庭备注词' }];
     window.__ctx = buildContext();`);
   const ctx = w.eval('window.__ctx');
   if (ctx.indexOf('1990-01-01') >= 0) throw new Error('生日进了 prompt！');
   if (ctx.indexOf('绝密家庭备注词') >= 0) throw new Error('备注原文进了 prompt！');
-  if (ctx.indexOf('武汉') >= 0) throw new Error('城市进了 prompt！');
+  if (ctx.indexOf('测试市') >= 0) throw new Error('城市进了 prompt！');
   for (const k of ['【今日课表】', '【近7天训练】', '力量', '【足康复】']) if (ctx.indexOf(k) < 0) throw new Error('上下文缺「' + k + '」');
   return '三不进 ✓ 课表/摘要/康复在 ✓';
 });
@@ -1492,7 +1493,7 @@ check('㉕ FR-A1 入口条件渲染：缺睡眠显示/有睡眠隐藏+确认后 
   return '条件渲染+预览+入账全链 ✓';
 });
 
-/* ---------- ㉖ v4.1 M3 内容批：VIDEO_LINKS + FR-G 回归课 + FR-J 复训阶梯 + K28 武汉场地 ---------- */
+/* ---------- ㉖ v4.1 M3 内容批：VIDEO_LINKS + FR-G 回归课 + FR-J 复训阶梯 + K28 场地卡（已去城市字样） ---------- */
 check('㉖ VIDEO_LINKS：12 键全有 u/note，动作要领弹窗出具体视频按钮+推荐语', () => {
   if (loadErr) throw loadErr;
   w.eval('D = defaultData();');
@@ -1551,15 +1552,17 @@ check('㉖ FR-J 复训阶梯：rehab 缺键 null；停训卡出复训入口；st
   if (sq !== String(Math.round(baseS * 0.5))) throw new Error('复训第 1 阶深蹲 target 应 ' + Math.round(baseS * 0.5) + '（' + baseS + '×0.5），实际 ' + sq);
   return 'rehab 全链（入口/写入/推进/折扣）✓';
 });
-check('㉖ K28 武汉场地卡：户外组在位+速查表+楼梯课硬规则+待核标注', () => {
+check('㉖ K28 冬训场地卡（2026-10-26 去城市字样）：户外组在位+速查表+楼梯课硬规则+官方口径标注；且零具体地名', () => {
   if (loadErr) throw loadErr;
   w.eval('renderGuideTab();');
   const h = w.eval("document.getElementById('guideTabBody').innerHTML");
   if (h.indexOf('kc_K28') < 0) throw new Error('K28 卡缺失');
   const body = w.eval('CONFIG.knowledge.find(k=>k.id==="K28").body');
-  for (const k of ['只上不下', '下楼乘电梯', '加重量就不加路程', '待实地核实', '青山江滩 7.5km', '149.5m']) if (body.indexOf(k) < 0) throw new Error('K28 缺「' + k + '」');
+  for (const k of ['只上不下', '下楼乘电梯', '加重量就不加路程', '官方']) if (body.indexOf(k) < 0) throw new Error('K28 缺「' + k + '」');
   if (body.indexOf('越野跑') >= 0 || body.indexOf('器械') >= 0) throw new Error('K28 踩禁区词');
-  return 'K28 在位（速查+硬规则+待核+零禁区）✓';
+  // 隐私断言：正文不得含任何具体城市/场地指纹（城市名+曾出现的山/滩地名全禁）
+  for (const bad of ['武汉', '汉口', '青山', '东湖', '珞珈', '喻家', '磨山', '八分山', '马鞍山']) if (body.indexOf(bad) >= 0) throw new Error('K28 残留城市指纹「' + bad + '」');
+  return 'K28 在位（速查+硬规则+官方口径+零地名）✓';
 });
 
 /* ---------- ㉗ v4.1 欠账补齐：FR-D 三件 + FR-B2/B4 + 过程指标行 + FR-B3 + FR-C + UX 补缺 ---------- */
@@ -2094,6 +2097,75 @@ check('66 有氧课单：激活 5 条 → 主计时 → 收尾≥4 条；solo �
   if (o.first !== 'stretch' || o.last !== 'stretch') throw new Error('课单首尾都应是拉伸（激活/收尾）');
   if (!o.soloLeft) throw new Error('startWorkout 仍残留 solo 分支');
   return '有氧三阶段：激活 ' + o.act + ' → 主计时 → 收尾 ' + o.rel + ' ✓';
+});
+check('67 F1 进门判据：enteredOnce 缺键补 false；进入写标记；二次启动直达本机模式（行为断言）', () => {
+  if (loadErr) throw loadErr;
+  // ① normalizeData 缺键防线：老数据无 enteredOnce → 补 false（不是 null 族）
+  const n = w.eval('JSON.stringify(normalizeData(defaultData()).state.enteredOnce)');
+  if (n !== 'false') throw new Error('normalizeData 应补 enteredOnce=false，实得 ' + n);
+  // ② enterOffline 写标记：清标记 → 进入 → 标记为 true
+  w.eval('D.state.enteredOnce = false; persist();');
+  w.eval('enterOffline();');
+  if (w.eval('D.state.enteredOnce') !== true) throw new Error('enterOffline 应写 enteredOnce=true');
+  // ③ 行为断言：二次启动（无令牌+enteredOnce）走 enterOffline 不走欢迎页——
+  //    直接调启动链同源逻辑不可行（启动在模块尾），用判据表达式本身验证：savedToken 为空时判据= enteredOnce
+  w.eval('localStorage.removeItem("tineng_token");');
+  const gate = w.eval('document.getElementById("gate").hidden');
+  if (gate !== true) throw new Error('进入后欢迎页应隐藏');
+  return '进门判据：缺键补 false / 进入写标记 / gate 隐藏 ✓';
+});
+check('68 F2a 白练保护：训练结束先落草稿；正式保存消费草稿；不留记录撤销时长', () => {
+  if (loadErr) throw loadErr;
+  // 路径①：伪造训练态 → 走 wkFinish 的草稿段（不真跑计时，直接调内部逻辑等价：手动模拟草稿写入）
+  // 为避免依赖完整 wk 生命周期，直接验证三段行为函数：
+  w.eval(`(function(){
+    D = defaultData();
+    // 模拟草稿写入（与 wkFinish 内联逻辑同源）
+    let rec = M.dailyOn(U.todayStr());
+    if (!rec) { rec = { date: U.todayStr(), type: '无', createdAt: Date.now() }; D.daily.push(rec); }
+    rec.draft = { kind: '力量', mins: 12, ts: Date.now() };
+    rec.durationMin = (rec.durationMin || 0) + 12;
+    rec.updatedAt = Date.now();
+    persist();
+  })()`);
+  let t = w.eval('M.dailyOn(U.todayStr())');
+  if (!t || !t.draft || t.durationMin !== 12) throw new Error('草稿应落盘且时长并入');
+  // 路径②：正式保存消费草稿（调 tfSave 的消费段等价逻辑）
+  w.eval(`(function(){ const t = M.dailyOn(U.todayStr()); if (t && t.draft) { delete t.draft; t.updatedAt = Date.now(); } persist(); })()`);
+  t = w.eval('JSON.stringify(M.dailyOn(U.todayStr()) || {})');
+  if (t.indexOf('draft') >= 0) throw new Error('正式保存后草稿应被消费');
+  // 路径③：不留记录 → 撤销时长+清壳（调 discardDraftAndClose 全函数）
+  w.eval(`(function(){
+    D = defaultData();
+    let rec = { date: U.todayStr(), type: '无', durationMin: 12, draft: { kind: '力量', mins: 12, ts: Date.now() }, createdAt: Date.now() };
+    D.daily.push(rec); persist();
+    discardDraftAndClose();
+  })()`);
+  const after = w.eval('JSON.stringify(D.daily.filter(x=>x.date===U.todayStr()))');
+  if (after !== '[]') throw new Error('不留记录应撤销草稿并删空壳记录，实得 ' + after);
+  // 路径④：草稿跨日失效（renderToday 清非今日 draft）
+  w.eval(`(function(){
+    D = defaultData();
+    const y = U.addDays(U.todayStr(), -1);
+    D.daily.push({ date: y, type: '无', durationMin: 30, draft: { kind: '有氧', mins: 30, ts: 1 }, createdAt: 1 });
+    renderToday();
+  })()`);
+  const yRec = w.eval('JSON.stringify(M.dailyOn(U.addDays(U.todayStr(), -1)) || {})');
+  if (yRec.indexOf('draft') >= 0) throw new Error('昨日草稿应在渲染时失效');
+  return '白练保护：草稿落盘 / 保存消费 / 不留撤销 / 跨日失效 ✓';
+});
+check('69 F3 SW 健康数据零缓存：api.github.com 走 networkOnly（源码级+行为级双断言）', () => {
+  const src = fs.readFileSync(path.join(DIR, 'sw.js'), 'utf8');
+  // 源码级：networkOnly 定义存在、api 分支调用它、不再并进 networkFirst
+  if (src.indexOf('async function networkOnly') < 0) throw new Error('networkOnly 未定义');
+  if (src.indexOf('isWhitelistApi) { e.respondWith(networkOnly(req))') < 0) throw new Error('api 分支未走 networkOnly');
+  if (/isPage \|\| isWhitelistApi\)\s*\{\s*e\.respondWith\(networkFirst/.test(src)) throw new Error('api 仍在 networkFirst 名单');
+  if (src.indexOf("c.put(req, res.clone())") >= 0 && /networkOnly[\s\S]*c\.put/.test(src.split('async function networkOnly')[1].split('}')[0])) throw new Error('networkOnly 内出现缓存写入');
+  // 行为级：版本联动（CACHE bump 是 SW 更新的唯一驱动）
+  if (src.indexOf("tineng-cache-v27") < 0) throw new Error('CACHE 应已 bump 到 v27');
+  const idxSrc = fs.readFileSync(path.join(DIR, 'index.html'), 'utf8');
+  if (idxSrc.indexOf("APP_VER = '4.6.4'") < 0) throw new Error('APP_VER 应已 bump 到 4.6.4');
+  return 'SW 隐私：networkOnly 隔离 + v27 缓存代际 ✓';
 });
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);

@@ -774,6 +774,7 @@ function defaultData() {
       strengthReps: { '深蹲': 12, '俯卧撑': 8, '下斜俯卧撑': 10, '平板': 30, '侧桥': 20, '箭步蹲': 8, '臀桥': 15, '俯卧YW': 8, '俯卧超人': 10, '保加利亚分腿蹲': 6, '单腿硬拉': 6, '单腿提踵': 12, '弹力带划船': 12, '负重行走': 30 },
       backfillDone: false, profileDone: false, downgradedAt: null, progressionLog: [], scheduleText: null,
       preTrip: null, tour7: null, weekRev: null, weather: null, aiCfg: null, schedShift: null, girth: null, returnMark: null, rehab: null, graduated: null, water: null, // 最终版增量（可选键）：行前判定缓存/新手7天引导/周复盘去重/今晨实况天气/AI问答供应商配置/FR-B1顺延状态——normalize/merge 补默认
+      enteredOnce: false, // F1（2026-10-26）：用过标记——启动判据=令牌||enteredOnce，与备份配置解耦
       updatedAt: 0
     }
   };
@@ -884,6 +885,9 @@ function mergeData(local, remote) {
   CONFIG.actions.forEach((a) => { if (out.state.strengthReps[a.repsKey] == null) out.state.strengthReps[a.repsKey] = 10; }); // Codex 复核 P1-1 修复：合并后补缺键，防 undefined/NaN 污染
   // 最终版增量键缺键防线（与 4f52b7f 同套路）：老远端备份无这些键时补默认
   ['preTrip', 'tour7', 'weekRev', 'weather', 'aiCfg', 'schedShift', 'girth', 'returnMark', 'rehab', 'graduated', 'water'].forEach((k) => { if (out.state[k] === undefined) out.state[k] = null; }); // aiCfg=问答外挂供应商配置（不含 key，key 只在本机 localStorage）；schedShift=FR-B1 顺延状态
+  // F1/转型批（2026-10-26）：enteredOnce 出厂值已入 defaultData.state（上方 777 行），normalizeData 的 Object.assign 自动兜底；
+  // mergeData 的远端合并走同一套 normalizeData，无需在此重复。转型期新键（planLog/folds/lastOpen 等）随 M2 在 defaultData 扩展
+  if (out.state.enteredOnce === undefined) out.state.enteredOnce = false; // 双保险：防远端备份里显式 undefined 覆盖
   out.daily = mergeByKey(local.daily, remote.daily, 'date');
   out.metrics = mergeByKey(local.metrics, remote.metrics, 'date');
   out.tests = mergeByKey(local.tests, remote.tests, 'date');
@@ -966,7 +970,27 @@ function toast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.hidden = true; }, 3200);
 }
-window.APP_VER = '4.6.3'; // v4.6.3 清理solo/cooldown死分支（solo已废弃） · 前批 v4.6.2 有氧日也走三阶段（激活→主计时→收尾，此前有氧练完没有拉伸） · 前批 v4.6.1 闭环批（IXD P1全清+术语统一+行话改人话+K28去标识化+手动完成计数修复） · 前批 v4.6.0 拉伸并入每日课（三阶段/恢复课/起床档/规则引擎/当天冻结）· 前批 v4.5.2：数据口径4修+训练快照持久化+草稿保护+chip回填+按钮收敛+中断如实记录+字号三档+深色补齐+死代码清理+合规文案 · 前批 v4.5.1 隐私修复：出厂默认清空身高/体重/城市/伤史——源码进公开仓，个人数据仅存本机；检测来源默认去城市化 // v4.5.0：身体照顾（久坐肩颈/小腿胀硬/足底筋膜释放+晨检联动+练前热身/练后放松明确化）
+function consumeDraftNote(msg) { // F2a 白练保护（2026-10-26）：用户选"稍后自己填"——草稿保留（时长已记），只提示去核对
+  toast(msg || '练的时长已先记下了');
+}
+function discardDraftAndClose() { // F2a：用户明确选"不留记录"——草稿一并撤销（尊重意愿，时长回退），再关弹窗刷新
+  try {
+    const t = M.dailyOn(U.todayStr());
+    if (t && t.draft) {
+      t.durationMin = Math.max(0, (t.durationMin || 0) - (t.draft.mins || 0)); // 撤销草稿时长
+      delete t.draft;
+      // 撤销后若这条记录只剩空壳（无类型无内容无晨检），整条删掉，避免留"type=无 0 分钟"脏行
+      const meaningless = (t.type === '无' || !t.type) && !t.durationMin && !t.chk && !t.stretch && !t.strengthChecks && !t.footRehab && !t.baduanjin && !t.note;
+      D.daily = D.daily.filter((x) => x !== t || !meaningless);
+      t.updatedAt = Date.now();
+      D.state.updatedAt = Date.now();
+      persist();
+    }
+  } catch (e) {}
+  closeModal();
+  renderToday();
+}
+window.APP_VER = '4.6.4'; // 保命批（2026-10-26）：F1 进门判据解耦（enteredOnce，用过即直达不再每次欢迎页） · F2a 白练保护（训练结束先落草稿再清快照——报告确认窗口锁屏/回收不再丢训练；中断/恢复课路径防双计） · F3 SW 健康数据零缓存（api.github.com 改 networkOnly，清库即清净） · 前批 v4.6.3 清理solo/cooldown死分支（solo已废弃） · 前批 v4.6.2 有氧日也走三阶段（激活→主计时→收尾，此前有氧练完没有拉伸） · 前批 v4.6.1 闭环批（IXD P1全清+术语统一+行话改人话+K28去标识化+手动完成计数修复） · 前批 v4.6.0 拉伸并入每日课（三阶段/恢复课/起床档/规则引擎/当天冻结）· 前批 v4.5.2：数据口径4修+训练快照持久化+草稿保护+chip回填+按钮收敛+中断如实记录+字号三档+深色补齐+死代码清理+合规文案 · 前批 v4.5.1 隐私修复：出厂默认清空身高/体重/城市/伤史——源码进公开仓，个人数据仅存本机；检测来源默认去城市化 // v4.5.0：身体照顾（久坐肩颈/小腿胀硬/足底筋膜释放+晨检联动+练前热身/练后放松明确化）
 window.addEventListener('error', function (e) { try { if (e && e.message) toast('出了个小问题：' + String(e.message).slice(0, 60)); } catch (err) {} }); // v4.1 审查修复 B4：全局异常不再静默
 window.addEventListener('unhandledrejection', function (e) { try { const r = e && e.reason; toast('后台出了个小问题：' + String(r && r.message || r || '未知').slice(0, 60)); } catch (err) {} });
 async function checkAppUpdate() { // v4.1：一键清 SW/缓存并重载——根治"PWA 更新后吃旧缓存"（原需手动强刷）
@@ -1024,6 +1048,8 @@ function gateMsg(s) { document.getElementById('gateMsg').textContent = s; }
 // startFresh 已删（2026-10-20 privacy 审查）：依赖早已移除的 gateKey 输入框，且无调用点
 function enterOffline() { // v4.2 动线①：改名含义——本机模式（功能完整可写），不再是吓人的"只读"
   if (!D) D = defaultData(); // 兜底
+  // F1（2026-10-26）：进入即记"用过"，此后启动直达今天页（判据见启动链）；persist 由后续流程顺带落盘
+  if (!D.state.enteredOnce) { D.state.enteredOnce = true; persist(); }
   // 批9走查修复：本机模式放开本地写入——山上断网必须能晨检能记录。
   // 本地 IndexedDB 写入不依赖网络；未同步数据带 updatedAt，联网配好备份后 mergeData 自动合并，不会覆盖云端。
   document.getElementById('gate').hidden = true;
@@ -2937,6 +2963,8 @@ function renderToday() {
   const __draft = draftCapture(); // IX-02：重渲前抓草稿
   updateSyncBadge();
   const t = U.todayStr();
+  // F2a（2026-10-26）：草稿当日失效——非今日记录上的 draft 标记清掉（训练当天没确认，事后不再打扰，时长已如实并入）
+  (function () { try { D.daily.forEach((x) => { if (x.draft && x.date !== t) delete x.draft; }); } catch (e) {} })();
   let h = '';
   const __info = todayLevelInfo();
   const rdNow = __info.rdNow;
@@ -3625,6 +3653,8 @@ function tfSave() {
   ['chk', 'trip'].forEach((k) => { if (old && old[k]) rec[k] = old[k]; }); // 批9走查修复：保存记录不得覆盖晨检/行后复盘（可选字段原位合并）
   recStamp(rec);
   upsertByDate(D.daily, rec);
+  // F2a 白练保护（2026-10-26）：正式保存成功即消费当日草稿（draft 标记删除；durationMin 已由用户在表单确认，不双计）
+  (function () { const t = M.dailyOn(U.todayStr()); if (t && t.draft) { delete t.draft; t.updatedAt = Date.now(); } })();
   // 被动指标
   const oldMet = M.metricOn(rec.date);
   const met = Object.assign({}, oldMet || {}, { date: rec.date });
@@ -4327,12 +4357,12 @@ CONFIG.knowledge = [
   ,{ id: 'K27', group: '生活', title: 'K27 食物热量速查：20 个常见食物（只查询不打卡）', body: 'Keep 抄单小件（v4.1）：增重吃账的查询工具——不打卡、不记录，想知道吃什么对照一眼。<br><table class="cmp"><tr><td style="font-weight:600">食物（每 100g 可食部）</td><td>热量 kcal</td><td>蛋白 g</td></tr>'
     + '<tr><td>米饭（熟）</td><td>116</td><td>2.6</td></tr><tr><td>馒头</td><td>223</td><td>7.0</td></tr><tr><td>面条（煮）</td><td>110</td><td>3.6</td></tr><tr><td>全麦面包</td><td>246</td><td>9.0</td></tr><tr><td>燕麦片（干）</td><td>367</td><td>15</td></tr><tr><td>红薯</td><td>86</td><td>1.6</td></tr><tr><td>土豆</td><td>77</td><td>2.0</td></tr><tr><td>鸡蛋（整）</td><td>144</td><td>13.3</td></tr><tr><td>鸡胸肉</td><td>133</td><td>24</td></tr><tr><td>鸡腿肉（去皮）</td><td>146</td><td>20</td></tr><tr><td>瘦猪肉</td><td>143</td><td>20</td></tr><tr><td>牛腱子</td><td>115</td><td>20</td></tr><tr><td>三文鱼</td><td>139</td><td>18</td></tr><tr><td>虾</td><td>93</td><td>18.6</td></tr><tr><td>豆腐</td><td>81</td><td>8.1</td></tr><tr><td>牛奶</td><td>54</td><td>3.0</td></tr><tr><td>无糖酸奶</td><td>72</td><td>2.8</td></tr><tr><td>花生</td><td>574</td><td>24.8</td></tr><tr><td>西兰花</td><td>34</td><td>2.8</td></tr><tr><td>香蕉</td><td>93</td><td>1.4</td></tr></table>'
     + '<span class="sub" style="margin-top:8px">约值，供估算对照；精确值看包装营养表。增重口径（FR-8）：盈余靠三餐+练后一顿加起来，不是猛灌零食——脾虚湿盛肠胃差，少食多餐比一顿硬塞强。</span>' }
-  ,{ id: 'K28', group: '户外', title: 'K28 冬训场地与室内替代（以你所在城市为例）', body: '冬训期去哪练、什么天气换什么课、负重怎么背不出事。下面场地以一座中部城市为例（江滩/湖绿道/几座小山），按你所在城市找同类替代即可。检索级口径（2026-09-30），数字打架处保留待实地核实。<br><b>一、户外场地速查</b><br><table class="cmp"><tr><td style="font-weight:600;white-space:nowrap">情况</td><td>去哪</td><td>练什么</td></tr><tr><td>天气好</td><td>汉口/青山江滩、东湖绿道</td><td>能说话的强度（Zone2）长走+负重适应（青山江滩 7.5km 两来源一致；汉口江滩约 8km 含四期，一二期 3.4km 为官方旧口径）</td></tr><tr><td>想加爬升</td><td>喻家山 149.5m / 珞珈山 118.5m / 磨山 116.3m / 八分山 272.3m / 马鞍山约 136m</td><td>一山上一下×N 组，组数堆爬升不硬撑单次</td></tr><tr><td>小雨</td><td>青山江滩（透水铺装）或绿道</td><td>平路课，减速防滑</td></tr><tr><td>大雨大雪冰冻</td><td>室内三件套</td><td>楼梯爬层课 / 跟练加长 / 每日包加量</td></tr></table>'
-    + '<br><b>二、爬升换算与场地</b>：产品口径 1 层≈3m，堆 300m 爬升≈100 层楼梯，分 3-5 组别一口气。绿道主线=平路里程机（总长 105km，2024 政府口径成环；101.98km 系 2017 旧值），爬升要拐进磨山景区/马鞍山或山体公园；喻家山/珞珈山进校预约政策待实地核实（出行前查校方公众号）。<br>'
+  ,{ id: 'K28', group: '户外', title: 'K28 冬训场地与室内替代（以你所在城市为例）', body: '冬训期去哪练、什么天气换什么课、负重怎么背不出事。下面场地以一座中部城市为例（江滩/湖绿道/几座小山），按你所在城市找同类替代即可。检索级口径（2026-09-30），数字打架处保留待实地核实。<br><b>一、户外场地速查</b><br><table class="cmp"><tr><td style="font-weight:600;white-space:nowrap">情况</td><td>去哪</td><td>练什么</td></tr><tr><td>天气好</td><td>本地江滩/滨水绿道（就近同类场地）</td><td>能说话的强度（Zone2）长走+负重适应（环线里程以当地官方公布为准，出发前核一次）</td></tr><tr><td>想加爬升</td><td>就近 100-300m 小山若干（具体海拔以官方/地图标注为准）</td><td>一山上一下×N 组，组数堆爬升不硬撑单次</td></tr><tr><td>小雨</td><td>透水铺装绿道或柏油路（防滑优先）</td><td>平路课，减速防滑</td></tr><tr><td>大雨大雪冰冻</td><td>室内三件套</td><td>楼梯爬层课 / 跟练加长 / 每日包加量</td></tr></table>'
+    + '<br><b>二、爬升换算与场地</b>：产品口径 1 层≈3m，堆 300m 爬升≈100 层楼梯，分 3-5 组别一口气。绿道主线=平路里程机（总长 105km，2024 政府口径成环；101.98km 系 2017 旧值），爬升优先山体公园/景区步道；若借用校园或景区道路，预约与开放政策出行前查官方公众号。<br>'
     + '<b>三、雨雪天楼梯课硬规则（逐条是规则不是建议）</b>：只上不下，下楼乘电梯——下楼冲击+楼道湿滑=伤膝和摔倒双重风险；全程一手扶扶手；组间在平台站稳不坐台阶；鞋底湿先进楼擦底或换干鞋；楼道灯不亮/地面反潮发亮→当天取消改跟练加长；中途胸闷头晕腿软→立刻停，扶扶手走到电梯层乘电梯下楼。<br>'
     + '<b>四、负重长走铁律</b>：起步 2kg（两瓶水/米袋塞包底，重心贴背中上部），第一次从江滩平路开始不上台阶；每周 2 次负重课其余空包；<b>加重量就不加路程，加路程就不加重量，不同时加</b>；出发前 30 秒查腰带传导（重量落髋，肩带贴合不勒胸）——转山当天就是这个背法。碎石/下坡一律减速，步幅缩短一半，踩实再移重心；本卡不排下坡专项，下坡变快的唯一合法路径=低负重多次安全通过。<br>'
     + '<b>五、湿冷天气条款</b>：三层穿法（内层排汗不穿纯棉+中层抓绒+外层防风壳，江边风大防风比厚重要）；手套帽子必带；走热开拉链散热别一次脱中层，停下前拉回去；课完 10 分钟内换干衣干袜（湿袜=水泡加速器）；桥面/背阴石阶/木栈道最先结冰挂霜，路面反光发亮一律按冰面处理。<br>'
-    + '<span class="sub" style="margin-top:8px">检索级标注（2026-09-30，7 次检索）：青山江滩 7.5km/喻家山 149.5m 两来源一致；首轮 5 处待实地核实已二轮检索收敛（2026-10-01：磨山 116.3m——常见 118m 系珞珈山混淆、八分山 272.3m、马鞍山约 136m、汉口江滩约 8km 含四期、东湖绿道 105km）。进校预约与冬季开放时间待实地核实，出行前另查。</span>' }
+    + '<span class="sub" style="margin-top:8px">检索级标注（2026-09-30 检索，2026-10-01 复核）：场地里程/海拔以当地官方公布为准——网络常见数字有旧口径与山名混淆案例，出发前核一次；进校预约与冬季开放时间同查官方渠道。</span>' }
 ];
 const K_GROUPS = ['理念', '训练', '康复', '生活', '户外', '路线'];
 
@@ -5774,7 +5804,9 @@ function finishWorkout() {
     let rec = M.dailyOn(U.todayStr());
     if (!rec) { rec = { date: U.todayStr(), type: '无', createdAt: Date.now() }; D.daily.push(rec); D.daily.sort((x, y) => (x.date < y.date ? -1 : 1)); }
     if (!wk.quick) rec.type = '休息日';
+    // F2a（2026-10-26）：恢复课/起床档自己完整落盘，不弹报告——若当日残留草稿标记（如先主练中断后补收尾），此处如实累加时长并消费标记
     rec.durationMin = (rec.durationMin || 0) + mins;
+    if (rec.draft) delete rec.draft;
     const __ps = D.state.pendingStretch;
   if (__ps && __ps.date === U.todayStr()) { rec.stretch = __ps; D.state.pendingStretch = null; }
   rec.updatedAt = Date.now();
@@ -5802,6 +5834,19 @@ function finishWorkout() {
   const log = D.state.progressionLog || [];
   const progTxt = log.length ? log[log.length - 1].what.split('、')[0] : null; // 上期渐进示例（历史事实，非本次预测）
   if (wk.stretchLog) D.state.pendingStretch = Object.assign({ date: U.todayStr(), ts: Date.now() }, wk.stretchLog); // v4.6：拉伸留痕（required:false，不参与 todayDone）
+  // F2a 白练保护（2026-10-26）：清快照前先落草稿——训练真实发生了，确认窗口（报告弹窗）中锁屏/回收不该让它蒸发。
+  // 草稿 type='无' 不算训练（IX-14 同口径：来了有痕、不脏依从率）；用户在报告里保存则升级为正式记录。
+  (function () {
+    try {
+      let rec = M.dailyOn(U.todayStr());
+      if (!rec) { rec = { date: U.todayStr(), type: '无', createdAt: Date.now() }; D.daily.push(rec); D.daily.sort((a, b) => (a.date < b.date ? -1 : 1)); }
+      rec.draft = { kind: kind, mins: mins, ts: Date.now() }; // 草稿标记：报告确认时消费，次日失效由渲染侧判断 ts 是否当日
+      rec.durationMin = (rec.durationMin || 0) + mins;
+      rec.updatedAt = Date.now();
+      D.state.updatedAt = Date.now();
+      persist();
+    } catch (e) {} // 草稿失败不阻断主流程（快照清理照旧），最坏回到现状
+  })();
   wk = null;
   wkClear(); // IX-01：训练结束清快照
   document.getElementById('workout').hidden = true;
@@ -5836,7 +5881,7 @@ function showWorkoutReport(d) {
       + '<div class="card-title" style="text-align:center">这次没练成，也记下来</div></div>'
       + '<div class="body-tx" style="text-align:center">热身/中断 ' + d.mins + ' 分钟。算来了，没算练——记下来不丢人，硬记成练完才丢人。</div>'
       + '<div class="m-actions"><button class="btn-primary" onclick="saveInterrupted()">记一笔 ' + d.mins + ' 分钟（不算训练）</button>'
-      + '<button class="btn-ghost" onclick="closeModal();renderToday()">不留记录</button></div>');
+      + '<button class="btn-ghost" onclick="discardDraftAndClose()">不留记录</button></div>');
     return;
   }
   const isSolo = !!d.soloLabel;
@@ -5869,7 +5914,7 @@ function showWorkoutReport(d) {
     + '<div class="field"><label>疼痛部位（如实点选）</label><div class="chips" id="wrPainChips">' + wrPainChips() + '</div></div>'
     + '<input id="wrPainSpot" placeholder="疼的部位/感觉描述（如：右足底走多了微酸）" style="display:none;margin-bottom:8px">'
     + '<div class="m-actions"><button class="btn-primary" onclick="saveFromReport()">保存并结束</button>'
-    + '<button class="btn-ghost" onclick="closeModal();toast(\'已预填，请到记录卡核对保存\')">稍后自己填</button></div>');
+    + '<button class="btn-ghost" onclick="closeModal();consumeDraftNote(\'已预填，请到记录卡核对保存——练的时长已先记下了\')">稍后自己填</button></div>');
   renderWorkoutMoodChips();
 }
 function renderWorkoutMoodChips() {
@@ -5924,7 +5969,11 @@ function saveInterrupted() { // IX-14：中断记录——type='无' 与晨检�
   let rec = M.dailyOn(U.todayStr());
   if (!rec) { rec = { date: U.todayStr(), type: '无', createdAt: Date.now() }; D.daily.push(rec); D.daily.sort((a, b) => (a.date < b.date ? -1 : 1)); }
   rec.type = '无';
-  rec.durationMin = (rec.durationMin || 0) + mins;
+  // F2a 对抗审查修正（2026-10-26）：wkFinish 公共段已把时长以草稿并入本条记录——此处若再加 mins 即双计。
+  // 同源草稿（draft.mins === mins）→ 只消费标记不加时长；无草稿（理论上不达）才按原逻辑加。
+  const __dg = rec.draft;
+  if (!(__dg && __dg.mins === mins)) rec.durationMin = (rec.durationMin || 0) + mins;
+  if (__dg) delete rec.draft;
   rec.note = '力量中断（一组没完成，热身 ' + mins + ' 分钟）';
   const __ps = D.state.pendingStretch;
   if (__ps && __ps.date === U.todayStr()) { rec.stretch = __ps; D.state.pendingStretch = null; }
@@ -6046,11 +6095,16 @@ async function init() {
   applyFontScale(); // 启动时应用字号档
   updateSyncBadge();
   const savedToken = (function () { try { return localStorage.getItem('tineng_token') || ''; } catch (e) { return ''; } })();
+  // F1（2026-10-26）：进门判据=用过没有（enteredOnce），与"配没配备份令牌"解耦——
+  // 不配备份的用户（默认形态）不该每次打开都被当首访拦在欢迎页。数据在，直接进。
+  // 有令牌仍走 enterApp 全链（含云端恢复/合并）——对抗审查修正：曾误并入 enterOffline 砍掉恢复链，已纠正
   if (savedToken) {
     TOKEN = savedToken;
     enterApp();
+  } else if (D.state.enteredOnce) {
+    enterOffline();
   } else {
-    showWelcome(); // v4.2 动线①：首开=欢迎态，令牌配置延后（先用起来，想备份时才配）
+    showWelcome(); // v4.2 动线①：真首开=欢迎态，令牌配置延后（先用起来，想备份时才配）
   }
 }
 function showWelcome() { // v4.2 动线①：欢迎态（S0 默认）——先体验后配置（lazy registration）
