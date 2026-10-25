@@ -2280,6 +2280,50 @@ check('73 M4 折叠区：存在+默认收起+范围正确（晨检/足康复/八
   if (fn !== 1) throw new Error('展开计数应 1，实得 ' + fn);
   return '折叠：存在/收起/范围/计数 ✓';
 });
+check('74 会员课：keepVip 关→vip 不可见；开→进入推荐池且详情含会员标注', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); D.state.enteredOnce = true; D.profile.keepVip = false;');
+  const off = w.eval('JSON.stringify(courseFilter("有氧", "high").map(function(c){return c.id;}))');
+  w.eval('D.profile.keepVip = true;');
+  const on = w.eval('JSON.stringify(courseFilter("有氧", "high").map(function(c){return c.id;}))');
+  if (off.indexOf('kv_aero') >= 0) throw new Error('未开会员不应见 vip 课：' + off);
+  if (on.indexOf('kv_aero') < 0) throw new Error('开会员应见 vip 课：' + on);
+  return '会员开关生效 ✓';
+});
+check('75 双节：coursePref=2 → 建议=早晚两节+openCourse 两次点击占满两个槽', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); D.state.enteredOnce = true; D.profile.coursePref = { sessions: 2 };');
+  const cs = w.eval('JSON.stringify(pickCourses("有氧", "high"))');
+  const o = JSON.parse(cs);
+  if (o.length < 2 || o[0].why.indexOf('第 1 节') < 0 || o[1].why.indexOf('第 2 节') < 0) throw new Error('双节应出早晚两节：' + cs.slice(0, 160));
+  w.eval('openCourse("k_aero_b"); openCourse("k_aero_c");');
+  const n = w.eval('D.state.todayPlan.sessions.length');
+  if (n !== 2) throw new Error('双节应 2 个 session，实得 ' + n);
+  return '双节建议+双槽 ✓';
+});
+check('76 换一换：当前课进 planLog 后重排降权', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); D.state.enteredOnce = true; openCourse("k_aero_a"); rotateCourses();');
+  const pl = w.eval('JSON.stringify(D.state.planLog)');
+  if (pl.indexOf('k_aero_a') < 0) throw new Error('换一换应把当前课写入 planLog');
+  return '轮换降权 ✓';
+});
+check('77 今天不练：三选一留痕到 todayPlan.noTrainReason', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); D.state.enteredOnce = true; skipToday("tired");');
+  const r = w.eval('D.state.todayPlan && D.state.todayPlan.noTrainReason');
+  if (r !== 'tired') throw new Error('应留痕 tired，实得 ' + r);
+  return '不练留痕 ✓';
+});
+check('78 课程详情：20 门全带 detail，建议卡渲染详情折叠', () => {
+  if (loadErr) throw loadErr;
+  const bad = w.eval('JSON.stringify((window.COURSE_LIB || COURSE_LIB).filter(function(c){ return !c.detail; }).map(function(c){ return c.id; }))');
+  if (bad !== '[]') throw new Error('缺详情：' + bad);
+  w.eval('D = defaultData(); D.state.enteredOnce = true; renderToday();');
+  const hasDetail = w.eval("document.getElementById('readinessCard').innerHTML.indexOf('这门课是什么') >= 0");
+  if (!hasDetail) throw new Error('建议卡应渲染详情折叠');
+  return '20 门详情+渲染 ✓';
+});
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);
 console.log('================ P0 jsdom 断言报告（node ' + process.version + ' · jsdom ' + require(require.resolve('jsdom/package.json', { paths: [DIR] })).version + '） ================');

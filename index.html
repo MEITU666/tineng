@@ -707,18 +707,29 @@ const CONFIG = {
    筛选与呈现职责分离：本表只存实例，建议逻辑在 adviceFor()。 */
 const COURSE_LIB = [
   // —— 力量（下肢优先，无跳跃）——
-  { id: 'k_leg_a', name: '【待填】Keep·下肢力量初级', type: '力量', dur: 20, level: 1, impact: 'none', focus: ['下肢'], url: '', kw: '臀腿入门 无跳跃', src: 'free' },
-  { id: 'k_leg_b', name: '【待填】Keep·下肢力量进阶', type: '力量', dur: 30, level: 2, impact: 'low', focus: ['下肢'], url: '', kw: '下肢力量 中级', src: 'free' },
-  { id: 'k_core_a', name: '【待填】Keep·核心入门', type: '力量', dur: 15, level: 1, impact: 'none', focus: ['核心'], url: '', kw: '核心训练 入门', src: 'free' },
-  { id: 'k_leg_c', name: '【待填】Keep·臀腿激活', type: '力量', dur: 35, level: 2, impact: 'none', focus: ['下肢'], url: '', kw: '臀部塑形 中级', src: 'free' },
+  { id: 'k_leg_a', name: '【待填】Keep·下肢力量初级', type: '力量', dur: 20, level: 1, impact: 'none', focus: ['下肢'], url: '', kw: '臀腿入门 无跳跃', src: 'free' , detail: '练臀腿基础力量——深蹲/桥式为主。做对=大腿后侧和臀部酸，膝盖不疼。膝盖不适就停。'},
+  { id: 'k_leg_b', name: '【待填】Keep·下肢力量进阶', type: '力量', dur: 30, level: 2, impact: 'low', focus: ['下肢'], url: '', kw: '下肢力量 中级', src: 'free' , detail: '下肢力量进阶——弓步/单腿为主，强度高一档。做完第二天腿部酸胀正常，关节刺痛不对。'},
+  { id: 'k_core_a', name: '【待填】Keep·核心入门', type: '力量', dur: 15, level: 1, impact: 'none', focus: ['核心'], url: '', kw: '核心训练 入门', src: 'free' , detail: '核心入门——平板/死虫类。腰不酸才对（酸了说明塌腰），做完肚子紧。'},
+  { id: 'k_leg_c', name: '【待填】Keep·臀腿激活', type: '力量', dur: 35, level: 2, impact: 'none', focus: ['下肢'], url: '', kw: '臀部塑形 中级', src: 'free' , detail: '臀腿激活——弹力带或自重，找臀部发力感。腰代偿=动作不对。'},
   // —— 有氧（低冲击为主）——
-  { id: 'k_aero_a', name: '【待填】Keep·有氧燃脂初级', type: '有氧', dur: 20, level: 1, impact: 'low', focus: ['全身'], url: '', kw: '有氧燃脂 初级', src: 'free' },
-  { id: 'k_aero_b', name: '【待填】Keep·有氧走练', type: '有氧', dur: 35, level: 1, impact: 'none', focus: ['全身'], url: '', kw: '有氧走练', src: 'free' },
-  { id: 'k_aero_c', name: '【待填】Keep·有氧中级', type: '有氧', dur: 35, level: 2, impact: 'low', focus: ['全身'], url: '', kw: '有氧 中级', src: 'free' },
+  { id: 'k_aero_a', name: '【待填】Keep·有氧燃脂初级', type: '有氧', dur: 20, level: 1, impact: 'low', focus: ['全身'], url: '', kw: '有氧燃脂 初级', src: 'free' , detail: '有氧燃脂入门——跟得上节奏就行，喘到说不出话=强度过了。'},
+  { id: 'k_aero_b', name: '【待填】Keep·有氧走练', type: '有氧', dur: 35, level: 1, impact: 'none', focus: ['全身'], url: '', kw: '有氧走练', src: 'free' , detail: '有氧走练——原地走/侧点步，冲击最低。足踝不适日的首选有氧。'},
+  { id: 'k_aero_c', name: '【待填】Keep·有氧中级', type: '有氧', dur: 35, level: 2, impact: 'low', focus: ['全身'], url: '', kw: '有氧 中级', src: 'free' , detail: '有氧中级——幅度和速度都上一档，能说话的强度边缘。'},
   // —— 拉伸/恢复 ——
-  { id: 'k_str_a', name: '【待填】Keep·全身拉伸', type: '拉伸', dur: 15, level: 1, impact: 'none', focus: ['全身'], url: '', kw: '全身拉伸 睡前', src: 'free' },
-  { id: 'k_str_b', name: '【待填】Keep·下肢拉伸', type: '拉伸', dur: 10, level: 1, impact: 'none', focus: ['下肢'], url: '', kw: '腿部拉伸', src: 'free' },
-  { id: 'k_rec_a', name: '【待填】Keep·恢复放松', type: '拉伸', dur: 20, level: 1, impact: 'none', focus: ['全身'], url: '', kw: '放松恢复', src: 'free' }
+  { id: 'k_str_a', name: '【待填】Keep·全身拉伸', type: '拉伸', dur: 15, level: 1, impact: 'none', focus: ['全身'], url: '', kw: '全身拉伸 睡前', src: 'free' , detail: '全身拉伸——睡前或练后。拉到微紧不疼，弹震是大忌。'},
+  { id: 'k_str_b', name: '【待填】Keep·下肢拉伸', type: '拉伸', dur: 10, level: 1, impact: 'none', focus: ['下肢'], url: '', kw: '腿部拉伸', src: 'free' , detail: '下肢拉伸——重点小腿/大腿后侧，徒步前后的刚需。'},
+  { id: 'k_rec_a', name: '【待填】Keep·恢复放松', type: '拉伸', dur: 20, level: 1, impact: 'none', focus: ['全身'], url: '', kw: '放松恢复', src: 'free' , detail: '恢复放松——低强度长引导，累的时候用它替代彻底躺平。'},
+  // —— 会员课（vip：主人开会员后自动进入推荐池；未开会员时隐藏不误导）——
+  { id: 'kv_leg_a', name: '【待填】Keep·HIIT下肢强化（会员）', type: '力量', dur: 30, level: 2, impact: 'low', focus: ['下肢'], url: '', kw: '下肢爆发 中级', src: 'vip', detail: '会员·HIIT 下肢——含跳跃变式，足踝主诉日会被自动排后。', note: '会员课：含少量跳跃变式，足踝不适日会被自动排后' },
+  { id: 'kv_aero_a', name: '【待填】Keep·燃脂循环（会员）', type: '有氧', dur: 35, level: 2, impact: 'low', focus: ['全身'], url: '', kw: '燃脂循环 中级', src: 'vip', detail: '会员·燃脂循环——间歇结构，比匀速累一档，RPE 会高 1-2。', note: '会员课：间歇结构，比匀速有氧累一档' },
+  { id: 'kv_str_a', name: '【待填】Keep·深度拉伸（会员）', type: '拉伸', dur: 20, level: 1, impact: 'none', focus: ['全身'], url: '', kw: '深度拉伸 全身', src: 'vip', detail: '会员·深度拉伸——比免费版更长时间更细引导，适合睡前。', note: '会员课：比免费拉伸更长时间更细的引导' },
+  { id: 'kv_core_a', name: '【待填】Keep·核心进阶（会员）', type: '力量', dur: 20, level: 2, impact: 'none', focus: ['核心'], url: '', kw: '腹肌撕裂者 进阶', src: 'vip', note: '会员课：核心专项，力量日加练可选', detail: '会员·核心进阶——力量日加练选项，别在降档周加。' },
+  { id: 'k_leg_d', name: '【待填】Keep·腿部激活短课', type: '力量', dur: 10, level: 1, impact: 'none', focus: ['下肢'], url: '', kw: '腿部激活 10分钟', src: 'free', detail: '10 分钟短课——时间紧的日子凑一节，比不练强。' },
+  { id: 'k_core_b', name: '【待填】Keep·平板专项', type: '力量', dur: 10, level: 2, impact: 'none', focus: ['核心'], url: '', kw: '平板支撑 训练', src: 'free', detail: '平板变式串——腰塌=停，宁短勿歪。' },
+  { id: 'k_aero_d', name: '【待填】Keep·低冲击有氧', type: '有氧', dur: 15, level: 1, impact: 'none', focus: ['全身'], url: '', kw: '低冲击有氧', src: 'free', detail: '无跳跃有氧——足踝不适日的备选。' },
+  { id: 'k_str_c', name: '【待填】Keep·晨间唤醒拉伸', type: '拉伸', dur: 10, level: 1, impact: 'none', focus: ['全身'], url: '', kw: '晨间拉伸 唤醒', src: 'free', detail: '起床后 10 分钟——配合"脚先别落地"的晨间流程。' },
+  { id: 'kv_aero_b', name: '【待填】Keep·走步有氧（会员）', type: '有氧', dur: 30, level: 1, impact: 'none', focus: ['全身'], url: '', kw: '有氧走步 课程', src: 'vip', detail: '会员·30 分钟走练——长时日的室内替代。' },
+  { id: 'kv_leg_b', name: '【待填】Keep·臀腿雕塑（会员）', type: '力量', dur: 40, level: 2, impact: 'none', focus: ['下肢'], url: '', kw: '臀部雕刻 中高阶', src: 'vip', detail: '会员·40 分钟完整下肢课——力量日的完整版选择。' }
 ];
 
 /* ============ M3 建议引擎（职责：给依据与选项，不替用户关门）============
@@ -728,9 +739,10 @@ function keepSearchUrl(kw) { return 'https://www.gotokeep.com/search?key=' + enc
 
 function impactRank(x) { const r = { none: 0, low: 1, high: 2 }; return r[x] != null ? r[x] : 2; }
 
-function courseFilter(type, maxImpact) { // 按约束查表：类型+冲击性上限；planLog 近3天已推过的降权
+function courseFilter(type, maxImpact) { // 按约束查表：类型+冲击性上限；planLog 近3天已推过的降权；vip 课按会员开关放行（未开会员隐藏不误导）
   const recent = (D.state.planLog || []).slice(-3).reduce((a, d) => a.concat(d.courseIds || []), []);
-  return COURSE_LIB.filter((c) => c.type === type && c.src === 'free')
+  const vipOk = !!(D.profile.keepVip);
+  return COURSE_LIB.filter((c) => c.type === type && (c.src !== 'vip' || vipOk))
     .map((c) => Object.assign({}, c, { penal: recent.indexOf(c.id) >= 0 ? 1 : 0, impactOk: impactRank(c.impact) <= impactRank(maxImpact) }));
 }
 
@@ -762,13 +774,21 @@ function adviceFor(dateStr) { // 建议主函数：返回 {mode, type, reason, c
   if (rpeStreak >= 2 || painStreak >= 2) return { mode: 'rest', type: '拉伸', reason: notes.join('；'), courses: pickCourses('拉伸', maxImpact), filterNote: '' };
   return { mode: 'normal', type: dayType, reason: notes.join('；') || '按本周计划：' + dayType + '日', courses: pickCourses(dayType, maxImpact), filterNote: ankle ? '已排除跳跃类' : '' };
 }
-function pickCourses(type, maxImpact) { // 2-3 门并列+各自理由；3 天内推过的排后；不足补搜索词
-  const pref = (D.state.coursePref && D.state.coursePref.sessions) || 1;
+function pickCourses(type, maxImpact) { // 建议选项：单节=3 门并列；双节=第 1、2 门为"早晚各一节"组合（20 分钟优先）；3 天内推过的排后
+  const pref = (D.profile.coursePref && D.profile.coursePref.sessions) || 1;
   const durTarget = pref === 2 ? 20 : 35;
   const all = courseFilter(type, maxImpact);
   const ok = all.filter((c) => c.impactOk);
   const ranked = ok.sort((a, b) => (a.penal - b.penal) || (Math.abs(a.dur - durTarget) - Math.abs(b.dur - durTarget)));
-  return ranked.slice(0, 3).map((c) => ({ id: c.id, name: c.name, dur: c.dur, kw: c.kw, url: c.url, why: (c.level <= 1 ? '低强度·' : '中强度·') + c.dur + ' 分钟' + (c.penal ? '（近3天推过）' : '') }));
+  if (pref === 2) { // 双节：给"上午 20 分 + 下午/晚 20 分"两门（不同动作避免重复）
+    const first = ranked[0];
+    const second = ranked.slice(1).find((c) => c.id !== (first && first.id)) || ranked[1];
+    const out = [];
+    if (first) out.push({ id: first.id, name: first.name, dur: first.dur, kw: first.kw, url: first.url, detail: first.detail || '', why: '第 1 节（早/练前）· ' + first.dur + ' 分钟' });
+    if (second) out.push({ id: second.id, name: second.name, dur: second.dur, kw: second.kw, url: second.url, detail: second.detail || '', why: '第 2 节（晚/练后）· ' + second.dur + ' 分钟' });
+    return out.concat(ranked.slice(0, 3).map((c) => ({ id: c.id, name: c.name, dur: c.dur, kw: c.kw, url: c.url, detail: c.detail || '', why: '备选· ' + (c.level <= 1 ? '低强度·' : '中强度·') + c.dur + ' 分钟' + (c.penal ? '（近3天推过）' : '') })));
+  }
+  return ranked.slice(0, 3).map((c) => ({ id: c.id, name: c.name, dur: c.dur, kw: c.kw, url: c.url, detail: c.detail || '', why: (c.level <= 1 ? '低强度·' : '中强度·') + c.dur + ' 分钟' + (c.penal ? '（近3天推过）' : '') }));
 }
 
 function adviceCardHtml() { // 建议卡：决策卡内的"今天怎么练"区——选项并列+依据+留痕按钮
@@ -786,15 +806,40 @@ function adviceCardHtml() { // 建议卡：决策卡内的"今天怎么练"区�
   return '<div class="sub" style="margin-top:8px">' + U.esc(a.reason) + (a.filterNote ? '（' + U.esc(a.filterNote) + '）' : '') + '</div>'
     + cs.map((c, i) => '<div class="row-between" style="padding:7px 0;border-bottom:0.5px solid var(--line)">'
       + '<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px">' + (i + 1) + '. ' + U.esc(c.name) + '</div>'
-      + '<div class="sub">' + U.esc(c.why) + '</div></div>'
+      + '<div class="sub">' + U.esc(c.why) + '</div>'
+      + (c.detail ? '<details class="fold"><summary>这门课是什么</summary><div class="fold-body sub">' + U.esc(c.detail) + '</div></details>' : '') + '</div>'
       + '<button class="ci-btn" style="flex-shrink:0;min-height:44px" onclick="openCourse(\'' + c.id + '\')">去 Keep 练 ›</button></div>').join('')
-    + '<div class="sub" style="margin-top:4px">练完回记录卡记一笔（时长/累度/疼痛）；想换类型点下面的按钮。</div>';
+    + '<div class="sub" style="margin-top:4px">练完回记录卡记一笔（时长/累度/疼痛）。'
+    + '单双节：<button class="ci-btn" style="min-height:44px;padding:4px 8px" onclick="setCoursePref(1)">' + ((D.state.coursePref && D.state.coursePref.sessions) === 2 ? '单节 35 分' : '单节 35 分 ✓') + '</button>'
+    + '<button class="ci-btn" style="min-height:44px;padding:4px 8px" onclick="setCoursePref(2)">' + ((D.state.coursePref && D.state.coursePref.sessions) === 2 ? '双节 2×20 分 ✓' : '双节 2×20 分') + '</button></div>'
+    + '<details class="fold" style="margin-top:4px"><summary>换一批 / 换类型 / 今天不练</summary><div class="fold-body">'
+    + '<div class="chips" style="margin-bottom:6px">'
+    + '<button class="chip" onclick="rotateCourses()">换一换</button>'
+    + ['力量', '有氧', '拉伸'].filter(function (t) { return t !== adviceFor().type; }).map(function (t) { return '<button class="chip" onclick="switchType(\'' + t + '\')">' + t + '</button>'; }).join('')
+    + '</div>'
+    + '<div class="chips">'
+    + '<button class="chip" onclick="skipToday(\'tired\')">太累</button>'
+    + '<button class="chip" onclick="skipToday(\'no_time\')">没时间</button>'
+    + '<button class="chip" onclick="skipToday(\'change_type\')">就想换类型（已换）</button>'
+    + '</div>'
+    + '<div class="sub" style="margin-top:4px">偏离会如实留痕（周复盘可见）——不是扣分，是让下周的建议更贴你。</div>'
+    + '</div></details>';
 }
-function openCourse(id) { // 打开课程（深链或搜索兜底）+ 留痕（planLog+todayPlan.clicked）
+function openCourse(id) { // 打开课程（深链或搜索兜底）+ 留痕；双节模式下第 1/2 次点击分别占 session 槽
   const c = COURSE_LIB.find((x) => x.id === id);
   if (!c) return;
   const today = U.todayStr();
-  D.state.todayPlan = { date: today, type: c.type, sessions: [{ dur: c.dur, courseId: id, done: false }], clicked: Date.now(), deviation: null, noTrainReason: null };
+  const pref2 = (D.profile.coursePref && D.profile.coursePref.sessions) === 2;
+  let sessions;
+  if (pref2) {
+    const prev = (D.state.todayPlan && D.state.todayPlan.date === today) ? D.state.todayPlan.sessions : [];
+    sessions = prev.slice();
+    const slot = sessions.findIndex((x) => !x.done && x.courseId !== id);
+    if (slot >= 0 && sessions.length >= 2) sessions[slot] = { dur: c.dur, courseId: id, done: false }; // 替换未完成槽
+    else if (sessions.length < 2) sessions.push({ dur: c.dur, courseId: id, done: false });
+    else sessions[0] = { dur: c.dur, courseId: id, done: false };
+  } else sessions = [{ dur: c.dur, courseId: id, done: false }];
+  D.state.todayPlan = { date: today, type: c.type, sessions: sessions, clicked: Date.now(), deviation: null, noTrainReason: null };
   const lg = (D.state.planLog || []).filter((x) => x.date !== today);
   const last = lg.length && lg[lg.length - 1].date === today ? lg[lg.length - 1] : { date: today, courseIds: [] };
   if (lg.length && lg[lg.length - 1].date === today) lg.pop();
@@ -804,6 +849,44 @@ function openCourse(id) { // 打开课程（深链或搜索兜底）+ 留痕（p
   D.state.updatedAt = Date.now();
   persist();
   if (c.url) window.open(c.url, '_blank'); else window.open(keepSearchUrl(c.kw), '_blank');
+}
+function setCoursePref(n) { // 单双节偏好：1=单节35 / 2=双节2×20——写入 profile.coursePref，下一天生效（今天已渲染不变，刷新即重排）
+  D.profile.coursePref = { sessions: n };
+  D.profile.updatedAt = Date.now();
+  persist();
+  renderToday();
+  toast(n === 2 ? '双节模式：早晚各 20 分钟' : '单节模式：一次 35 分钟');
+}
+function rotateCourses() { // 换一换：把当前已推的 3 门标记为"刚推过"再重排——实现为写入 planLog 今日记录，自然触发降权
+  const plan = D.state.todayPlan;
+  if (plan && plan.date === U.todayStr() && plan.sessions) {
+    const lg = (D.state.planLog || []).filter(function (x) { return x.date !== U.todayStr(); });
+    lg.push({ date: U.todayStr(), courseIds: plan.sessions.map(function (x) { return x.courseId; }).filter(Boolean) });
+    D.state.planLog = lg.slice(-7);
+    D.state.updatedAt = Date.now();
+    persist();
+  }
+  renderToday();
+  toast('已换一批');
+}
+function switchType(t) { // 换类型：按新类型重筛并覆盖今日计划（同日可反复，留痕 deviation=change_type）
+  const pool = courseFilter(t, 'high').filter(function (c) { return c.impactOk; });
+  const c = pool.sort(function (a, b) { return a.penal - b.penal; })[0];
+  const today = U.todayStr();
+  D.state.todayPlan = { date: today, type: t, sessions: [{ dur: (c && c.dur) || 35, courseId: (c && c.id) || null, done: false }], clicked: null, deviation: 'change_type', noTrainReason: null };
+  D.state.updatedAt = Date.now();
+  persist();
+  renderToday();
+  toast('今天改练' + t + (c ? '：' + c.name : '（目录暂缺，去 Keep 搜索）'));
+}
+function skipToday(reason) { // 今天不练：原因三选一留痕（太累/没时间/已换类型）——身体原因不在此列，走晨检
+  const today = U.todayStr();
+  if (!D.state.todayPlan || D.state.todayPlan.date !== today) D.state.todayPlan = { date: today, type: null, sessions: [], clicked: null, deviation: null, noTrainReason: reason };
+  else D.state.todayPlan.noTrainReason = reason;
+  D.state.updatedAt = Date.now();
+  persist();
+  renderToday();
+  toast(({ tired: '记下了：今天太累——休息也是训练的一部分', no_time: '记下了：今天没时间——明天见', change_type: '已留痕' })[reason] || '已留痕');
 }
 function overrideStop() { // 红线覆盖：只给低风险选项+留痕（不惩罚，周复盘可见）
   const today = U.todayStr();
@@ -1110,7 +1193,7 @@ function discardDraftAndClose() { // F2a：用户明确选"不留记录"——�
   closeModal();
   renderToday();
 }
-window.APP_VER = '4.7.0'; // 保命批（2026-10-26）：F1 进门判据解耦（enteredOnce，用过即直达不再每次欢迎页） · F2a 白练保护（训练结束先落草稿再清快照——报告确认窗口锁屏/回收不再丢训练；中断/恢复课路径防双计） · F3 SW 健康数据零缓存（api.github.com 改 networkOnly，清库即清净） · 前批 v4.6.3 清理solo/cooldown死分支（solo已废弃） · 前批 v4.6.2 有氧日也走三阶段（激活→主计时→收尾，此前有氧练完没有拉伸） · 前批 v4.6.1 闭环批（IXD P1全清+术语统一+行话改人话+K28去标识化+手动完成计数修复） · 前批 v4.6.0 拉伸并入每日课（三阶段/恢复课/起床档/规则引擎/当天冻结）· 前批 v4.5.2：数据口径4修+训练快照持久化+草稿保护+chip回填+按钮收敛+中断如实记录+字号三档+深色补齐+死代码清理+合规文案 · 前批 v4.5.1 隐私修复：出厂默认清空身高/体重/城市/伤史——源码进公开仓，个人数据仅存本机；检测来源默认去城市化 // v4.5.0：身体照顾（久坐肩颈/小腿胀硬/足底筋膜释放+晨检联动+练前热身/练后放松明确化）
+window.APP_VER = '4.8.0'; // 保命批（2026-10-26）：F1 进门判据解耦（enteredOnce，用过即直达不再每次欢迎页） · F2a 白练保护（训练结束先落草稿再清快照——报告确认窗口锁屏/回收不再丢训练；中断/恢复课路径防双计） · F3 SW 健康数据零缓存（api.github.com 改 networkOnly，清库即清净） · 前批 v4.6.3 清理solo/cooldown死分支（solo已废弃） · 前批 v4.6.2 有氧日也走三阶段（激活→主计时→收尾，此前有氧练完没有拉伸） · 前批 v4.6.1 闭环批（IXD P1全清+术语统一+行话改人话+K28去标识化+手动完成计数修复） · 前批 v4.6.0 拉伸并入每日课（三阶段/恢复课/起床档/规则引擎/当天冻结）· 前批 v4.5.2：数据口径4修+训练快照持久化+草稿保护+chip回填+按钮收敛+中断如实记录+字号三档+深色补齐+死代码清理+合规文案 · 前批 v4.5.1 隐私修复：出厂默认清空身高/体重/城市/伤史——源码进公开仓，个人数据仅存本机；检测来源默认去城市化 // v4.5.0：身体照顾（久坐肩颈/小腿胀硬/足底筋膜释放+晨检联动+练前热身/练后放松明确化）
 window.addEventListener('error', function (e) { try { if (e && e.message) toast('出了个小问题：' + String(e.message).slice(0, 60)); } catch (err) {} }); // v4.1 审查修复 B4：全局异常不再静默
 window.addEventListener('unhandledrejection', function (e) { try { const r = e && e.reason; toast('后台出了个小问题：' + String(r && r.message || r || '未知').slice(0, 60)); } catch (err) {} });
 async function checkAppUpdate() { // v4.1：一键清 SW/缓存并重载——根治"PWA 更新后吃旧缓存"（原需手动强刷）
@@ -5038,6 +5121,7 @@ function renderProfile() {
     + '<div class="field row-between"><label>可爬楼梯（1-10楼，电梯下楼）</label><label class="switch"><input type="checkbox" id="pStairs"' + (p.stairs ? ' checked' : '') + '><span class="sl"></span></label></div>'
     + '<div class="field"><label>装备</label><input id="pGear" value="' + U.esc(p.gear) + '"></div>'
     + '<div class="field"><label>伤病描述（状态变化请更新——这里的描述是训练建议的依据）</label><textarea id="pInjury" rows="2">' + U.esc(p.injury) + '</textarea></div>'
+    + '<div class="field row-between"><label>Keep 会员（开了之后会员课进入推荐池）</label><label class="switch"><input type="checkbox" id="pKeepVip"' + (p.keepVip ? ' checked' : '') + '><span class="sl"></span></label></div>'
     + '<div class="field"><label>目标时间窗（可留空）</label><input id="pTarget" value="' + U.esc(p.targetWindow || '') + '" placeholder="如：2027年6月前完成转山"></div>'
     + '<div class="field"><label>静息心率基线（手动修改后自动校准将关闭）</label><input id="pRhr" type="number" inputmode="numeric" value="' + (p.rhrBaseline != null ? p.rhrBaseline : 60) + '"></div>'
     + '<div class="field"><label>HRV 基线（毫秒）</label><input id="pHrv" type="number" inputmode="numeric" value="' + (p.hrvBaseline != null ? p.hrvBaseline : 50) + '"></div>'
@@ -5145,6 +5229,7 @@ function saveProfileEdit() {
   p.stairs = document.getElementById('pStairs').checked;
   p.gear = document.getElementById('pGear').value.trim();
   p.injury = document.getElementById('pInjury').value.trim() || CONFIG.copy.injuryPreset;
+  p.keepVip = document.getElementById('pKeepVip') ? document.getElementById('pKeepVip').checked : !!p.keepVip;
   p.targetWindow = document.getElementById('pTarget').value.trim() || null;
   const r = U.num(document.getElementById('pRhr').value);
   if (r != null && r !== p.rhrBaseline) {
