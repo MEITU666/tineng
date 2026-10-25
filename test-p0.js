@@ -1733,13 +1733,16 @@ check('㉙ 安全模型简化（v4.1 审查修复）：令牌本机+公开仓零
 
 
 /* ---------- 2026-10-20 体检修复：结构与口径断言 ---------- */
-check('㊶ 今天页块序：决策卡→安排卡→记录卡，首屏主按钮在位', () => {
+check('㊶ 今天页块序：决策卡→安排卡→记录卡（2026-10-26 转型批：主按钮改建议卡选项，断言同步）', () => {
   if (loadErr) throw loadErr;
   w.eval('D = defaultData(); D.state.profileDone = true; D.state.tour7 = null; renderToday();');
   const ids = w.eval("Array.from(document.querySelectorAll('#todayBody > .card')).map(function(c){return c.id||''})");
   if (!(ids.indexOf('readinessCard') >= 0 && ids.indexOf('readinessCard') < ids.indexOf('planCard') && ids.indexOf('planCard') < ids.indexOf('recordCard'))) throw new Error('块序不对：' + ids.join(','));
-  if (!w.eval("!!document.getElementById('btnStartToday')")) throw new Error('缺首屏主按钮');
-  return '决策→安排→记录 ✓';
+  // 转型批新行为：跟练 CTA 撤下（去 Keep 练），建议卡必须在决策卡内（课程选项或降级文案）
+  if (w.eval("!!document.getElementById('btnStartToday')")) throw new Error('跟练主按钮应已撤下（转型批）');
+  const rc = w.eval("document.getElementById('readinessCard').innerHTML");
+  if (rc.indexOf('去 Keep 练') < 0 && rc.indexOf('课程目录待整理') < 0 && rc.indexOf('快走/慢骑') < 0) throw new Error('决策卡缺建议卡内容');
+  return '决策(含建议)→安排→记录 ✓';
 });
 check('㊷ 每日包只渲染一次（恢复档）', () => {
   if (loadErr) throw loadErr;
@@ -1862,10 +1865,13 @@ check('52 触控目标：源码无 min-height:2Xpx 破口，决策卡唯一主�
   if (ckW + 2 * ckIn < 44 || ckH + 2 * ckIn < 44) throw new Error('勾选圈热区不足：' + (ckW + 2 * ckIn) + 'px');
   if (loadErr) throw loadErr;
   w.eval('D = defaultData(); D.state.profileDone = true; D.state.tour7 = null; renderToday();');
+  // 2026-10-26 转型批：决策卡不再渲染跟练主按钮（选项并列在建议卡里），唯一主按钮断言改为"不得有主按钮+建议选项可用"
   const n = w.eval("document.querySelectorAll('#readinessCard .btn-primary').length");
-  if (n !== 1) throw new Error('决策卡主按钮数 ' + n);
+  if (n !== 0) throw new Error('决策卡不应再渲染主按钮（转型批），实得 ' + n);
+  const opts = w.eval("document.querySelectorAll('#readinessCard .ci-btn').length");
+  if (opts < 1) throw new Error('建议卡课程选项缺失');
   if (w.eval('startCta("ok").kind') !== 'strength' && w.eval('startCta("ok").kind') !== 'cardio' && w.eval('startCta("ok").kind') !== 'rest') throw new Error('startCta 正常档分支异常');
-  return '44px + 唯一主按钮 ✓';
+  return '44px + 跟练按钮已撤+建议选项在位 ✓';
 });
 
 check('53 todayLevelInfo 不跨次累积理由，颜色 token 四处齐全', () => {
@@ -2161,10 +2167,12 @@ check('69 F3 SW 健康数据零缓存：api.github.com 走 networkOnly（源码�
   if (src.indexOf('isWhitelistApi) { e.respondWith(networkOnly(req))') < 0) throw new Error('api 分支未走 networkOnly');
   if (/isPage \|\| isWhitelistApi\)\s*\{\s*e\.respondWith\(networkFirst/.test(src)) throw new Error('api 仍在 networkFirst 名单');
   if (src.indexOf("c.put(req, res.clone())") >= 0 && /networkOnly[\s\S]*c\.put/.test(src.split('async function networkOnly')[1].split('}')[0])) throw new Error('networkOnly 内出现缓存写入');
-  // 行为级：版本联动（CACHE bump 是 SW 更新的唯一驱动）
-  if (src.indexOf("tineng-cache-v27") < 0) throw new Error('CACHE 应已 bump 到 v27');
+  // 行为级：版本联动（CACHE bump 是 SW 更新的唯一驱动）——2026-10-26 改为代际比较，不再硬编码具体版本号（v27=v4.6.4 / v28=v4.7.0）
+  const cacheNum = +(src.match(/tineng-cache-v(\d+)/) || [])[1];
+  if (!(cacheNum >= 27)) throw new Error('CACHE 代际应 ≥v27（v27=F3 修复起点），实得 v' + cacheNum);
   const idxSrc = fs.readFileSync(path.join(DIR, 'index.html'), 'utf8');
-  if (idxSrc.indexOf("APP_VER = '4.6.4'") < 0) throw new Error('APP_VER 应已 bump 到 4.6.4');
+  const verNum = idxSrc.match(/APP_VER = '(\d+)\.(\d+)\.(\d+)'/);
+  if (!verNum || !(+verNum[1] > 4 || (+verNum[1] === 4 && +verNum[2] >= 7))) throw new Error('APP_VER 应 ≥4.7.0，实得 ' + (verNum && verNum[0]));
   return 'SW 隐私：networkOnly 隔离 + v27 缓存代际 ✓';
 });
 check('70 M2 转型六键：出厂默认/类型防线/planLog滚动7天/lastOpen日活写入', () => {
@@ -2187,6 +2195,90 @@ check('70 M2 转型六键：出厂默认/类型防线/planLog滚动7天/lastOpen
   const lo = w.eval('D.state.lastOpen ? D.state.lastOpen.date : null');
   if (lo !== w.eval('U.todayStr()')) throw new Error('lastOpen 应写今日，实得 ' + lo);
   return '六键：出厂/防线/滚动/日活 ✓';
+});
+check('71 M3 建议引擎：正常推课/红线停训+可覆盖/足踝过滤/3天不重推/openCourse留痕', () => {
+  if (loadErr) throw loadErr;
+  // ① 正常日：推 2-3 门并列（周模板默认周一=有氧）
+  w.eval('D = defaultData(); D.state.enteredOnce = true;');
+  const a1 = w.eval('JSON.stringify(adviceFor("2026-10-26"))'); // 10-26 是周一=有氧日
+  const o1 = JSON.parse(a1);
+  if (o1.mode !== 'normal' || o1.type !== '有氧') throw new Error('周一应有氧建议，实得 ' + a1.slice(0, 120));
+  if (o1.courses.length < 2) throw new Error('应并列 ≥2 门，实得 ' + o1.courses.length);
+  // ② 红线：stop 形态+原因+不留课程（可覆盖在 UI 层）
+  w.eval('D.daily.push({ date: U.todayStr(), type: "无", chk: { out: "stop", parts: ["腰"], feels: ["无法承重"] }, createdAt: Date.now() });');
+  const a2 = w.eval('JSON.stringify(adviceFor(U.todayStr()))');
+  const o2 = JSON.parse(a2);
+  if (o2.mode !== 'stop' || o2.courses.length !== 0) throw new Error('红线应 stop+零课程，实得 ' + a2.slice(0, 120));
+  w.eval('D = defaultData(); D.state.enteredOnce = true;');
+  // ③ 足踝主诉：低冲击过滤（k_leg_b impact=low 应保留、无 high）
+  w.eval('D.daily.push({ date: U.todayStr(), type: "无", chk: { out: "ok", parts: ["右足底"], feels: ["酸胀"] }, createdAt: Date.now() });');
+  const a3 = w.eval('JSON.stringify(adviceFor(U.todayStr()))');
+  if (a3.indexOf('排后') < 0 && a3.indexOf('排除') < 0) throw new Error('足踝主诉应出现过滤说明：' + a3.slice(0, 120));
+  // ④ 3 天不重推：planLog 塞掉全部有氧课 → 建议降级或剩 penal 课程
+  w.eval(`(function(){ D = defaultData(); D.state.enteredOnce = true;
+    D.state.planLog = [{ date: U.addDays(U.todayStr(), -1), courseIds: COURSE_LIB.filter(c=>c.type==="有氧").map(c=>c.id) }];
+  })()`);
+  const a4 = w.eval('JSON.stringify(adviceFor(U.todayStr()))');
+  const o4 = JSON.parse(a4);
+  if (o4.mode === 'normal' && o4.courses.length && o4.courses.every((c) => c.why.indexOf('近3天') < 0)) throw new Error('planLog 降权未生效：' + a4.slice(0, 160));
+  // ⑤ openCourse 留痕：todayPlan+planLog 双写
+  w.eval('D = defaultData(); D.state.enteredOnce = true; openCourse("k_aero_a");');
+  const tp = w.eval('JSON.stringify(D.state.todayPlan || {})');
+  if (tp.indexOf('k_aero_a') < 0 || tp.indexOf('clicked') < 0) throw new Error('todayPlan 留痕缺失：' + tp.slice(0, 120));
+  const pl = w.eval('JSON.stringify(D.state.planLog)');
+  if (pl.indexOf('k_aero_a') < 0) throw new Error('planLog 留痕缺失');
+  return '建议引擎五链路 ✓';
+});
+check('72 M5 复盘三数：按建议完成/偏离分布/RPE分布（行为断言）', () => {
+  if (loadErr) throw loadErr;
+  w.eval(`(function(){
+    D = defaultData(); D.state.enteredOnce = true;
+    // 造 3 天：昨天按建议练了（planLog 有+daily 有力量 RPE5）、前天没按（planLog 有+daily 无）、大前天 RPE10 无 plan
+    const y = U.todayStr(), y2 = U.addDays(U.todayStr(), -1), y3 = U.addDays(U.todayStr(), -2), y4 = U.addDays(U.todayStr(), -3);
+    D.state.planLog = [
+      { date: y2, courseIds: ['k_leg_a'] },
+      { date: y3, courseIds: ['k_aero_a'] }
+    ];
+    D.daily.push({ date: y2, type: '力量', rpe: 5, durationMin: 20, pain: '无', mood: '好', createdAt: Date.now(), updatedAt: Date.now() });
+    D.daily.push({ date: y3, type: '无', deviation: 'no_time', durationMin: 0, createdAt: Date.now(), updatedAt: Date.now() });
+    D.daily.push({ date: y4, type: '有氧', rpe: 10, durationMin: 30, pain: '无', mood: '好', createdAt: Date.now(), updatedAt: Date.now() });
+  })()`);
+  const line = w.eval('m5ReviewLine()');
+  if (line.indexOf('按建议练 1 / 建议了 2 天') < 0) throw new Error('执行数不对：' + line);
+  if (line.indexOf('没时间') < 0) throw new Error('偏离原因缺：' + line);
+  if (line.indexOf('轻 1') < 0 || line.indexOf('重 1') < 0) throw new Error('RPE 分布不对：' + line);
+  return '三数 ✓ ' + line.slice(0, 80);
+});
+check('73 M4 折叠区：存在+默认收起+范围正确（晨检/足康复/八段锦在外，吃账/周期/复盘/睡眠在内）', () => {
+  if (loadErr) throw loadErr;
+  w.eval('D = defaultData(); D.state.profileDone = true; D.state.enteredOnce = true; renderToday();');
+  const st = w.eval('(function(){ const d = document.getElementById("moreToday"); return d ? (d.open ? "open" : "closed") : "missing"; })()');
+  if (st !== 'closed') throw new Error('折叠区应存在且默认收起，实得 ' + st);
+  // 范围验证：折叠 details 内含吃账与周期卡；足康复开关与八段锦开关在 details 之外（比较 DOM 位置）
+  const pos = w.eval(`(function(){
+    const mt = document.getElementById('moreToday');
+    if (!mt) return 'no-mt';
+    const inFold = (sel) => !!mt.querySelector(sel) || !!mt.contains(document.querySelector(sel));
+    const swFoot = document.getElementById('swFoot');
+    const swBdj = document.getElementById('swBdj');
+    return JSON.stringify({
+      eatIn: !!mt.textContent.match('今日吃账'),
+      cycleIn: !!mt.textContent.match('冬训期') || !!mt.textContent.match('周期进度'),
+      footOut: !mt.contains(swFoot),
+      bdjOut: !mt.contains(swBdj)
+    });
+  })()`);
+  const p = JSON.parse(pos);
+  if (!p.eatIn || !p.cycleIn) throw new Error('吃账/周期应在折叠区内：' + pos);
+  if (!p.footOut || !p.bdjOut) throw new Error('足康复/八段锦打卡卡必须留在折叠区外（每日动作）：' + pos);
+  // 晨检入口在外面：chkBar（晨检三步）不在 details 内
+  const chkOut = w.eval("(function(){ const mt=document.getElementById('moreToday'); return mt.contains(document.querySelector('#chkSel')) || mt.textContent.indexOf('第 1 步') >= 0; })()");
+  if (chkOut) throw new Error('晨检被折叠——动线错误');
+  // folds 计数：展开一次 → D.state.folds.n=1
+  w.eval('(function(){ const mt = document.getElementById("moreToday"); mt.open = true; mt.dispatchEvent(new Event("toggle")); })()');
+  const fn = w.eval('D.state.folds ? D.state.folds.n : -1');
+  if (fn !== 1) throw new Error('展开计数应 1，实得 ' + fn);
+  return '折叠：存在/收起/范围/计数 ✓';
 });
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);

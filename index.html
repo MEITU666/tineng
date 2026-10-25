@@ -701,6 +701,119 @@ const CONFIG = {
 
   recovery: { L5:{over:0,sleepPct:85}, L4:{over:0,sleepPct:70}, L3:{over:1,sleepPct:70}, L2:{sleepPct:40} }
 };
+/* ============ M1 课程目录（2026-10-26 转型批）：Keep 外包执行，产品只做决策与路由 ============
+   字段：id/名称/类型(力量|有氧|拉伸|康复)/时长(分钟)/强度档1-3(我们的口径，非Keep K值)/冲击性(none|low|high)/focus/链接(可空)/kw=Keep搜索词(必填)/src(free|vip)
+   课程名当前为占位（待主人按规格单收藏后填真名+链接）；kw 模式已可独立工作：无链接时显示搜索词兜底。
+   筛选与呈现职责分离：本表只存实例，建议逻辑在 adviceFor()。 */
+const COURSE_LIB = [
+  // —— 力量（下肢优先，无跳跃）——
+  { id: 'k_leg_a', name: '【待填】Keep·下肢力量初级', type: '力量', dur: 20, level: 1, impact: 'none', focus: ['下肢'], url: '', kw: '臀腿入门 无跳跃', src: 'free' },
+  { id: 'k_leg_b', name: '【待填】Keep·下肢力量进阶', type: '力量', dur: 30, level: 2, impact: 'low', focus: ['下肢'], url: '', kw: '下肢力量 中级', src: 'free' },
+  { id: 'k_core_a', name: '【待填】Keep·核心入门', type: '力量', dur: 15, level: 1, impact: 'none', focus: ['核心'], url: '', kw: '核心训练 入门', src: 'free' },
+  { id: 'k_leg_c', name: '【待填】Keep·臀腿激活', type: '力量', dur: 35, level: 2, impact: 'none', focus: ['下肢'], url: '', kw: '臀部塑形 中级', src: 'free' },
+  // —— 有氧（低冲击为主）——
+  { id: 'k_aero_a', name: '【待填】Keep·有氧燃脂初级', type: '有氧', dur: 20, level: 1, impact: 'low', focus: ['全身'], url: '', kw: '有氧燃脂 初级', src: 'free' },
+  { id: 'k_aero_b', name: '【待填】Keep·有氧走练', type: '有氧', dur: 35, level: 1, impact: 'none', focus: ['全身'], url: '', kw: '有氧走练', src: 'free' },
+  { id: 'k_aero_c', name: '【待填】Keep·有氧中级', type: '有氧', dur: 35, level: 2, impact: 'low', focus: ['全身'], url: '', kw: '有氧 中级', src: 'free' },
+  // —— 拉伸/恢复 ——
+  { id: 'k_str_a', name: '【待填】Keep·全身拉伸', type: '拉伸', dur: 15, level: 1, impact: 'none', focus: ['全身'], url: '', kw: '全身拉伸 睡前', src: 'free' },
+  { id: 'k_str_b', name: '【待填】Keep·下肢拉伸', type: '拉伸', dur: 10, level: 1, impact: 'none', focus: ['下肢'], url: '', kw: '腿部拉伸', src: 'free' },
+  { id: 'k_rec_a', name: '【待填】Keep·恢复放松', type: '拉伸', dur: 20, level: 1, impact: 'none', focus: ['全身'], url: '', kw: '放松恢复', src: 'free' }
+];
+
+/* ============ M3 建议引擎（职责：给依据与选项，不替用户关门）============
+   输入=晨检(chk)+readinessEval(level/reasons)+训练反馈连续性+周模板；输出=形态+课程选项(2-3门并列)+理由
+   安全规则只"默认排序+明示原因"，用户可看全列表/自行覆盖（override 留痕周复盘可见） */
+function keepSearchUrl(kw) { return 'https://www.gotokeep.com/search?key=' + encodeURIComponent(kw); } // Keep 网页搜索兜底（深链待主人真机点验后替换）
+
+function impactRank(x) { const r = { none: 0, low: 1, high: 2 }; return r[x] != null ? r[x] : 2; }
+
+function courseFilter(type, maxImpact) { // 按约束查表：类型+冲击性上限；planLog 近3天已推过的降权
+  const recent = (D.state.planLog || []).slice(-3).reduce((a, d) => a.concat(d.courseIds || []), []);
+  return COURSE_LIB.filter((c) => c.type === type && c.src === 'free')
+    .map((c) => Object.assign({}, c, { penal: recent.indexOf(c.id) >= 0 ? 1 : 0, impactOk: impactRank(c.impact) <= impactRank(maxImpact) }));
+}
+
+function adviceFor(dateStr) { // 建议主函数：返回 {mode, type, reason, courses[], filterNote}——mode: normal|rest|long|stop
+  dateStr = dateStr || U.todayStr();
+  const d = new Date(dateStr.replace(/-/g, '/'));
+  const dayType = effTemplate()[d.getDay()];
+  const chk = todayChk();
+  const parts = (chk && chk.parts) || [];
+  const stopped = (chk && chk.out === 'stop') || todayLevelInfo().level === 'red'; // 红线=停训建议（可覆盖）
+  const ankle = parts.some((p) => p && (p.indexOf('足') >= 0 || p.indexOf('踝') >= 0));
+  // 连续2次练后疼痛（S3）与连续2日RPE>=9（S4）——只看 daily，口径与 K7 一致
+  let painStreak = 0, rpeStreak = 0;
+  for (let i = 1; i <= 2; i++) {
+    const rec = M.dailyOn(U.addDays(dateStr, -i));
+    if (rec && rec.pain && rec.pain !== '无') painStreak++;
+    if (rec && rec.rpe != null && rec.rpe >= 9) rpeStreak++;
+  }
+  const notes = [];
+  if (stopped) notes.push('晨检出现红线信号——强烈建议今天暂停训练并留意身体反应；持续或加重请就医评估');
+  if (ankle && !stopped) notes.push('足/踝有主诉——已把跳跃类课程排后');
+  if (painStreak >= 2) notes.push('连续 2 次练后疼痛——建议改拉伸/恢复类，并更新档案里的伤病描述');
+  if (rpeStreak >= 2) notes.push('连续 2 天 RPE≥9——恢复跟不上负荷，建议今天选低强度');
+
+  const maxImpact = (ankle || painStreak >= 2) ? 'low' : 'high';
+  if (stopped) return { mode: 'stop', type: null, reason: notes.join('；'), courses: [], filterNote: '' };
+  if (CONFIG.trainTypes.indexOf(dayType) < 0) return { mode: 'rest', type: '拉伸', reason: notes.join('；') || '休息日——恢复也是训练', courses: pickCourses('拉伸', maxImpact), filterNote: ankle ? '已排除跳跃类' : '' };
+  if (dayType === '长时活动') return { mode: 'long', type: '长时', reason: notes.join('；') || '周六长时日——快走/慢骑本身就是训练', courses: [], filterNote: '' };
+  if (rpeStreak >= 2 || painStreak >= 2) return { mode: 'rest', type: '拉伸', reason: notes.join('；'), courses: pickCourses('拉伸', maxImpact), filterNote: '' };
+  return { mode: 'normal', type: dayType, reason: notes.join('；') || '按本周计划：' + dayType + '日', courses: pickCourses(dayType, maxImpact), filterNote: ankle ? '已排除跳跃类' : '' };
+}
+function pickCourses(type, maxImpact) { // 2-3 门并列+各自理由；3 天内推过的排后；不足补搜索词
+  const pref = (D.state.coursePref && D.state.coursePref.sessions) || 1;
+  const durTarget = pref === 2 ? 20 : 35;
+  const all = courseFilter(type, maxImpact);
+  const ok = all.filter((c) => c.impactOk);
+  const ranked = ok.sort((a, b) => (a.penal - b.penal) || (Math.abs(a.dur - durTarget) - Math.abs(b.dur - durTarget)));
+  return ranked.slice(0, 3).map((c) => ({ id: c.id, name: c.name, dur: c.dur, kw: c.kw, url: c.url, why: (c.level <= 1 ? '低强度·' : '中强度·') + c.dur + ' 分钟' + (c.penal ? '（近3天推过）' : '') }));
+}
+
+function adviceCardHtml() { // 建议卡：决策卡内的"今天怎么练"区——选项并列+依据+留痕按钮
+  const a = adviceFor();
+  if (a.mode === 'stop') { // 红线：强烈建议暂停+依据+可覆盖入口（不替用户关门）
+    return '<div class="sub" style="margin-top:8px;color:var(--red-text)">' + U.esc(a.reason) + '。</div>'
+      + '<details class="fold" style="margin-top:6px"><summary>我了解风险，今天仍要动一动</summary><div class="fold-body">'
+      + '<button class="btn-ghost" style="margin-top:4px" onclick="overrideStop()">只安排低风险活动（拉伸/散步）并留痕</button></div></details>';
+  }
+  if (a.mode === 'long') {
+    return '<div class="sub" style="margin-top:8px">' + U.esc(a.reason) + '。目标 ≥60 分钟（能说话配速），Keep 里跟一节走练当热身也行。</div>';
+  }
+  const cs = a.courses;
+  if (!cs.length) return '<div class="sub" style="margin-top:8px">' + U.esc(a.reason) + '。课程目录待整理——先按「' + a.type + '」在 Keep 搜索。</div>';
+  return '<div class="sub" style="margin-top:8px">' + U.esc(a.reason) + (a.filterNote ? '（' + U.esc(a.filterNote) + '）' : '') + '</div>'
+    + cs.map((c, i) => '<div class="row-between" style="padding:7px 0;border-bottom:0.5px solid var(--line)">'
+      + '<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px">' + (i + 1) + '. ' + U.esc(c.name) + '</div>'
+      + '<div class="sub">' + U.esc(c.why) + '</div></div>'
+      + '<button class="ci-btn" style="flex-shrink:0;min-height:44px" onclick="openCourse(\'' + c.id + '\')">去 Keep 练 ›</button></div>').join('')
+    + '<div class="sub" style="margin-top:4px">练完回记录卡记一笔（时长/累度/疼痛）；想换类型点下面的按钮。</div>';
+}
+function openCourse(id) { // 打开课程（深链或搜索兜底）+ 留痕（planLog+todayPlan.clicked）
+  const c = COURSE_LIB.find((x) => x.id === id);
+  if (!c) return;
+  const today = U.todayStr();
+  D.state.todayPlan = { date: today, type: c.type, sessions: [{ dur: c.dur, courseId: id, done: false }], clicked: Date.now(), deviation: null, noTrainReason: null };
+  const lg = (D.state.planLog || []).filter((x) => x.date !== today);
+  const last = lg.length && lg[lg.length - 1].date === today ? lg[lg.length - 1] : { date: today, courseIds: [] };
+  if (lg.length && lg[lg.length - 1].date === today) lg.pop();
+  last.courseIds.push(id);
+  lg.push(last);
+  D.state.planLog = lg.slice(-7);
+  D.state.updatedAt = Date.now();
+  persist();
+  if (c.url) window.open(c.url, '_blank'); else window.open(keepSearchUrl(c.kw), '_blank');
+}
+function overrideStop() { // 红线覆盖：只给低风险选项+留痕（不惩罚，周复盘可见）
+  const today = U.todayStr();
+  D.state.todayPlan = { date: today, type: '拉伸', sessions: [{ dur: 15, courseId: null, done: false }], clicked: null, deviation: 'override_red', noTrainReason: null };
+  D.state.updatedAt = Date.now();
+  persist();
+  renderToday();
+  toast('已留痕：红线日选择低风险活动——拉伸/散步，别加量');
+}
+window.COURSE_LIB = COURSE_LIB; window.adviceFor = adviceFor; // 测试可达
 
 /* ============ 工具 ============ */
 const U = {
@@ -997,7 +1110,7 @@ function discardDraftAndClose() { // F2a：用户明确选"不留记录"——�
   closeModal();
   renderToday();
 }
-window.APP_VER = '4.6.4'; // 保命批（2026-10-26）：F1 进门判据解耦（enteredOnce，用过即直达不再每次欢迎页） · F2a 白练保护（训练结束先落草稿再清快照——报告确认窗口锁屏/回收不再丢训练；中断/恢复课路径防双计） · F3 SW 健康数据零缓存（api.github.com 改 networkOnly，清库即清净） · 前批 v4.6.3 清理solo/cooldown死分支（solo已废弃） · 前批 v4.6.2 有氧日也走三阶段（激活→主计时→收尾，此前有氧练完没有拉伸） · 前批 v4.6.1 闭环批（IXD P1全清+术语统一+行话改人话+K28去标识化+手动完成计数修复） · 前批 v4.6.0 拉伸并入每日课（三阶段/恢复课/起床档/规则引擎/当天冻结）· 前批 v4.5.2：数据口径4修+训练快照持久化+草稿保护+chip回填+按钮收敛+中断如实记录+字号三档+深色补齐+死代码清理+合规文案 · 前批 v4.5.1 隐私修复：出厂默认清空身高/体重/城市/伤史——源码进公开仓，个人数据仅存本机；检测来源默认去城市化 // v4.5.0：身体照顾（久坐肩颈/小腿胀硬/足底筋膜释放+晨检联动+练前热身/练后放松明确化）
+window.APP_VER = '4.7.0'; // 保命批（2026-10-26）：F1 进门判据解耦（enteredOnce，用过即直达不再每次欢迎页） · F2a 白练保护（训练结束先落草稿再清快照——报告确认窗口锁屏/回收不再丢训练；中断/恢复课路径防双计） · F3 SW 健康数据零缓存（api.github.com 改 networkOnly，清库即清净） · 前批 v4.6.3 清理solo/cooldown死分支（solo已废弃） · 前批 v4.6.2 有氧日也走三阶段（激活→主计时→收尾，此前有氧练完没有拉伸） · 前批 v4.6.1 闭环批（IXD P1全清+术语统一+行话改人话+K28去标识化+手动完成计数修复） · 前批 v4.6.0 拉伸并入每日课（三阶段/恢复课/起床档/规则引擎/当天冻结）· 前批 v4.5.2：数据口径4修+训练快照持久化+草稿保护+chip回填+按钮收敛+中断如实记录+字号三档+深色补齐+死代码清理+合规文案 · 前批 v4.5.1 隐私修复：出厂默认清空身高/体重/城市/伤史——源码进公开仓，个人数据仅存本机；检测来源默认去城市化 // v4.5.0：身体照顾（久坐肩颈/小腿胀硬/足底筋膜释放+晨检联动+练前热身/练后放松明确化）
 window.addEventListener('error', function (e) { try { if (e && e.message) toast('出了个小问题：' + String(e.message).slice(0, 60)); } catch (err) {} }); // v4.1 审查修复 B4：全局异常不再静默
 window.addEventListener('unhandledrejection', function (e) { try { const r = e && e.reason; toast('后台出了个小问题：' + String(r && r.message || r || '未知').slice(0, 60)); } catch (err) {} });
 async function checkAppUpdate() { // v4.1：一键清 SW/缓存并重载——根治"PWA 更新后吃旧缓存"（原需手动强刷）
@@ -2446,10 +2559,31 @@ function weekReviewHtml(force) { // 周复盘卡（仅周日出现；force=测�
     + why.map((w) => '<div class="sub">· ' + U.esc(w) + '</div>').join('')
     + '<div class="sub" style="margin-top:8px"><b>过程指标：</b>完成率 ' + rate + '%（预警线 60%）｜采集完整率 ' + Math.round(sleepArr.length / 7 * 100) + '%（预警线 70%'
     + (sleepArr.length < 5 ? '，引擎缺燃料' : '') + '）｜晨检 ' + (function () { let c = 0; for (let i = 0; i < 7; i++) { const d = M.dailyOn(U.addDays(U.todayStr(), -i)); if (d && d.chk) c++; } return c; })() + '/7 天｜疼痛红灯 ' + (function () { let r = 0; for (let i = 0; i < 7; i++) { const d = M.dailyOn(U.addDays(U.todayStr(), -i)); if (d && d.chk && d.chk.out === 'stop') r++; } return r; })() + ' 次</div>'
+    + m5ReviewLine() // M5（2026-10-26 转型批）：按建议完成/deviation 分布/RPE 分布三数——新闭环的过程账
     + weightLedgerLine()
     + '<div class="sub" style="margin-top:4px">训练分布：' + (Object.keys(typeCnt).length ? Object.keys(typeCnt).map((k) => k + ' ' + typeCnt[k] + ' 次').join('、') : '本周无训练记录') + '</div>'
     + '<div style="margin-top:8px"><button class="ci-btn" onclick="showCoachQA()">💬 问教练：为什么这么练 / 吃什么 / 什么时候能跑</button></div></div>';
 }
+function m5ReviewLine() { // M5（2026-10-26 转型批）：周复盘三数——只出数据不出结论（结论=AI 会话给分析，用户决定）
+  let byPlan = 0, planDays = 0, devCnt = {};
+  const rpeCnt = { low: 0, mid: 0, high: 0 }; // ≤6 / 7-8 / ≥9
+  for (let i = 0; i < 7; i++) {
+    const ds = U.addDays(U.todayStr(), -i);
+    const rec = M.dailyOn(ds);
+    const plan = (D.state.planLog || []).find((x) => x.date === ds);
+    if (plan && plan.courseIds.length) {
+      planDays++;
+      if (rec && CONFIG.trainTypes.indexOf(rec.type) >= 0) byPlan++;
+    }
+    if (rec && rec.deviation) devCnt[rec.deviation] = (devCnt[rec.deviation] || 0) + 1;
+    if (rec && rec.rpe != null) { if (rec.rpe <= 6) rpeCnt.low++; else if (rec.rpe <= 8) rpeCnt.mid++; else rpeCnt.high++; }
+  }
+  const todayPlan = D.state.todayPlan;
+  if (todayPlan && todayPlan.deviation) devCnt[todayPlan.deviation] = (devCnt[todayPlan.deviation] || 0) + 1;
+  const devTxt = Object.keys(devCnt).length ? Object.keys(devCnt).map(function (k) { return ({ change_type: '换类型', tired: '太累', no_time: '没时间', override_red: '红线日自选低风险' })[k] || k; }).join('、') : '无';
+  return '<div class="sub" style="margin-top:4px"><b>建议执行：</b>按建议练 ' + byPlan + ' / 建议了 ' + planDays + ' 天｜偏离原因：' + devTxt + '｜RPE 分布：轻 ' + rpeCnt.low + ' · 中 ' + rpeCnt.mid + ' · 重 ' + rpeCnt.high + '</div>';
+}
+
 const TOUR7_TASKS = [ // 新手 7 天引导任务：全部指向现有功能，不发明新交互
   '今天只做一件事：点上面的「康复师晨检」，选一下身体状态（60 秒）',
   '把昨晚睡眠小时数抄进记录卡（从手机健康 App 看）',
@@ -2994,6 +3128,7 @@ function renderToday() {
   h += '<div class="card" id="readinessCard"><div class="card-head"><div class="bubble" style="background:color-mix(in srgb, ' + RD[1] + ' 18%, transparent)" aria-hidden="true"><svg viewBox="0 0 24 24" style="stroke:' + __rdInk + '"><path d="M12 20s-7-4.6-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.4-9 9-9 9z"/></svg></div>'
     + '<div style="flex:1"><div class="card-title" style="margin:0">今日状态 · ' + RD[0] + '</div><div class="sub">' + RD[2] + '</div></div></div>'
     + '<div class="body-tx" style="margin-top:6px;font-weight:600">' + todayActionLine(level) + '</div>'
+    + adviceCardHtml() // M3 建议卡（2026-10-26 转型批）：今天类型+依据+Keep 课选项并列（v1.4 职责版：不替用户关门）
     + '<div class="sub" style="margin-top:4px">理由：' + (rdNow.reasons.length ? rdNow.reasons.map(U.esc).join('；') : '各项信号正常') + (level === 'rest' ? '；昨日同样触发降档' : '') + '</div>'
     + ((function () { const LL = allEmpty() ? null : R.todayLight(); if (!LL || LL.level === 'green') return ''; return '<div class="sub" style="margin-top:2px;color:' + (LL.level === 'red' ? 'var(--red-text)' : 'var(--orange-text)') + '">灯色：' + (LL.level === 'red' ? '红灯' : '黄灯') + '——' + U.esc(LL.reason) + '。建议：' + U.esc(R.advice(LL)) + '</div>'; })())
     + '<div class="sub" style="margin-top:2px">' + U.esc(lastTrainingLine()) + '</div>'
@@ -3001,7 +3136,11 @@ function renderToday() {
     + weatherCoachLine()
     + whenToTrainHtml()
     + footRedCheck()
-    + '<button class="' + (cta.kind === 'done' ? 'btn-ghost' : 'btn-primary') + '" id="btnStartToday" data-kind="' + cta.kind + '" style="margin-top:12px" onclick="' + cta.fn + '">' + cta.t + '</button>'
+    + (function () { // M4（2026-10-26 转型批）：跟练交给 Keep——撤 cardio/strength/long 类 CTA（函数保留可回滚）；
+      // 保留 pack（每日包=康复职责，Keep 没有这块）与 done（完成后查看态）
+      if (cta.kind === 'done' || cta.kind === 'pack') return '<button class="' + (cta.kind === 'done' ? 'btn-ghost' : 'btn-primary') + '" id="btnStartToday" data-kind="' + cta.kind + '" style="margin-top:12px" onclick="' + cta.fn + '">' + cta.t + '</button>';
+      return '';
+    })()
     + morningStretchHtml()
     + todayStripHtml() + '</div>';
   h += resumeCardHtml(); // IX-01：有未完成训练时，今天页第一张卡=续练
@@ -3052,6 +3191,7 @@ function renderToday() {
     + chkMissLine()
     + chkBarHtml()
     + ankleGateLine()
+    + '<details class="fold" id="moreToday"><summary>更多今天（吃账 · 周期 · 复盘 · 睡眠）</summary><div class="fold-body">'
     + eatLine()
     + '<div class="field" style="margin-top:10px"><label>今天的你（点一下立即重判）</label><div class="chips" id="feelChips">' + feelChips() + '</div></div>'
     + '<div style="margin-top:8px"><button class="ci-btn" onclick="showCoachQA()">💬 问教练：为什么这么练 / 疼了怎么办 / 吃什么</button></div>'
@@ -3094,6 +3234,7 @@ function renderToday() {
   }
   // B-1 睡眠锚点主动干预卡（昨日不足警示 / 晚间锚点倒计时）
   h += sleepCardHtml();
+  h += '</div></details>'; // M4：折叠区在此关闭（足康复/八段锦打卡卡留在外面——每日动作不折叠）
   // 顶栏状态灯：一眼可见今天能不能练
   const tl = document.getElementById('topLamp');
   if (tl) {
@@ -3142,6 +3283,19 @@ function renderToday() {
     + '<label class="switch"><input type="checkbox" id="swBdj"' + (tf.baduanjin ? ' checked' : '') + ' onchange="setBaduanjin(this.checked)"><span class="sl"></span></label></div>'
     + '</div>';
   document.getElementById('todayBody').innerHTML = h;
+  (function () { // M4：folds 展开计数（V4 验收：你一周主动展开 ≤2 次的证据）
+    const mt = document.getElementById('moreToday');
+    if (!mt) return;
+    mt.addEventListener('toggle', function () {
+      if (!mt.open) return;
+      const t = U.todayStr();
+      const f = D.state.folds && D.state.folds.date === t ? D.state.folds : { date: t, n: 0 };
+      f.n++;
+      D.state.folds = f;
+      D.state.updatedAt = Date.now();
+      persist();
+    });
+  })();
   prefillToday();
   draftRestore(__draft); // IX-02：回填用户真正输入过的字段
   draftBind(); // IX-02：绑定输入监听 + 清空 dirty 标记（prefill 不算用户输入）
