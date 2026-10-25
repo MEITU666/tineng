@@ -1544,7 +1544,9 @@ check('㉖ FR-J 复训阶梯：rehab 缺键 null；停训卡出复训入口；st
   if (w.eval('rehabPhase(D.state.rehab)') !== 2) throw new Error('8 天前应第 2 阶');
   if (w.eval('rehabFactor()') !== 0.75) throw new Error('第 2 阶系数应 0.75');
   w.eval('D.state.rehab = { phase: 1, released: U.todayStr() };');
-  const sq = w.eval('JSON.stringify(buildCourse().filter(p=>p.kind==="set"&&p.name==="自重深蹲")[0].target)');
+  // 2026-10-26 修：buildCourse 无参时叠加 deloadFactor()（按今天是否减载周浮动）。显式传参锚定非减载周 W1，
+  // 隔离真实日期——此前断言隐含"今天不是减载周"，跨到 W4 减载周（10-26 起）即 0.5×0.65 假失败。
+  const sq = w.eval('JSON.stringify(buildCourse(false, "2026-10-12").filter(p=>p.kind==="set"&&p.name==="自重深蹲")[0].target)');
   const baseS = w.eval('D.state.strengthReps["深蹲"] || 10');
   if (sq !== String(Math.round(baseS * 0.5))) throw new Error('复训第 1 阶深蹲 target 应 ' + Math.round(baseS * 0.5) + '（' + baseS + '×0.5），实际 ' + sq);
   return 'rehab 全链（入口/写入/推进/折扣）✓';
@@ -1688,11 +1690,14 @@ check('㉙ 减载周自动降量：W4 判定+系数 0.65+渲染标注+buildCours
   if (w.eval('isDeloadWeek(cycleWeekOf("2026-10-26"))') !== true) throw new Error('10-26 应是 W4 减载周');
   if (w.eval('deloadFactor(cycleWeekOf("2026-10-26"))') !== 0.65) throw new Error('W4 系数应 0.65');
   if (w.eval('deloadFactor(cycleWeekOf("2026-10-12"))') !== 1) throw new Error('W1 非减载应 1');
-  if (w.eval('deloadFactor()') !== 1) throw new Error('开营前（今天 10-01）系数应 1');
+  // 2026-10-26 修：无参 deloadFactor() 按"今天"浮动，10-26 起真实日历落在 W4 减载周必返 0.65。
+  // 断言意图是"开营前=1"，改为显式传开营前日期，隔离真实日历。
+  if (w.eval('deloadFactor(cycleWeekOf("2026-10-01"))') !== 1) throw new Error('开营前（10-01）系数应 1');
   const plan = w.eval('planHtml("2026-10-26")');
   if (plan.indexOf('减载周') < 0 || plan.indexOf('六成') < 0) throw new Error('减载周界面标注缺失');
   const src = w.eval('buildCourse.toString()');
-  if (src.indexOf('deloadFactor()') < 0) throw new Error('buildCourse 未叠加减载系数');
+  // 2026-10-26 修：叠加写法已改为 deloadFactor(cycleWeekOf(dateStr||todayStr))（跟随传入日期），源码断言同步
+  if (src.indexOf('deloadFactor(cycleWeekOf') < 0) throw new Error('buildCourse 未叠加减载系数');
   if (w.eval('D.state.graduated') !== null) throw new Error('graduated 出厂应 null');
   return '减载周自动降量（判定/系数/标注/叠加）✓';
 });

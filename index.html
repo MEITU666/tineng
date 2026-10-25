@@ -5439,7 +5439,7 @@ function buildCourse(reduced, dateStr) { // 课单：v4.6 三阶段——激活�
   list.forEach((x, idx) => {
     const a = x.a;
     const base = targetRepsOf(a);
-    const target = Math.max(1, Math.round((reduced ? reduceTarget(base, a.unit) : base) * rehabFactor() * deloadFactor()));
+    const target = Math.max(1, Math.round((reduced ? reduceTarget(base, a.unit) : base) * rehabFactor() * deloadFactor(cycleWeekOf(dateStr || U.todayStr()))));
     const timed = a.unit.indexOf('秒') >= 0;
     const st = setsOf(a);
     for (let set = 1; set <= st; set++) {
