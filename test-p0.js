@@ -2218,9 +2218,18 @@ check('71 M3 建议引擎：正常推课/红线停训+可覆盖/足踝过滤/3�
   w.eval(`(function(){ D = defaultData(); D.state.enteredOnce = true;
     D.state.planLog = [{ date: U.addDays(U.todayStr(), -1), courseIds: COURSE_LIB.filter(c=>c.type==="有氧").map(c=>c.id) }];
   })()`);
-  const a4 = w.eval('JSON.stringify(adviceFor(U.todayStr()))');
+  // 2026-11-03 修复日期依赖（同类问题第 3 次）：原断言隐含"今天是有氧日"，11-03 是周二（力量日）即假失败
+  // 改为对降权函数直接断言：塞掉"今天这一天类型"的全部课程，断言 courseFilter 全部打了 penal
+  const a4 = w.eval(`(function(){
+    D = defaultData(); D.state.enteredOnce = true;
+    const dt = effTemplate()[new Date(U.todayStr().replace(/-/g,'/')).getDay()];
+    const t = CONFIG.trainTypes.indexOf(dt) >= 0 ? dt : '有氧';
+    D.state.planLog = [{ date: U.addDays(U.todayStr(), -1), courseIds: COURSE_LIB.filter(c=>c.type===t).map(c=>c.id) }];
+    const list = courseFilter(t, 'high');
+    return JSON.stringify({ t: t, n: list.length, allPenal: list.length > 0 && list.every(c=>c.penal===1) });
+  })()`);
   const o4 = JSON.parse(a4);
-  if (o4.mode === 'normal' && o4.courses.length && o4.courses.every((c) => c.why.indexOf('近3天') < 0)) throw new Error('planLog 降权未生效：' + a4.slice(0, 160));
+  if (!o4.allPenal) throw new Error('planLog 降权未生效（' + o4.t + ' · ' + o4.n + ' 门）：' + a4.slice(0, 160));
   // ⑤ openCourse 留痕：todayPlan+planLog 双写
   w.eval('D = defaultData(); D.state.enteredOnce = true; openCourse("k_aero_a");');
   const tp = w.eval('JSON.stringify(D.state.todayPlan || {})');
