@@ -2333,6 +2333,22 @@ check('78 课程详情：20 门全带 detail，建议卡渲染详情折叠', () 
   if (!hasDetail) throw new Error('建议卡应渲染详情折叠');
   return '20 门详情+渲染 ✓';
 });
+/* ---------- 79 占位课名不得暴露给用户（2026-11-03 审查） ---------- */
+check('79 课程显示名：占位课名清洗，建议卡不出现【待填】', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval(`(function(){
+    D = defaultData(); D.state.enteredOnce = true; D.state.profileDone = true;
+    const c = COURSE_LIB[0];
+    const disp = courseDisplayName(c);
+    const html = adviceCardHtml();
+    return JSON.stringify({ disp: disp, hasTag: disp.indexOf('待填') >= 0, cardHasTag: html.indexOf('【待填】') >= 0, hasHint: html.indexOf('还没绑真实课程') >= 0 });
+  })()`);
+  const o = JSON.parse(r);
+  if (o.hasTag) throw new Error('显示名仍带【待填】：' + o.disp);
+  if (o.cardHasTag) throw new Error('建议卡仍渲染【待填】');
+  if (!o.hasHint) throw new Error('未绑真实课的提示缺失（应引导用户按搜索词找）');
+  return '显示名 "' + o.disp + '" · 提示在位 ✓';
+});
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);
 console.log('================ P0 jsdom 断言报告（node ' + process.version + ' · jsdom ' + require(require.resolve('jsdom/package.json', { paths: [DIR] })).version + '） ================');

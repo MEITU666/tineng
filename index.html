@@ -791,6 +791,9 @@ function pickCourses(type, maxImpact) { // 建议选项：单节=3 门并列；�
   return ranked.slice(0, 3).map((c) => ({ id: c.id, name: c.name, dur: c.dur, kw: c.kw, url: c.url, detail: c.detail || '', why: (c.level <= 1 ? '低强度·' : '中强度·') + c.dur + ' 分钟' + (c.penal ? '（近3天推过）' : '') }));
 }
 
+function courseDisplayName(c) { // 2026-11-03 审查修复：课程目录未填真实课前，不能把"【待填】Keep·xxx"直接显示给用户
+  return String((c && c.name) || '').replace(/^【待填】/, '').replace(/^Keep·/, '');
+}
 function adviceCardHtml() { // 建议卡：决策卡内的"今天怎么练"区——选项并列+依据+留痕按钮
   const a = adviceFor();
   if (a.mode === 'stop') { // 红线：强烈建议暂停+依据+可覆盖入口（不替用户关门）
@@ -805,8 +808,9 @@ function adviceCardHtml() { // 建议卡：决策卡内的"今天怎么练"区�
   if (!cs.length) return '<div class="sub" style="margin-top:8px">' + U.esc(a.reason) + '。课程目录待整理——先按「' + a.type + '」在 Keep 搜索。</div>';
   return '<div class="sub" style="margin-top:8px">' + U.esc(a.reason) + (a.filterNote ? '（' + U.esc(a.filterNote) + '）' : '') + '</div>'
     + cs.map((c, i) => '<div class="row-between" style="padding:7px 0;border-bottom:0.5px solid var(--line)">'
-      + '<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px">' + (i + 1) + '. ' + U.esc(c.name) + '</div>'
+      + '<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px">' + (i + 1) + '. ' + U.esc(courseDisplayName(c)) + '</div>'
       + '<div class="sub">' + U.esc(c.why) + '</div>'
+      + (String(c.name).indexOf('待填') >= 0 ? '<div class="sub" style="color:var(--orange-text)">还没绑真实课程——点右边会按「' + U.esc(c.kw) + '」在 Keep 里搜</div>' : '')
       + (c.detail ? '<details class="fold"><summary>这门课是什么</summary><div class="fold-body sub">' + U.esc(c.detail) + '</div></details>' : '') + '</div>'
       + '<button class="ci-btn" style="flex-shrink:0;min-height:44px" onclick="openCourse(\'' + c.id + '\')">去 Keep 练 ›</button></div>').join('')
     + '<div class="sub" style="margin-top:4px">练完回记录卡记一笔（时长/累度/疼痛）。'
@@ -1193,7 +1197,7 @@ function discardDraftAndClose() { // F2a：用户明确选"不留记录"——�
   closeModal();
   renderToday();
 }
-window.APP_VER = '4.8.0'; // 保命批（2026-10-26）：F1 进门判据解耦（enteredOnce，用过即直达不再每次欢迎页） · F2a 白练保护（训练结束先落草稿再清快照——报告确认窗口锁屏/回收不再丢训练；中断/恢复课路径防双计） · F3 SW 健康数据零缓存（api.github.com 改 networkOnly，清库即清净） · 前批 v4.6.3 清理solo/cooldown死分支（solo已废弃） · 前批 v4.6.2 有氧日也走三阶段（激活→主计时→收尾，此前有氧练完没有拉伸） · 前批 v4.6.1 闭环批（IXD P1全清+术语统一+行话改人话+K28去标识化+手动完成计数修复） · 前批 v4.6.0 拉伸并入每日课（三阶段/恢复课/起床档/规则引擎/当天冻结）· 前批 v4.5.2：数据口径4修+训练快照持久化+草稿保护+chip回填+按钮收敛+中断如实记录+字号三档+深色补齐+死代码清理+合规文案 · 前批 v4.5.1 隐私修复：出厂默认清空身高/体重/城市/伤史——源码进公开仓，个人数据仅存本机；检测来源默认去城市化 // v4.5.0：身体照顾（久坐肩颈/小腿胀硬/足底筋膜释放+晨检联动+练前热身/练后放松明确化）
+window.APP_VER = '4.8.1'; // 保命批（2026-10-26）：F1 进门判据解耦（enteredOnce，用过即直达不再每次欢迎页） · F2a 白练保护（训练结束先落草稿再清快照——报告确认窗口锁屏/回收不再丢训练；中断/恢复课路径防双计） · F3 SW 健康数据零缓存（api.github.com 改 networkOnly，清库即清净） · 前批 v4.6.3 清理solo/cooldown死分支（solo已废弃） · 前批 v4.6.2 有氧日也走三阶段（激活→主计时→收尾，此前有氧练完没有拉伸） · 前批 v4.6.1 闭环批（IXD P1全清+术语统一+行话改人话+K28去标识化+手动完成计数修复） · 前批 v4.6.0 拉伸并入每日课（三阶段/恢复课/起床档/规则引擎/当天冻结）· 前批 v4.5.2：数据口径4修+训练快照持久化+草稿保护+chip回填+按钮收敛+中断如实记录+字号三档+深色补齐+死代码清理+合规文案 · 前批 v4.5.1 隐私修复：出厂默认清空身高/体重/城市/伤史——源码进公开仓，个人数据仅存本机；检测来源默认去城市化 // v4.5.0：身体照顾（久坐肩颈/小腿胀硬/足底筋膜释放+晨检联动+练前热身/练后放松明确化）
 window.addEventListener('error', function (e) { try { if (e && e.message) toast('出了个小问题：' + String(e.message).slice(0, 60)); } catch (err) {} }); // v4.1 审查修复 B4：全局异常不再静默
 window.addEventListener('unhandledrejection', function (e) { try { const r = e && e.reason; toast('后台出了个小问题：' + String(r && r.message || r || '未知').slice(0, 60)); } catch (err) {} });
 async function checkAppUpdate() { // v4.1：一键清 SW/缓存并重载——根治"PWA 更新后吃旧缓存"（原需手动强刷）
