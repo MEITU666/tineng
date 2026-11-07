@@ -2223,7 +2223,7 @@ check('71 M3 建议引擎：正常推课/红线停训+可覆盖/足踝过滤/3�
   const a4 = w.eval(`(function(){
     D = defaultData(); D.state.enteredOnce = true;
     const dt = effTemplate()[new Date(U.todayStr().replace(/-/g,'/')).getDay()];
-    const t = CONFIG.trainTypes.indexOf(dt) >= 0 ? dt : '有氧';
+    const t = COURSE_LIB.some(c=>c.type===dt) ? dt : '有氧'; // 2026-11-07 修复周六漂移：长时活动在 trainTypes 里但课程库无长时课，须回落到有长时课的类型
     D.state.planLog = [{ date: U.addDays(U.todayStr(), -1), courseIds: COURSE_LIB.filter(c=>c.type===t).map(c=>c.id) }];
     const list = courseFilter(t, 'high');
     return JSON.stringify({ t: t, n: list.length, allPenal: list.length > 0 && list.every(c=>c.penal===1) });
@@ -2328,8 +2328,14 @@ check('78 课程详情：20 门全带 detail，建议卡渲染详情折叠', () 
   if (loadErr) throw loadErr;
   const bad = w.eval('JSON.stringify((window.COURSE_LIB || COURSE_LIB).filter(function(c){ return !c.detail; }).map(function(c){ return c.id; }))');
   if (bad !== '[]') throw new Error('缺详情：' + bad);
-  w.eval('D = defaultData(); D.state.enteredOnce = true; renderToday();');
+  // 2026-11-07 修复周六漂移：长时活动日不出课程行，桩定周一=有氧日再验渲染，验后恢复
+  w.eval(`(function(){
+    window.__origET = effTemplate;
+    effTemplate = function(){ return ['休息日','有氧','力量','力量','有氧','拉伸','有氧']; };
+    D = defaultData(); D.state.enteredOnce = true; renderToday();
+  })()`);
   const hasDetail = w.eval("document.getElementById('readinessCard').innerHTML.indexOf('这门课是什么') >= 0");
+  w.eval('effTemplate = window.__origET; window.__origET = null;');
   if (!hasDetail) throw new Error('建议卡应渲染详情折叠');
   return '20 门详情+渲染 ✓';
 });
@@ -2337,10 +2343,13 @@ check('78 课程详情：20 门全带 detail，建议卡渲染详情折叠', () 
 check('79 课程显示名：占位课名清洗，建议卡不出现【待填】', () => {
   if (loadErr) throw loadErr;
   const r = w.eval(`(function(){
+    window.__origET = effTemplate;
+    effTemplate = function(){ return ['休息日','有氧','力量','力量','有氧','拉伸','有氧']; }; // 2026-11-07 修复周六漂移：桩定有氧日保证课程行渲染
     D = defaultData(); D.state.enteredOnce = true; D.state.profileDone = true;
     const c = COURSE_LIB[0];
     const disp = courseDisplayName(c);
     const html = adviceCardHtml();
+    effTemplate = window.__origET; window.__origET = null;
     return JSON.stringify({ disp: disp, hasTag: disp.indexOf('待填') >= 0, cardHasTag: html.indexOf('【待填】') >= 0, hasHint: html.indexOf('还没绑真实课程') >= 0 });
   })()`);
   const o = JSON.parse(r);
@@ -2348,6 +2357,64 @@ check('79 课程显示名：占位课名清洗，建议卡不出现【待填】'
   if (o.cardHasTag) throw new Error('建议卡仍渲染【待填】');
   if (!o.hasHint) throw new Error('未绑真实课的提示缺失（应引导用户按搜索词找）');
   return '显示名 "' + o.disp + '" · 提示在位 ✓';
+});
+/* ---------- 80-83 批1 教练开场白（2026-11-07）：天气常显/雨雪切室内/城市引导/搜索词常显 ---------- */
+check('80 教练开场白：好天也说话——天气+主练+时段三要素渲染', () => {
+  if (loadErr) throw loadErr;
+  w.eval(`(function(){
+    D = defaultData(); D.state.enteredOnce = true;
+    D.profile.city = '武汉';
+    D.state.weather = { date: U.todayStr(), wx: '好天', desc: '晴·12°C', appMax: 12, hourly: [], t: Date.now() };
+    renderToday();
+  })()`);
+  const html = w.eval("document.getElementById('readinessCard').innerHTML");
+  if (html.indexOf('今晨晴·12°C') < 0) throw new Error('好天应显示天气行（原晴天装死逻辑应已废除）');
+  if (html.indexOf('今天主练：') < 0) throw new Error('应显示今天主练');
+  if (html.indexOf('最适合') < 0) throw new Error('应显示最适合时段');
+  return '开场白三要素 ✓';
+});
+check('81 雨雪切室内：长时活动日自动改有氧课（固定日期防漂移）', () => {
+  if (loadErr) throw loadErr;
+  // 2026-10-31 是周六=长时活动日；天气日期与请求日期显式匹配（adviceFor：天气记录属于哪天就对哪天生效）
+  const r = w.eval(`(function(){
+    D = defaultData();
+    D.state.weather = { date: '2026-10-31', wx: '雨雪', desc: '中雨·8°C', appMax: 8, hourly: [], t: Date.now() };
+    const a = adviceFor('2026-10-31');
+    return JSON.stringify({ mode: a.mode, type: a.type, n: a.courses.length, reason: a.reason });
+  })()`);
+  const o = JSON.parse(r);
+  if (o.mode !== 'normal') throw new Error('长时日遇雨雪应转 normal 出课程，实得 ' + o.mode);
+  if (o.type !== '有氧') throw new Error('应改室内有氧，实得 ' + o.type);
+  if (o.n < 1) throw new Error('应给出有氧课程选项');
+  if (o.reason.indexOf('室内') < 0) throw new Error('依据应说明改室内：' + o.reason);
+  return '长时日雨雪→室内有氧 ✓';
+});
+check('82 城市未设：开场白给一键引导而非让你猜', () => {
+  if (loadErr) throw loadErr;
+  w.eval(`(function(){
+    D = defaultData(); D.state.enteredOnce = true;
+    D.profile.city = ''; D.state.weather = null;
+    renderToday();
+  })()`);
+  const html = w.eval("document.getElementById('readinessCard').innerHTML");
+  if (html.indexOf('设城市') < 0) throw new Error('城市未设应显示设城市引导');
+  if (html.indexOf('pgProfile') < 0) throw new Error('应带档案页跳转');
+  return '城市引导 ✓';
+});
+check('83 搜索词常显：真实课名也显示 Keep 搜索词', () => {
+  if (loadErr) throw loadErr;
+  const saved = w.eval('(function(){ const n = COURSE_LIB[0].name; COURSE_LIB[0].name = "真实下肢课"; return n; })()');
+  const html = w.eval(`(function(){
+    window.__origET = effTemplate;
+    effTemplate = function(){ return ['休息日','有氧','力量','力量','有氧','拉伸','有氧']; }; // 2026-11-07 修复周六漂移：桩定有氧日保证课程行渲染
+    D = defaultData(); D.state.enteredOnce = true;
+    const html = adviceCardHtml();
+    effTemplate = window.__origET; window.__origET = null;
+    return html;
+  })()`);
+  w.eval(`(function(){ COURSE_LIB[0].name = ${JSON.stringify(saved)}; })()`);
+  if (html.indexOf('Keep 搜「') < 0) throw new Error('课程行应常显 Keep 搜索词');
+  return '搜索词常显 ✓';
 });
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);

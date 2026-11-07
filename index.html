@@ -767,10 +767,21 @@ function adviceFor(dateStr) { // 建议主函数：返回 {mode, type, reason, c
   if (painStreak >= 2) notes.push('连续 2 次练后疼痛——建议改拉伸/恢复类，并更新档案里的伤病描述');
   if (rpeStreak >= 2) notes.push('连续 2 天 RPE≥9——恢复跟不上负荷，建议今天选低强度');
 
+  // 批1 教练化（2026-11-07）：天气接入建议引擎——天气记录属于哪天就对哪天生效；雨雪/大风长时日自动改室内课，闷热/好天给行动提示；力量/拉伸日本来就在室内，不废话
+  const wToday = D.state.weather;
+  const wx = (dateStr === (wToday && wToday.date) && wToday && wToday.wx) ? wToday.wx : '';
+  const isOut = dayType === '有氧' || dayType === '长时活动';
+  if ((wx === '雨雪' || wx === '大风降温') && isOut) notes.push(wx + '——' + (dayType === '长时活动' ? '今天长走改室内：跟练有氧或爬楼梯（只上不下），长走等天好再补' : '今天有氧改在室内完成，别冒雨外出'));
+  else if (wx === '闷热' && isOut) notes.push('今天闷热——户外放清晨或傍晚 17-19 点，补水翻倍');
+  else if (wx === '好天' && isOut) notes.push('好天气——户外课按计划走');
+
   const maxImpact = (ankle || painStreak >= 2) ? 'low' : 'high';
   if (stopped) return { mode: 'stop', type: null, reason: notes.join('；'), courses: [], filterNote: '' };
   if (CONFIG.trainTypes.indexOf(dayType) < 0) return { mode: 'rest', type: '拉伸', reason: notes.join('；') || '休息日——恢复也是训练', courses: pickCourses('拉伸', maxImpact), filterNote: ankle ? '已排除跳跃类' : '' };
-  if (dayType === '长时活动') return { mode: 'long', type: '长时', reason: notes.join('；') || '周六长时日——快走/慢骑本身就是训练', courses: [], filterNote: '' };
+  if (dayType === '长时活动') {
+    if (wx === '雨雪' || wx === '大风降温') return { mode: 'normal', type: '有氧', reason: notes.join('；') || '长时日遇雨雪——改室内', courses: pickCourses('有氧', maxImpact), filterNote: '' }; // 批1：户外长走遇雨雪自动切室内有氧
+    return { mode: 'long', type: '长时', reason: notes.join('；') || '周六长时日——快走/慢骑本身就是训练', courses: [], filterNote: '' };
+  }
   if (rpeStreak >= 2 || painStreak >= 2) return { mode: 'rest', type: '拉伸', reason: notes.join('；'), courses: pickCourses('拉伸', maxImpact), filterNote: '' };
   return { mode: 'normal', type: dayType, reason: notes.join('；') || '按本周计划：' + dayType + '日', courses: pickCourses(dayType, maxImpact), filterNote: ankle ? '已排除跳跃类' : '' };
 }
@@ -794,23 +805,56 @@ function pickCourses(type, maxImpact) { // 建议选项：单节=3 门并列；�
 function courseDisplayName(c) { // 2026-11-03 审查修复：课程目录未填真实课前，不能把"【待填】Keep·xxx"直接显示给用户
   return String((c && c.name) || '').replace(/^【待填】/, '').replace(/^Keep·/, '');
 }
-function adviceCardHtml() { // 建议卡：决策卡内的"今天怎么练"区——选项并列+依据+留痕按钮
+function coachHeadHtml(a) { // 批1 教练开场白（2026-11-07）：打开第一眼=天气｜今天主练｜最适合时段——无条件显示，好天也说话（原"晴天装死"逻辑废除）
+  const today = U.todayStr();
+  const wt = (D.state.weather && D.state.weather.date === today) ? D.state.weather : null;
+  const cityOk = !!(D.profile.city && CONFIG.CITY_COORDS[D.profile.city]);
+  const month = new Date().getMonth() + 1;
+  const dayType = effTemplate()[new Date().getDay()];
+  const lv = todayLevelInfo().level;
+  const indoor = dayType === '力量' || lv === 'floor' || lv === 'return' || lv === 'rest';
+  const hasHourly = !!(wt && wt.hourly && wt.hourly.length);
+  let win = '';
+  try {
+    const wins = trainingWindows(hasHourly ? wt.hourly : null, month, indoor); // 有实况按逐小时评分，无实况按季节经验——与 whenToTrainHtml 同源
+    if (wins && wins.length) {
+      const nowH = new Date().getHours();
+      const inWin = wins.some((x) => nowH >= x.start && nowH < x.end);
+      win = '｜最适合 ' + fmtHour(wins[0].start) + '-' + fmtHour(wins[0].end) + (inWin ? '（现在正合适）' : '');
+    }
+  } catch (e) { win = ''; } // 时段算不出来不挡主行——天气和主练必须先到
+  let main = '按晨检定';
+  if (a.mode === 'stop') main = '今天先不练';
+  else if (a.mode === 'long') main = '长时快走（耐力）';
+  else if (a.type) {
+    const c0 = (a.courses && a.courses[0]) ? COURSE_LIB.find((x) => x.id === a.courses[0].id) : null;
+    const foc = (c0 && c0.focus && c0.focus.length === 1 && c0.focus[0] !== '全身') ? '·' + c0.focus[0] : '';
+    main = a.type + foc;
+  }
+  const icon = { '好天': '🌤️', '雨雪': '🌧️', '闷热': '🥵', '大风降温': '💨' };
+  const wxPart = wt ? ((icon[wt.wx] || '🌤️') + ' 今晨' + U.esc(wt.desc || wt.wx || '')) : '';
+  return '<div style="margin-top:8px;padding:8px 10px;background:rgba(127,127,127,.08);border-radius:8px;font-size:13px;line-height:1.7">'
+    + (wxPart ? '<b>' + wxPart + '</b>' : '📍 <button class="ci-btn" style="min-height:44px;padding:2px 8px" onclick="nav(\'pgProfile\')">' + (cityOk ? '天气未就绪·联网后自动到位' : '设城市→天气每天自动到位') + '</button>')
+    + '｜<b>今天主练：' + U.esc(main) + '</b>' + (win ? '<span class="sub">' + U.esc(win) + '</span>' : '') + '</div>';
+}
+function adviceCardHtml() { // 建议卡：决策卡内的"今天怎么练"区——教练开场白+选项并列+依据+留痕按钮
   const a = adviceFor();
+  const head = (a.mode === 'stop') ? '' : coachHeadHtml(a); // 批1：开场白三种非停训形态都显示（停训日保持严肃单一信息）
   if (a.mode === 'stop') { // 红线：强烈建议暂停+依据+可覆盖入口（不替用户关门）
     return '<div class="sub" style="margin-top:8px;color:var(--red-text)">' + U.esc(a.reason) + '。</div>'
       + '<details class="fold" style="margin-top:6px"><summary>我了解风险，今天仍要动一动</summary><div class="fold-body">'
       + '<button class="btn-ghost" style="margin-top:4px" onclick="overrideStop()">只安排低风险活动（拉伸/散步）并留痕</button></div></details>';
   }
   if (a.mode === 'long') {
-    return '<div class="sub" style="margin-top:8px">' + U.esc(a.reason) + '。目标 ≥60 分钟（能说话配速），Keep 里跟一节走练当热身也行。</div>';
+    return head + '<div class="sub" style="margin-top:8px">' + U.esc(a.reason) + '。目标 ≥60 分钟（能说话配速），Keep 里跟一节走练当热身也行。</div>';
   }
   const cs = a.courses;
-  if (!cs.length) return '<div class="sub" style="margin-top:8px">' + U.esc(a.reason) + '。课程目录待整理——先按「' + a.type + '」在 Keep 搜索。</div>';
-  return '<div class="sub" style="margin-top:8px">' + U.esc(a.reason) + (a.filterNote ? '（' + U.esc(a.filterNote) + '）' : '') + '</div>'
+  if (!cs.length) return head + '<div class="sub" style="margin-top:8px">' + U.esc(a.reason) + '。课程目录待整理——先按「' + a.type + '」在 Keep 搜索。</div>';
+  return head + '<div class="sub" style="margin-top:8px">' + U.esc(a.reason) + (a.filterNote ? '（' + U.esc(a.filterNote) + '）' : '') + '</div>'
     + cs.map((c, i) => '<div class="row-between" style="padding:7px 0;border-bottom:0.5px solid var(--line)">'
       + '<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px">' + (i + 1) + '. ' + U.esc(courseDisplayName(c)) + '</div>'
       + '<div class="sub">' + U.esc(c.why) + '</div>'
-      + (String(c.name).indexOf('待填') >= 0 ? '<div class="sub" style="color:var(--orange-text)">还没绑真实课程——点右边会按「' + U.esc(c.kw) + '」在 Keep 里搜</div>' : '')
+      + '<div class="sub">Keep 搜「' + U.esc(c.kw) + '」' + (String(c.name).indexOf('待填') >= 0 ? '<span style="color:var(--orange-text)">——还没绑真实课程，先按这个词搜</span>' : '') + '</div>'
       + (c.detail ? '<details class="fold"><summary>这门课是什么</summary><div class="fold-body sub">' + U.esc(c.detail) + '</div></details>' : '') + '</div>'
       + '<button class="ci-btn" style="flex-shrink:0;min-height:44px" onclick="openCourse(\'' + c.id + '\')">去 Keep 练 ›</button></div>').join('')
     + '<div class="sub" style="margin-top:4px">练完回记录卡记一笔（时长/累度/疼痛）。'
@@ -1197,7 +1241,7 @@ function discardDraftAndClose() { // F2a：用户明确选"不留记录"——�
   closeModal();
   renderToday();
 }
-window.APP_VER = '4.8.1'; // 保命批（2026-10-26）：F1 进门判据解耦（enteredOnce，用过即直达不再每次欢迎页） · F2a 白练保护（训练结束先落草稿再清快照——报告确认窗口锁屏/回收不再丢训练；中断/恢复课路径防双计） · F3 SW 健康数据零缓存（api.github.com 改 networkOnly，清库即清净） · 前批 v4.6.3 清理solo/cooldown死分支（solo已废弃） · 前批 v4.6.2 有氧日也走三阶段（激活→主计时→收尾，此前有氧练完没有拉伸） · 前批 v4.6.1 闭环批（IXD P1全清+术语统一+行话改人话+K28去标识化+手动完成计数修复） · 前批 v4.6.0 拉伸并入每日课（三阶段/恢复课/起床档/规则引擎/当天冻结）· 前批 v4.5.2：数据口径4修+训练快照持久化+草稿保护+chip回填+按钮收敛+中断如实记录+字号三档+深色补齐+死代码清理+合规文案 · 前批 v4.5.1 隐私修复：出厂默认清空身高/体重/城市/伤史——源码进公开仓，个人数据仅存本机；检测来源默认去城市化 // v4.5.0：身体照顾（久坐肩颈/小腿胀硬/足底筋膜释放+晨检联动+练前热身/练后放松明确化）
+window.APP_VER = '4.9.0'; // 批1 教练开场白（2026-11-07）：天气接入建议引擎（雨雪/大风长时日自动改室内+闷热/好天行动提示）· coachHeadHtml 打开第一眼=天气|今天主练|最适合时段 · Keep 搜索词常显 · 城市未设一键引导 · weatherCoachLine 从渲染序列撤下（函数保留可回滚） // 前批 v4.8.1 保命批（2026-10-26）：F1 进门判据解耦（enteredOnce，用过即直达不再每次欢迎页） · F2a 白练保护（训练结束先落草稿再清快照——报告确认窗口锁屏/回收不再丢训练；中断/恢复课路径防双计） · F3 SW 健康数据零缓存（api.github.com 改 networkOnly，清库即清净） · 前批 v4.6.3 清理solo/cooldown死分支（solo已废弃） · 前批 v4.6.2 有氧日也走三阶段（激活→主计时→收尾，此前有氧练完没有拉伸） · 前批 v4.6.1 闭环批（IXD P1全清+术语统一+行话改人话+K28去标识化+手动完成计数修复） · 前批 v4.6.0 拉伸并入每日课（三阶段/恢复课/起床档/规则引擎/当天冻结）· 前批 v4.5.2：数据口径4修+训练快照持久化+草稿保护+chip回填+按钮收敛+中断如实记录+字号三档+深色补齐+死代码清理+合规文案 · 前批 v4.5.1 隐私修复：出厂默认清空身高/体重/城市/伤史——源码进公开仓，个人数据仅存本机；检测来源默认去城市化 // v4.5.0：身体照顾（久坐肩颈/小腿胀硬/足底筋膜释放+晨检联动+练前热身/练后放松明确化）
 window.addEventListener('error', function (e) { try { if (e && e.message) toast('出了个小问题：' + String(e.message).slice(0, 60)); } catch (err) {} }); // v4.1 审查修复 B4：全局异常不再静默
 window.addEventListener('unhandledrejection', function (e) { try { const r = e && e.reason; toast('后台出了个小问题：' + String(r && r.message || r || '未知').slice(0, 60)); } catch (err) {} });
 async function checkAppUpdate() { // v4.1：一键清 SW/缓存并重载——根治"PWA 更新后吃旧缓存"（原需手动强刷）
@@ -3220,8 +3264,7 @@ function renderToday() {
     + ((function () { const LL = allEmpty() ? null : R.todayLight(); if (!LL || LL.level === 'green') return ''; return '<div class="sub" style="margin-top:2px;color:' + (LL.level === 'red' ? 'var(--red-text)' : 'var(--orange-text)') + '">灯色：' + (LL.level === 'red' ? '红灯' : '黄灯') + '——' + U.esc(LL.reason) + '。建议：' + U.esc(R.advice(LL)) + '</div>'; })())
     + '<div class="sub" style="margin-top:2px">' + U.esc(lastTrainingLine()) + '</div>'
     + (hasSleep ? '' : '<div class="sub" style="color:var(--orange-text);margin-top:4px">昨夜睡眠未记录——有数就填，判定更准。</div>')
-    + weatherCoachLine()
-    + whenToTrainHtml()
+    + whenToTrainHtml() // 批1（2026-11-07）：weatherCoachLine 从序列撤下（职能并入建议引擎+coachHeadHtml 开场白），函数保留可回滚
     + footRedCheck()
     + (function () { // M4（2026-10-26 转型批）：跟练交给 Keep——撤 cardio/strength/long 类 CTA（函数保留可回滚）；
       // 保留 pack（每日包=康复职责，Keep 没有这块）与 done（完成后查看态）
