@@ -2508,6 +2508,54 @@ check('88 进步出口：近14天同类课全轻松≥2次 → 升档明话+cap 
   if (o.memN <= o.before) throw new Error('升档应写入记忆层');
   return '进步出口+记忆写入 ✓';
 });
+
+/* ---------- 89-91 批3 疼痛响应+伤病档案（2026-11-07） ---------- */
+check('89 疼痛判定表：四类判定各命中+旧伤部位标记', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval(`(function(){
+    D = defaultData(); D.profile.injury = '右足底筋膜炎史';
+    const doms = painVerdict('酸胀/钝痛（肌肉感）', '第二天才疼', '腿后侧');
+    const form = painVerdict('酸胀/钝痛（肌肉感）', '练的过程中慢慢出现', '膝');
+    const stop = painVerdict('锐痛/刺痛', '练的过程中突然', '腰');
+    const red = painVerdict('发麻', '练完当天才疼', '肩颈');
+    const oldInj = painVerdict('酸胀/钝痛（肌肉感）', '第二天才疼', '足踝');
+    return JSON.stringify({ doms: doms.level, form: form.level, stop: stop.level, red: red.level, oldInj: oldInj.oldInjury === true, tip: form.lines.join().indexOf('内扣') >= 0 });
+  })()`);
+  const o = JSON.parse(r);
+  if (o.doms !== 'ok' || o.form !== 'care' || o.stop !== 'stop' || o.red !== 'red') throw new Error('判定分级错：' + r);
+  if (!o.oldInj) throw new Error('档案旧伤部位（足踝）未标记');
+  if (!o.tip) throw new Error('膝部判定应带自查动作提示');
+  return '四类判定+旧伤标记+部位自查 ✓';
+});
+check('90 painSave 留痕：伤级写 mem injury→建议引擎降保守+当天停提示', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval(`(function(){
+    D = defaultData(); D.state.enteredOnce = true;
+    __painSel = { part: '膝', feel: '锐痛/刺痛', when: '练的过程中突然' };
+    painSave();
+    const rec = M.dailyOn(U.todayStr());
+    const injN = D.mem.facts.filter((f) => f.kind === 'injury').length;
+    const a = adviceFor(U.todayStr());
+    return JSON.stringify({ said: rec && rec.painSaid && rec.painSaid.length, injN: injN, reason: a.reason });
+  })()`);
+  const o = JSON.parse(r);
+  if (o.said !== 1 || o.injN < 1) throw new Error('留痕/伤病档案缺失：' + r);
+  if (o.reason.indexOf('伤级信号') < 0 || o.reason.indexOf('伤病在案') < 0) throw new Error('建议引擎未联动：' + o.reason);
+  return 'painSave 三链路 ✓';
+});
+check('91 酸胀不升级伤病档案：正常酸痛不提高保守度', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval(`(function(){
+    D = defaultData(); D.state.enteredOnce = true;
+    __painSel = { part: '腿后侧', feel: '酸胀/钝痛（肌肉感）', when: '第二天才疼' };
+    painSave();
+    return JSON.stringify({ injN: D.mem.facts.filter((f) => f.kind === 'injury').length, said: M.dailyOn(U.todayStr()).painSaid.length });
+  })()`);
+  const o = JSON.parse(r);
+  if (o.injN !== 0) throw new Error('DOMS 不应写伤病档案：' + r);
+  if (o.said !== 1) throw new Error('painSaid 应留痕');
+  return 'DOMS 不升级 ✓';
+});
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);
 console.log('================ P0 jsdom 断言报告（node ' + process.version + ' · jsdom ' + require(require.resolve('jsdom/package.json', { paths: [DIR] })).version + '） ================');
