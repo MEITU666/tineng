@@ -4,7 +4,7 @@
    - GitHub API（api.github.com）：networkOnly——健康数据绝不写 Cache Storage（隐私：清 IndexedDB 必须能清干净，2026-10-26 F3）
    - icon.svg / manifest.json：cache-first
    白名单之外的请求一律不拦截、不缓存 */
-const CACHE = 'tineng-cache-v37'; // F3：SW 缓存隐私修复（v26 → v27 强制刷新旧 SW 行为）
+const CACHE = 'tineng-cache-v38'; // v4.9.7 真机反馈修复批（挤压/晨检上移/Keep链路/引擎六修——逐批 bump 纪律）
 const ASSETS = ['./', './index.html', './manifest.json', './icon.svg', './water.ics'];
 
 self.addEventListener('install', (e) => {

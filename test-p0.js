@@ -2825,6 +2825,123 @@ check('104 诚实告知：live 态提示发给谁+发什么', () => {
   if (!o.told || !o.optIn) throw new Error('诚实告知缺失：' + r);
   return '供应商+内容+opt-in 三要素 ✓';
 });
+// ============ v4.9.7 真机反馈修复批：新行为防回归断言（105-114，2026-11-07） ============
+check('105 防挤压：进度槽/小灶行不再用"左列+右列锁死"结构（真机：课名被挤成 0 宽竖排）', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval(`(function(){
+    D = defaultData(); D.state.profileDone = true; D.state.enteredOnce = true;
+    D.state.todayPlan = { date: U.todayStr(), type: '力量', sessions: [{ dur: 20, courseId: 'k_leg_a', done: false }], clicked: Date.now(), deviation: null, noTrainReason: null };
+    const slot = planSlotsHtml(); const sup = supplementHtml();
+    return JSON.stringify({ slotNoRowBetween: slot.indexOf('row-between') < 0, slotStacked: slot.indexOf('chips') >= 0, supNoShrink: sup.indexOf('flex-shrink:0') < 0, supStacked: sup.indexOf('row-between') < 0 });
+  })()`);
+  const o = JSON.parse(r);
+  if (!o.slotNoRowBetween || !o.slotStacked || !o.supNoShrink || !o.supStacked) throw new Error('挤压结构残留：' + r);
+  return '上下堆叠结构 ✓';
+});
+check('106 Keep 链路：假搜索页死透+复制搜索词兜底（真机证伪 gotokeep.com/search）', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval(`(function(){
+    const src = String(openCourse);
+    return JSON.stringify({ noFakeSearch: src.indexOf('gotokeep.com/search') < 0, hasCopy: src.indexOf('copyKwToClipboard') >= 0, hasHomepage: src.indexOf('https://www.gotokeep.com/') >= 0 });
+  })()`);
+  const o = JSON.parse(r);
+  if (!o.noFakeSearch || !o.hasCopy || !o.hasHomepage) throw new Error('Keep 链路断：' + r);
+  return '复制词+官网兜底 ✓';
+});
+check('107 details 闭合：planCard 是 todayBody 直接子级+recordCard 不再被折叠区吞（存量 bug：夜训/年报曾被吞）', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval(`(function(){
+    D = defaultData(); D.state.profileDone = true; D.state.enteredOnce = true; renderToday();
+    const mt = document.getElementById('moreToday');
+    const pc = document.getElementById('planCard'); const rc = document.getElementById('recordCard');
+    return JSON.stringify({ planDirect: !!pc && pc.parentElement.id === 'todayBody', recSwallowed: !!mt && mt.contains(rc) });
+  })()`);
+  const o = JSON.parse(r);
+  if (!o.planDirect || o.recSwallowed) throw new Error('details 未闭合/嵌套错：' + r);
+  return '折叠区闭合 ✓';
+});
+check('108 病愈衔接：昨天病假→今天建议含"从 50% 开始"（引擎此前不读昨天）', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval(`(function(){
+    D = defaultData(); D.state.profileDone = true; D.state.enteredOnce = true;
+    D.daily.push({ date: U.addDays(U.todayStr(), -1), type: '病假', chk: { sick: 'fever', parts: [], kinds: [], relief: '' }, createdAt: Date.now() - 86400000, updatedAt: Date.now() });
+    const a = adviceFor();
+    return JSON.stringify({ has50: a.reason.indexOf('50%') >= 0, notSickToday: !a.sick });
+  })()`);
+  const o = JSON.parse(r);
+  if (!o.has50 || !o.notSickToday) throw new Error('病愈衔接断：' + r);
+  return '病愈 50% 衔接 ✓';
+});
+check('109 长走日伤病减半+行动入口（此前膝伤照旧建议长走 60 分钟）', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval(`(function(){
+    D = defaultData(); D.state.profileDone = true; D.state.enteredOnce = true;
+    effTemplate = function () { const t = {}; for (let i = 0; i < 7; i++) t[i] = (i === 6 ? '长时活动' : '休息日'); return t; }; // 桩：周六长走日
+    memUpdate('injury', '疼痛·膝', '深蹲后膝外侧不适');
+    const a = adviceFor();
+    const card = adviceCardHtml();
+    return JSON.stringify({ mode: a.mode, half: a.reason.indexOf('减半') >= 0, hasChip: card.indexOf('练完记一笔') >= 0, no60: card.indexOf('目标 ≥60 分钟') < 0 });
+  })()`);
+  const o = JSON.parse(r);
+  if (o.mode !== 'long' || !o.half || !o.hasChip || !o.no60) throw new Error('长走减半断：' + r);
+  return '长走减半+记一笔入口 ✓';
+});
+check('110 换类型不洗降档：switchType 冲击上限与主引擎同源（原写死 high）', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval(`(function(){
+    const src = String(switchType);
+    return JSON.stringify({ noHardcoded: src.indexOf("courseFilter(t, 'high')") < 0 && src.indexOf("(ankleS || inj)") >= 0, usesMaxImpact: src.indexOf('maxImpact') >= 0, mergesLog: src.indexOf('prevLg') >= 0 });
+  })()`);
+  const o = JSON.parse(r);
+  if (!o.noHardcoded || !o.usesMaxImpact || !o.mergesLog) throw new Error('switchType 断：' + r);
+  return '换类型同源降档+log 合并 ✓';
+});
+check('111 病假完成率口径：病假移出分子分母（原一周全病假=83% 扎实）', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval(`(function(){
+    D = defaultData();
+    const ws = U.weekStart(U.todayStr());
+    for (let i = 0; i < 7; i++) { const ds = U.addDays(ws, i); if (ds > U.todayStr()) break; D.daily.push({ date: ds, type: '病假', chk: { sick: 'fever', parts: [], kinds: [], relief: '' }, createdAt: Date.now(), updatedAt: Date.now() }); }
+    const c = M.weekCompletion(ws);
+    return JSON.stringify({ rate: Math.round(c * 100), checked: M.weekChecked(ws) });
+  })()`);
+  const o = JSON.parse(r);
+  if (o.checked !== 0 || o.rate !== 0) throw new Error('病假口径断：' + r);
+  return '全病假周=0%（不虚增）✓';
+});
+check('112 恢复档不推课+不练日不再邀请反馈', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval(`(function(){
+    D = defaultData(); D.state.profileDone = true; D.state.enteredOnce = true;
+    D.state.todayPlan = { date: U.todayStr(), type: '力量', sessions: [{ dur: 20, courseId: 'k_leg_a', done: false }], clicked: Date.now(), deviation: null, noTrainReason: 'tired' };
+    const slot = planSlotsHtml();
+    const src = String(adviceFor);
+    return JSON.stringify({ slotHidden: slot === '', hasFloorGuard: src.indexOf("lvNow === 'floor'") >= 0 });
+  })()`);
+  const o = JSON.parse(r);
+  if (!o.slotHidden || !o.hasFloorGuard) throw new Error('恢复档/不练日断：' + r);
+  return '不练不邀请+恢复档守卫 ✓';
+});
+check('113 红线日停训卡入口：渲染层不再吞 stop CTA', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval(`(function(){
+    return JSON.stringify({ stopInWhitelist: String(renderToday).indexOf("cta.kind === 'stop'") >= 0 });
+  })()`);
+  if (!JSON.parse(r).stopInWhitelist) throw new Error('stop CTA 仍被吞：' + r);
+  return '停训卡入口 ✓';
+});
+check('114 浅色主题变量补齐：data-theme=light 含 12 个补齐变量（OS 深色+手动浅色此前残留深色值）', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval(`(function(){
+    const css = document.querySelector('style').textContent;
+    const light = css.slice(css.indexOf('data-theme="light"'));
+    const block = light.slice(0, light.indexOf('}') + 60);
+    return JSON.stringify({ accent: block.indexOf('--accent:#007AFF') >= 0, soft: block.indexOf('--accent-soft:rgba(0,122,255,.18)') >= 0, shadow: block.indexOf('--shadow:0 1px 2px rgba(0,0,0,.04)') >= 0 });
+  })()`);
+  const o = JSON.parse(r);
+  if (!o.accent || !o.soft || !o.shadow) throw new Error('浅色变量缺：' + r);
+  return '浅色变量补齐 ✓';
+});
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);
 console.log('================ P0 jsdom 断言报告（node ' + process.version + ' · jsdom ' + require(require.resolve('jsdom/package.json', { paths: [DIR] })).version + '） ================');

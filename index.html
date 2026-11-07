@@ -48,7 +48,11 @@ html[data-fs="xl"]{--fscale:1.3}
 /* P1-3 外观设置：手动浅色/深色覆盖（优先级高于系统媒体查询） */
 html[data-theme="dark"]{--bg:#000000; --card:#1C1C1E; --text:#FFFFFF; --text2:#98989F; --line:#38383A; --glass:rgba(28,28,30,.8); --orange-text:#FF9500; --green-text:#34C759; --red-text:#FF3B30; --accent-text:#0A84FF; --blue-text:#0A84FF; --accent:#0A84FF; --green:#30D158; --orange:#FF9F0A; --red:#FF453A; --purple:#7D7AFF; --teal:#40C8E0; --pink:#FF6482; --blue:#0A84FF; --accent-soft:rgba(10,132,255,.25); --shadow:none; --accent-btn:#0066CC; --ctrl-line:#98989F}
 html[data-theme="light"]{--bg:#F2F2F7; --card:#FFFFFF; --text:#1C1C1E; --text2:#6B6B70; --line:#E5E5EA;
-  --orange-text:#A85B00; --green-text:#1B7A34; --red-text:#C0392B; --accent-text:#0057C8; --blue-text:#0057C8; --glass:rgba(255,255,255,.8)}
+  --orange-text:#A85B00; --green-text:#1B7A34; --red-text:#C0392B; --accent-text:#0057C8; --blue-text:#0057C8; --glass:rgba(255,255,255,.8);
+  /* 批修（视觉审查 2026-11-07）：补齐 12 个变量——此前 OS 深色+手动选浅色时状态色/阴影残留深色值（卡片丢阴影、accent-soft 变浓），dark 块 2026-10-20 修过同类问题 light 块漏了 */
+  --accent:#007AFF; --green:#34C759; --orange:#FF9500; --red:#FF3B30;
+  --purple:#5E5CE6; --teal:#30B0C7; --pink:#FF375F; --blue:#007AFF;
+  --accent-soft:rgba(0,122,255,.18); --shadow:0 1px 2px rgba(0,0,0,.04); --accent-btn:#0066CC; --ctrl-line:#8E8E93}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   .btn-primary:active,.btn-ghost:active,.chip:active,.tab:active,.ci-btn:active,.link-btn:active,.k-head:active{opacity:.62;transform:scale(.985)} /* v4.1 好用度：全局按压反馈 */
 html,body{height:100%}
@@ -216,7 +220,7 @@ input[type="range"]::-webkit-slider-runnable-track{height:26px;background:transp
 .today-strip .ts{flex:1;text-align:center;border-right:1px solid var(--line)}
 .today-strip .ts:last-child{border-right:0}
 .today-strip .ts b{display:block;font-size:15px;font-weight:600;line-height:1.3}
-.today-strip .ts span{font-size:11px;color:var(--text2)}
+.today-strip .ts span{font-size:calc(11px * var(--fscale, 1));color:var(--text2)}
 .today-strip .ts.done b{color:var(--green-text)}
 /* 喝水进度格子 */
 .wdots{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 2px}
@@ -235,11 +239,11 @@ input[type="range"]::-webkit-slider-runnable-track{height:26px;background:transp
 .ci-name{font-size:15px;font-weight:500}
 .ci-sub{font-size:13px;color:var(--text2);margin-top:1px}
 .ci-btns{display:flex;gap:6px;flex:none}
-.ci-btn{min-width:44px;min-height:44px;padding:4px 8px;border-radius:8px;font-size:12px;background:var(--accent-soft);color:var(--accent-text);font-weight:500}
+.ci-btn{min-width:44px;min-height:44px;padding:4px 8px;border-radius:8px;font-size:calc(12px * var(--fscale, 1));background:var(--accent-soft);color:var(--accent-text);font-weight:500}
 /* 打卡日历 */
 .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
 .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
-.cal .h{font-size:10px;color:var(--text2);text-align:center;padding:2px 0}
+.cal .h{font-size:calc(10px * var(--fscale, 1));color:var(--text2);text-align:center;padding:2px 0}
 .cal .d{aspect-ratio:1;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;min-height:44px;color:var(--text)}
 .cal .d.train{background:var(--blue);color:#fff}
 .cal .d.rehab{background:var(--accent-soft)}
@@ -264,7 +268,7 @@ input[type="range"]::-webkit-slider-runnable-track{height:26px;background:transp
 .set-row .sr-k{color:var(--text)}
 .set-row .sr-v{color:var(--text2);text-align:right;font-size:14px}
 /* 对比表 */
-table.cmp{width:100%;border-collapse:collapse;font-size:13px}
+table.cmp{width:100%;border-collapse:collapse;font-size:calc(13px * var(--fscale, 1))}
 .cmp th,.cmp td{padding:8px 6px;border-bottom:0.5px solid var(--line);text-align:left}
 .cmp th{color:var(--text2);font-weight:500;font-size:12px}
 .up{color:var(--green-text)} .down{color:var(--red-text)} .same{color:var(--text2)}
@@ -284,8 +288,8 @@ table.cmp{width:100%;border-collapse:collapse;font-size:13px}
 /* 模态/提示/吸底保存 */
 #modalWrap{position:fixed;inset:0;z-index:55;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;padding:24px}
 #modalBox{width:100%;max-width:340px;max-height:78vh;overflow:auto;background:var(--card);border-radius:var(--r-card);padding:20px 16px;box-shadow:var(--shadow)}
-#modalBox .m-actions{position:sticky;bottom:-20px;margin-left:-16px;margin-right:-16px;padding:12px 16px calc(12px + env(safe-area-inset-bottom, 0px));background:var(--card);border-top:0.5px solid var(--line);z-index:2;
-  /* V-23 旧样式合并：margin-top:16px;display:flex;flex-direction:column;gap:8px}
+#modalBox .m-actions{position:sticky;bottom:-20px;margin-left:-16px;margin-right:-16px;padding:12px 16px calc(12px + env(safe-area-inset-bottom, 0px));background:var(--card);border-top:0.5px solid var(--line);z-index:2}
+  /* V-23 旧样式合并：margin-top:16px;display:flex;flex-direction:column;gap:8px——并入上条（2026-11-07 修复：原注释未闭合吞掉 toast/年报样式三条规则） */
 #toastBox{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(80px + env(safe-area-inset-bottom));z-index:60;background:var(--text);color:var(--bg);padding:10px 18px;border-radius:var(--r-pill);font-size:13px;max-width:86vw;text-align:center}
 .btn-primary.saved{background:var(--green)}
 .bannercard{background:var(--card);border-radius:var(--r-card);padding:12px 16px;box-shadow:var(--shadow);margin-bottom:12px;font-size:13px;color:var(--orange-text);line-height:1.7}
@@ -475,7 +479,7 @@ const CONFIG = {
     footDoctor: '足部疼痛持续3天，建议运动医学科就诊，明确疼痛的具体原因',
     guideTestCard: '建议本周末完成家庭体测，建立你的基线。',
     // 隐私（2026-10-20 审查P0修复）：出厂默认不再携带任何真实伤情——源码进公开仓，个人伤史只存本机档案
-    injuryPreset: '足部旧伤（脚掌疼痛，行走可感）',
+    injuryPreset: '', // 批修（数据审查）：出厂默认不再携带任何伤情文本（原文自称"不携带"却写着伤情描述——自相矛盾）；档案伤史一律由主人自己填
     oldInjury: '踝部旧伤未愈；不平路面易崴脚'
   },
 
@@ -586,7 +590,7 @@ const CONFIG = {
     { name: '单车', dur: '20-40分钟', tip: '坐垫调至胯骨高度、不赶时间', link: 'https://search.bilibili.com/all?keyword=共享单车 座椅调节' },
     { name: '爬楼梯', dur: '15-30分钟', tip: '1→10楼爬升、电梯下楼循环；楼道闷热选早晨/晚间', link: 'https://search.bilibili.com/all?keyword=爬楼梯 有氧' }
   ],
-  cardioFootTip: '右足疼痛日优先选单车（足底负荷最小），疼痛>3/10时暂停快走与爬楼',
+  cardioFootTip: '足部疼痛日优先选单车（足底负荷最小），疼痛>3/10时暂停快走与爬楼', // 批修（数据审查）：去"右"字——源码不留单侧伤情线索
   longCopy: '长时活动：≥60分钟低强度，快走/慢骑/爬楼梯均可，全程能说话。训练"持续输出"能力——让身体习惯连续运动数小时，这是多日徒步与转山的核心基础，与20分钟的普通锻炼完全不同。',
 
   /* K4 热身与放松（逐字） */
@@ -735,15 +739,21 @@ const COURSE_LIB = [
 /* ============ M3 建议引擎（职责：给依据与选项，不替用户关门）============
    输入=晨检(chk)+readinessEval(level/reasons)+训练反馈连续性+周模板；输出=形态+课程选项(2-3门并列)+理由
    安全规则只"默认排序+明示原因"，用户可看全列表/自行覆盖（override 留痕周复盘可见） */
-function keepSearchUrl(kw) { return 'https://www.gotokeep.com/search?key=' + encodeURIComponent(kw); } // Keep 网页搜索兜底（深链待主人真机点验后替换）
 
 function impactRank(x) { const r = { none: 0, low: 1, high: 2 }; return r[x] != null ? r[x] : 2; }
 
-function courseFilter(type, maxImpact) { // 按约束查表：类型+冲击性上限；planLog 近3天已推过的降权；vip 课按会员开关放行（未开会员隐藏不误导）
-  const recent = (D.state.planLog || []).slice(-3).reduce((a, d) => a.concat(d.courseIds || []), []);
+function courseFilter(type, maxImpact) { // 按约束查表：类型+冲击性上限；近3天（批修：按日期差算——原 slice(-3) 实为"近3条"，几天不交互窗口会跨周）已推过的降权；在案伤病部位相关课再降权（批修：原"相关课程已排后"是文案无实现）
+  const recent = (D.state.planLog || []).filter((d) => d.date && d.date >= U.addDays(U.todayStr(), -3)).reduce((a, d) => a.concat(d.courseIds || []), []);
+  const hurtParts = (D.mem && Array.isArray(D.mem.facts)) ? D.mem.facts.filter((f) => f.kind === 'injury' && f.state === 'open').map((f) => f.subject.replace('疼痛·', '')) : [];
+  const partHit = (c) => { // 部位→课程 focus 粗映射：膝/足踝/髋/腿后侧→下肢；腰→核心
+    const lower = hurtParts.some((p) => '膝足踝髋腿'.indexOf(p) >= 0);
+    if (lower && (c.focus || []).indexOf('下肢') >= 0) return true;
+    if (hurtParts.indexOf('腰') >= 0 && (c.focus || []).indexOf('核心') >= 0) return true;
+    return false;
+  };
   const vipOk = !!(D.profile.keepVip);
   return COURSE_LIB.filter((c) => c.type === type && (c.src !== 'vip' || vipOk))
-    .map((c) => Object.assign({}, c, { penal: recent.indexOf(c.id) >= 0 ? 1 : 0, impactOk: impactRank(c.impact) <= impactRank(maxImpact) }));
+    .map((c) => Object.assign({}, c, { penal: (recent.indexOf(c.id) >= 0 ? 1 : 0) + (partHit(c) ? 2 : 0), impactOk: impactRank(c.impact) <= impactRank(maxImpact) }));
 }
 
 function memUpdate(kind, subject, body, evDate) { // 批2 记忆骨架（2026-11-07）：幂等事实写入——同 kind+subject 同一条；有则追证据刷新，无则新建。全显式（mem0 v3 教训：不做魔法自动改写）
@@ -856,9 +866,11 @@ function adviceFor(dateStr) { // 建议主函数：返回 {mode, type, reason, c
   dateStr = dateStr || U.todayStr();
   const d = new Date(dateStr.replace(/-/g, '/'));
   const dayType = effTemplate()[d.getDay()];
-  const chk = todayChk();
+  const chk = (dateStr === U.todayStr()) ? todayChk() : ((M.dailyOn(dateStr) || {}).chk || null); // 批修（引擎审查）：dateStr 传历史日时晨检也取当日——此前恒取今天，复盘重算会套脏判定
   const parts = (chk && chk.parts) || [];
-  const stopped = (chk && chk.out === 'stop') || todayLevelInfo().level === 'red'; // 红线=停训建议（可覆盖）
+  let tlRed = false;
+  try { tlRed = R.todayLight().level === 'red'; } catch (e) {} // 批修（引擎审查）：todayLevelInfo 永不返回 'red'，红灯判定此前是死条件——改用真实灯色（昨日疼痛红灯曾被吞）
+  const stopped = (chk && chk.out === 'stop') || tlRed; // 红线=停训建议（可覆盖）
   const ankle = parts.some((p) => p && (p.indexOf('足') >= 0 || p.indexOf('踝') >= 0));
   // 连续2次练后疼痛（S3）与连续2日RPE>=9（S4）——只看 daily，口径与 K7 一致
   let painStreak = 0, rpeStreak = 0;
@@ -869,17 +881,20 @@ function adviceFor(dateStr) { // 建议主函数：返回 {mode, type, reason, c
   }
   const notes = [];
   if (stopped) notes.push('晨检出现红线信号——强烈建议今天暂停训练并留意身体反应；持续或加重请就医评估');
-  if (ankle && !stopped) notes.push('足/踝有主诉——已把跳跃类课程排后');
+  if (ankle && !stopped) notes.push('足/踝有主诉——低冲击课优先，跳跃类排后');
   if (painStreak >= 2) notes.push('连续 2 次练后疼痛——建议改拉伸/恢复类，并更新档案里的伤病描述');
   if (rpeStreak >= 2) notes.push('连续 2 天 RPE≥9——恢复跟不上负荷，建议今天选低强度');
 
   // 批6 生病规则（2026-11-07）：脖子以上规则（neck check，出处 Ruuskanen 2023 综述+Mayo/ACSM 同口径，2026-11 查证）——发烧/脖子以下=病假休息；脖子以上无发烧=可轻练，「少练点」10 分钟档天然承接
-  const chkD = (dateStr === U.todayStr()) ? chk : ((M.dailyOn(dateStr) || {}).chk || null);
-  const sick = chkD && chkD.sick;
+  const sick = chk && chk.sick;
   if ((sick === 'below' || sick === 'fever') && !stopped) { // 批6 对抗审查：红线（stop）优先于病假——同一次晨检既报发烧又报红线词时，就医信号不能被感冒吞掉
     return { mode: 'rest', type: '休息', sick: true, reason: '生病（' + (sick === 'fever' ? '发烧' : '脖子以下症状') + '）——今天休息：多睡觉多喝水。症状缓解后从「少练点」10 分钟档回来，别急着补课', courses: [], filterNote: '' };
   }
   if (sick === 'above') notes.push('脖子以上症状（无发烧）——可以轻练：优先「少练点」10 分钟档或散步，别上强度；出现发烧/胸闷/浑身酸痛立即改休息');
+  // 批修（真机审查 2026-11-07）：病愈衔接——引擎此前不读昨天的病假，文案却承诺"从 50% 回来"
+  const yd = M.dailyOn(U.addDays(dateStr, -1));
+  const ydSick = !!(yd && yd.chk && (yd.chk.sick === 'below' || yd.chk.sick === 'fever'));
+  if (ydSick && sick !== 'below' && sick !== 'fever') notes.push('昨天病假——病愈第一天从 50% 开始：时长减半、能说话配速，有任何不舒服就停');
 
   // 批1 教练化（2026-11-07）：天气接入建议引擎——天气记录属于哪天就对哪天生效；雨雪/大风长时日自动改室内课，闷热/好天给行动提示；力量/拉伸日本来就在室内，不废话
   const wToday = D.state.weather;
@@ -889,43 +904,52 @@ function adviceFor(dateStr) { // 建议主函数：返回 {mode, type, reason, c
   else if (wx === '闷热' && isOut) notes.push('今天闷热——户外放清晨或傍晚 17-19 点，补水翻倍');
   else if (wx === '好天' && isOut) notes.push('好天气——户外课按计划走');
 
-  // 批2 逐课反馈联动（2026-11-07）：今天已有"困难"→ 剩余课程提示降档；近 14 天同类型课反馈全"轻松"≥2 次 → 明话升档并写入记忆层（cap 事实）
+  // 批3 伤病档案联动（2026-11-07）：记忆层 open 伤病事实→冲击降档+说明；当天伤级疼痛反馈（锐痛/肿/发麻）→该部位当天收手（批修：整段提到升档扫描之前——升档安全闸门要读它）
+  const injFacts = (D.mem && Array.isArray(D.mem.facts)) ? D.mem.facts.filter((f) => f.kind === 'injury' && f.state === 'open') : [];
+  if (injFacts.length) notes.push('伤病在案：' + injFacts.map((f) => f.subject.replace('疼痛·', '')).join('、') + '——低冲击课优先，相关部位保守');
   const recToday = M.dailyOn(U.todayStr());
+  if (dateStr === U.todayStr() && recToday && Array.isArray(recToday.painSaid) && recToday.painSaid.some((x) => x.level === 'stop' || x.level === 'red')) {
+    notes.push('今天有部位反馈了伤级信号（锐痛/肿/发麻）——该部位今天别再练，恢复了再上');
+    return { mode: 'rest', type: '拉伸', reason: notes.join('；'), courses: pickCourses('拉伸', 'low'), filterNote: '' }; // 批修（引擎审查）：伤级信号当日=休息拉伸，此前只出 note 照常推课
+  }
+
+  // 批2 逐课反馈联动（2026-11-07）：今天已有"困难"→ 剩余课程提示降档；近 14 天同类型课反馈全"轻松"≥2 次 → 明话升档并写入记忆层（cap 事实）
   if (dateStr === U.todayStr() && recToday && Array.isArray(recToday.fb) && recToday.fb.some((x) => x.rpe === 'hard')) notes.push('今天已有课程练得困难——剩下的课程选低强度档，或提前收工多恢复');
-  if (dayType === '力量' || dayType === '有氧') {
+  if ((dayType === '力量' || dayType === '有氧') && !stopped && injFacts.length === 0 && painStreak < 2 && rpeStreak < 2) { // 批修（引擎审查）：升档安全闸门——红线/伤病/疼痛/过劳时不谈"下次升一档"（stop 的 reason 此前能拼进升档文案）
     let easyN = 0, otherN = 0;
-    for (let i = 1; i <= 14 && easyN < 2; i++) {
+    for (let i = 1; i <= 14; i++) { // 批修（引擎审查）：去掉"凑满 2 个 easy 就断"——后面的 hard 不该被漏统计
       const rec = M.dailyOn(U.addDays(dateStr, -i));
       if (!rec || !Array.isArray(rec.fb)) continue;
       rec.fb.forEach((x) => { if (x.reduced) return; const c = COURSE_LIB.find((y) => y.id === x.courseId); if (c && c.type === dayType) { if (x.rpe === 'easy') easyN++; else if (x.rpe) otherN++; } }); // 批5：压缩日（10分钟砍档）的"轻松"不计入升档——10 分钟版轻松不说明课程档位轻
     }
     if (easyN >= 2 && otherN === 0) {
       notes.push('近两周同类课你都练得轻松——下次升一档强度或多加一组，别停在舒适区');
-      if (dateStr === U.todayStr()) memUpdate('cap', '强度档·' + dayType, '连续轻松——建议升档'); // 只在当天判定路径写记忆，复盘重算历史日期不产生副作用
+      if (dateStr === U.todayStr()) { memUpdate('cap', '强度档·' + dayType, '连续轻松——建议升档'); persist(); } // 只在当天判定路径写记忆+落盘（批修 QA 审查：渲染路径写记忆不 persist，跨会话丢）
     }
   }
 
-  // 批3 伤病档案联动（2026-11-07）：记忆层 open 伤病事实→冲击降档+说明；当天伤级疼痛反馈（锐痛/肿/发麻）→该部位当天收手
-  const injFacts = (D.mem && Array.isArray(D.mem.facts)) ? D.mem.facts.filter((f) => f.kind === 'injury' && f.state === 'open') : [];
-  if (injFacts.length) notes.push('伤病在案：' + injFacts.map((f) => f.subject.replace('疼痛·', '')).join('、') + '——相关课程已排后，本周保守');
-  if (dateStr === U.todayStr() && recToday && Array.isArray(recToday.painSaid) && recToday.painSaid.some((x) => x.level === 'stop' || x.level === 'red')) notes.push('今天有部位反馈了伤级信号（锐痛/肿/发麻）——该部位今天别再练，恢复了再上');
-
   const maxImpact = (ankle || painStreak >= 2 || injFacts.length > 0 || sick === 'above') ? 'low' : 'high'; // 批3：伤病在案=冲击性上限自动降为 low；批6：脖子以上症状=同样 low
   if (stopped) return { mode: 'stop', type: null, reason: notes.join('；'), courses: [], filterNote: '' };
-  if (CONFIG.trainTypes.indexOf(dayType) < 0) return { mode: 'rest', type: '拉伸', reason: notes.join('；') || '休息日——恢复也是训练', courses: pickCourses('拉伸', maxImpact), filterNote: ankle ? '已排除跳跃类' : '' };
+  const lvNow = todayLevelInfo().level;
+  if (lvNow === 'floor' || lvNow === 'rest') { // 批修（引擎审查）：恢复档/完全休息——决策卡说"只做每日包"，建议卡不得再推课（此前同卡自相矛盾）
+    const base = notes.join('；');
+    return { mode: 'rest', type: '拉伸', reason: (base ? base + '；' : '') + '身体在报警（' + (lvNow === 'floor' ? '恢复档' : '连续两天报警') + '）——今天只做每日包（足康复+八段锦），其他全免', courses: [], filterNote: '' };
+  }
+  if (CONFIG.trainTypes.indexOf(dayType) < 0) return { mode: 'rest', type: '拉伸', reason: notes.join('；') || '休息日——恢复也是训练', courses: pickCourses('拉伸', maxImpact), filterNote: ankle ? '低冲击优先' : '' };
+  if (rpeStreak >= 2 || painStreak >= 2) return { mode: 'rest', type: '拉伸', reason: notes.join('；'), courses: pickCourses('拉伸', maxImpact), filterNote: '' }; // 批修（引擎审查）：身体信号先于课表——此前长时日会跳过这条强制休息
   if (dayType === '长时活动') {
     if (wx === '雨雪' || wx === '大风降温') return { mode: 'normal', type: '有氧', reason: notes.join('；') || '长时日遇雨雪——改室内', courses: pickCourses('有氧', maxImpact), filterNote: '' }; // 批1：户外长走遇雨雪自动切室内有氧
-    return { mode: 'long', type: '长时', reason: notes.join('；') || '周六长时日——快走/慢骑本身就是训练', courses: [], filterNote: '' };
+    const hurt = injFacts.length > 0 || sick === 'above'; // 批修（真机审查）：长走日不豁免伤病/嗓子以上症状——"膝伤还建议长走60分钟"是错误处方
+    return { mode: 'long', type: '长时', reason: (hurt ? '有身体信号在案——今天长走减半：≤30 分钟平坦路线，能说话配速，疼就停。' : '') + (notes.join('；') || '周六长时日——快走/慢骑本身就是训练'), courses: [], filterNote: '' };
   }
-  if (rpeStreak >= 2 || painStreak >= 2) return { mode: 'rest', type: '拉伸', reason: notes.join('；'), courses: pickCourses('拉伸', maxImpact), filterNote: '' };
-  return { mode: 'normal', type: dayType, reason: notes.join('；') || '按本周计划：' + dayType + '日', courses: pickCourses(dayType, maxImpact), filterNote: ankle ? '已排除跳跃类' : '' };
+  return { mode: 'normal', type: dayType, reason: notes.join('；') || '按本周计划：' + dayType + '日', courses: pickCourses(dayType, maxImpact), filterNote: ankle ? '低冲击优先' : '' };
 }
 function pickCourses(type, maxImpact) { // 建议选项：单节=3 门并列；双节=第 1、2 门为"早晚各一节"组合（20 分钟优先）；3 天内推过的排后
   const pref = (D.profile.coursePref && D.profile.coursePref.sessions) || 1;
   const durTarget = pref === 2 ? 20 : 35;
   const all = courseFilter(type, maxImpact);
   const ok = all.filter((c) => c.impactOk);
-  const ranked = ok.sort((a, b) => (a.penal - b.penal) || (Math.abs(a.dur - durTarget) - Math.abs(b.dur - durTarget)));
+  const ranked = ok.sort((a, b) => (a.penal - b.penal) || (impactRank(a.impact) - impactRank(b.impact)) || (Math.abs(a.dur - durTarget) - Math.abs(b.dur - durTarget))); // 批修（引擎审查）：同 penal 下低冲击优先——"跳跃类排后"此前无实现（全表没有 high 冲击课）
   if (pref === 2) { // 双节：给"上午 20 分 + 下午/晚 20 分"两门（不同动作避免重复）
     const first = ranked[0];
     const second = ranked.slice(1).find((c) => c.id !== (first && first.id)) || ranked[1];
@@ -980,12 +1004,13 @@ function adviceCardHtml() { // 建议卡：决策卡内的"今天怎么练"区�
       + '<details class="fold" style="margin-top:6px"><summary>我了解风险，今天仍要动一动</summary><div class="fold-body">'
       + '<button class="btn-ghost" style="margin-top:4px" onclick="overrideStop()">只安排低风险活动（拉伸/散步）并留痕</button></div></details>';
   }
-  if (a.mode === 'rest' && a.sick) { // 批6：病假日——单一信息（休息+回程路线），不给训练任务、不弹停训卡（感冒不是红线）
+  if (a.mode === 'rest' && (a.sick || a.reason.indexOf('每日包') >= 0)) { // 批6 病假/恢复档=单一信息；批修（QA审查）：普通休息日/拉伸降档日仍走课程渲染——此前放宽成全部 rest 会吞掉拉伸课选项和进度槽
     return head + '<div class="sub" style="margin-top:8px">' + U.esc(a.reason) + '。</div>' + weekGridHtml();
   }
   if (a.mode === 'long') {
-    return head + '<div class="sub" style="margin-top:8px">' + U.esc(a.reason) + '。目标 ≥60 分钟（能说话配速），Keep 里跟一节走练当热身也行。</div>'
-      + '<div class="chips" style="margin-top:4px"><button class="chip" onclick="painWizard()">哪里疼？说一声</button><button class="chip" onclick="showK(\'K14\')">红旗自查</button></div>' // 批6：长走日也是疼痛/K14 高发场景（此前长时日无任何报疼入口）
+    const half = a.reason.indexOf('减半') >= 0; // 批修：伤病/病愈减半日不再叠加"目标 ≥60 分钟"
+    return head + '<div class="sub" style="margin-top:8px">' + U.esc(a.reason) + '。' + (half ? '全程能说话配速，Keep 里跟一节走练当热身也行。' : '目标 ≥60 分钟（能说话配速），Keep 里跟一节走练当热身也行。') + '</div>'
+      + '<div class="chips" style="margin-top:4px"><button class="chip" onclick="painWizard()">哪里疼？说一声</button><button class="chip" onclick="showK(\'K14\')">红旗自查</button><button class="chip" onclick="goRecordCard()">练完记一笔</button></div>' // 批6 报疼/K14 + 批修（真机）：长走日此前无任何可点行动
       + weekGridHtml() + supplementHtml();
   }
   const cs = a.courses;
@@ -998,8 +1023,8 @@ function adviceCardHtml() { // 建议卡：决策卡内的"今天怎么练"区�
       + (c.detail ? '<details class="fold"><summary>这门课是什么</summary><div class="fold-body sub">' + U.esc(c.detail) + '</div></details>' : '') + '</div>'
       + '<button class="ci-btn" style="flex-shrink:0;min-height:44px" onclick="openCourse(\'' + c.id + '\')">去 Keep 练 ›</button></div>').join('')
     + '<div class="sub" style="margin-top:4px">练完回记录卡记一笔（时长/累度/疼痛）。'
-    + '单双节：<button class="ci-btn" style="min-height:44px;padding:4px 8px" onclick="setCoursePref(1)">' + ((D.state.coursePref && D.state.coursePref.sessions) === 2 ? '单节 35 分 ✓' : '单节 35 分') + '</button>'
-    + '<button class="ci-btn" style="min-height:44px;padding:4px 8px" onclick="setCoursePref(2)">' + ((D.state.coursePref && D.state.coursePref.sessions) === 2 ? '双节 2×20 分 ✓' : '双节 2×20 分') + '</button>'
+    + '单双节：<button class="ci-btn" style="min-height:44px;padding:4px 8px" onclick="setCoursePref(1)">' + ((D.profile.coursePref && D.profile.coursePref.sessions) === 2 ? '单节 35 分 ✓' : '单节 35 分') + '</button>' // 批修（QA审查）：勾选态读错存储（state vs profile）——✓ 此前永不亮
+    + '<button class="ci-btn" style="min-height:44px;padding:4px 8px" onclick="setCoursePref(2)">' + ((D.profile.coursePref && D.profile.coursePref.sessions) === 2 ? '双节 2×20 分 ✓' : '双节 2×20 分') + '</button>'
     + '<button class="ci-btn" style="min-height:44px;padding:4px 8px" onclick="painWizard()">哪里疼？说一声</button>'
     + '<button class="ci-btn" style="min-height:44px;padding:4px 8px" onclick="showK(\'K14\')">红旗自查</button></div>' // 批6：K14 红旗卡一键入口——感觉不对先过这一关
     + planSlotsHtml() // 批2：今天的进度+逐课反馈三键（有已点的课才渲染）
@@ -1018,6 +1043,19 @@ function adviceCardHtml() { // 建议卡：决策卡内的"今天怎么练"区�
     + '</div>'
     + '<div class="sub" style="margin-top:4px">' + (a.mode === 'normal' ? '少练点：同一门课只练 10 分钟就算今天练过（压缩日）——10 分钟比 0 强得多。' : '') + '偏离会如实留痕（周复盘可见）——不是扣分，是让下周的建议更贴你。</div>'
     + '</div></details>';
+}
+function copyKwToClipboard(t) { // 批修（2026-11-07 真机）：Keep 搜索只在 App 内（网页 /search 路径不存在，已查证）——复制搜索词让用户去 Keep 粘贴
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(t).catch(function () {}); return; }
+    const ta = document.createElement('textarea'); ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+  } catch (e) {}
+}
+function goRecordCard() { // 批修（真机审查）：长走日此前无任何可点行动——一键滚到记录卡
+  nav('pgToday');
+  const el = document.getElementById('recordCard');
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  toast('练完回来记一笔（时长/累度）');
 }
 function openCourse(id) { // 打开课程（深链或搜索兜底）+ 留痕；双节模式下第 1/2 次点击分别占 session 槽
   const c = COURSE_LIB.find((x) => x.id === id);
@@ -1044,12 +1082,16 @@ function openCourse(id) { // 打开课程（深链或搜索兜底）+ 留痕；�
   D.state.planLog = lg.slice(-7);
   D.state.updatedAt = Date.now();
   persist();
-  if (c.url) window.open(c.url, '_blank'); else window.open(keepSearchUrl(c.kw), '_blank');
+  if (c.url) { window.open(c.url, '_blank'); } else { // 批修（真机）：旧假搜索页已被主人真机点验证伪——改为复制搜索词+开官网首页；主人报真课后逐门填 c.url 直达
+    copyKwToClipboard(c.kw);
+    window.open('https://www.gotokeep.com/', '_blank');
+    toast('搜索词「' + c.kw + '」已复制——打开 Keep，粘贴到搜索框');
+  }
   renderToday(); // 批2（2026-11-07）：点课后立即重渲染——"今天的进度"槽和反馈三键要在用户从 Keep 回来前就在卡上（t107 真机抓到漏渲染）
 }
 function planSlotsHtml() { // 批2 逐课反馈（2026-11-07）：已点的课按槽显示进度，练完点轻松/适中/困难——教练靠这个调下一节
   const plan = D.state.todayPlan;
-  if (!plan || plan.date !== U.todayStr() || !Array.isArray(plan.sessions) || !plan.sessions.length) return '';
+  if (!plan || plan.date !== U.todayStr() || !Array.isArray(plan.sessions) || !plan.sessions.length || plan.noTrainReason) return ''; // 批修（QA审查）：已表态"今天不练"就不再邀请反馈——此前槽还在喊"练完了？点一个累度"
   const rows = plan.sessions.map((s, i) => {
     const c = s.courseId ? COURSE_LIB.find((x) => x.id === s.courseId) : null;
     const name = c ? courseDisplayName(c) : '自定义课';
@@ -1057,11 +1099,11 @@ function planSlotsHtml() { // 批2 逐课反馈（2026-11-07）：已点的课�
     const lbl = { easy: '轻松', mid: '适中', hard: '困难' };
     const fbBtns = ['easy', 'mid', 'hard'].map((r) => '<button class="chip' + (fb && fb.rpe === r ? ' on' : '') + '" onclick="sessFb(' + i + ',\'' + r + '\')">' + lbl[r] + (fb && fb.rpe === r ? ' ✓' : '') + '</button>').join('')
       + '<button class="chip" onclick="painWizard()">疼了？说一声</button>'; // 批3：疼痛三步向导入口
-    return '<div class="row-between" style="padding:6px 0;border-bottom:0.5px solid var(--line)">'
-      + '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">第 ' + (i + 1) + ' 节 · ' + U.esc(name) + (s.dur ? ' ' + s.dur + ' 分' : '') + '</div>'
+    return '<div style="padding:6px 0;border-bottom:0.5px solid var(--line)">' // 批修（真机 2026-11-07）：原左右行在手机上把课名挤成 0 宽竖排——改上下堆叠，按钮全宽自动换行
+      + '<div style="font-size:13px;font-weight:600">第 ' + (i + 1) + ' 节 · ' + U.esc(name) + (s.dur ? ' ' + s.dur + ' 分' : '') + '</div>'
       + (fb ? '<div class="sub" style="color:var(--green-text)">已反馈：' + lbl[fb.rpe] + '——' + (fb.rpe === 'easy' ? '连续轻松教练会建议升档' : (fb.rpe === 'mid' ? '这个档位就对了' : '下一节会建议降档')) + '</div>'
             : '<div class="sub">练完了？点一个累度（Keep 里练完回来点）</div>')
-      + '</div><div class="chips" style="flex-shrink:0">' + fbBtns + '</div></div>';
+      + '<div class="chips" style="margin-top:6px">' + fbBtns + '</div></div>';
   }).join('');
   const redBadge = plan.deviation === 'reduced' ? ' · <span style="color:var(--orange-text)">压缩日：今天只练 10 分钟，练完点累度就算数 ✓</span>' : ''; // 批5：压缩日在进度槽说清楚
   return '<div style="margin-top:10px"><div class="sub" style="font-weight:600;color:var(--text)">今天的进度' + redBadge + '</div>' + rows + '</div>';
@@ -1073,7 +1115,7 @@ function sessFb(i, rpe) { // 批2 逐课反馈写入三处：todayPlan 槽（UI 
   const rpe10 = rpe === 'easy' ? 2.5 : (rpe === 'mid' ? 5 : 7.5);
   s.fb = { rpe: rpe, rpe10: rpe10, ts: Date.now() };
   let rec = M.dailyOn(U.todayStr());
-  if (!rec) { rec = { date: U.todayStr(), type: '训练', createdAt: Date.now() }; D.daily.push(rec); }
+  if (!rec) { rec = { date: U.todayStr(), type: '训练', createdAt: Date.now(), updatedAt: Date.now() }; D.daily.push(rec); }
   rec.fb = (Array.isArray(rec.fb) ? rec.fb : []).filter((x) => x.courseId !== s.courseId);
   rec.fb.push({ courseId: s.courseId, rpe: rpe, rpe10: rpe10, ts: Date.now(), reduced: plan.deviation === 'reduced' }); // 批5：压缩日的反馈打标——升档扫描跳过（10分钟版的累度不代表课程档位）
   const c = s.courseId ? COURSE_LIB.find((x) => x.id === s.courseId) : null;
@@ -1145,7 +1187,7 @@ function painSave() { // 批3 留痕：daily.painSaid（复盘源）+ 伤病类�
   if (!s.part || !s.feel || !s.when) return;
   const v = painVerdict(s.feel, s.when, s.part);
   let rec = M.dailyOn(U.todayStr());
-  if (!rec) { rec = { date: U.todayStr(), type: '训练', createdAt: Date.now() }; D.daily.push(rec); }
+  if (!rec) { rec = { date: U.todayStr(), type: '训练', createdAt: Date.now(), updatedAt: Date.now() }; D.daily.push(rec); }
   rec.painSaid = (Array.isArray(rec.painSaid) ? rec.painSaid : []).concat([{ part: s.part, feel: s.feel, when: s.when, level: v.level, ts: Date.now() }]);
   if (v.level === 'stop' || v.level === 'red' || s.feel === '关节里疼') memUpdate('injury', '疼痛·' + s.part, s.feel + '·' + s.when + '——本周该部位保守'); // 伤级信号才入伤病档案：酸胀/弹响不升级保守度
   D.state.updatedAt = Date.now();
@@ -1160,7 +1202,10 @@ function supplementHtml() { // 批4 补充处方（2026-11-07）：解冻拉伸�
   const rows = rel.map((id) => {
     const a = STRETCH_LIB[id];
     if (!a) return '';
-    return '<div class="row-between" style="padding:5px 0;border-bottom:0.5px solid var(--line)"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">' + U.esc(a.name) + ' <span class="sub">' + (a.mode === 'rep' ? (a.reps + ' 次') : (a.secs + ' 秒 × 每侧')) + '</span></div><div class="sub">' + U.esc(a.cue || '') + '</div></div><div class="sub" style="flex-shrink:0">' + U.esc((plan.reason || {})[id] || a.why || '') + '</div></div>';
+    return '<div style="padding:5px 0;border-bottom:0.5px solid var(--line)">' // 批修（真机+矩阵 2026-11-07）：原左右行 320px/大字号下挤压竖排+溢出——改上下堆叠
+      + '<div style="font-size:13px;font-weight:600">' + U.esc(a.name) + ' <span class="sub">' + (a.mode === 'rep' ? (a.reps + ' 次') : (a.secs + ' 秒 × 每侧')) + '</span></div>'
+      + (a.cue ? '<div class="sub">' + U.esc(a.cue) + '</div>' : '')
+      + '<div class="sub">' + U.esc((plan.reason || {})[id] || a.why || '') + '</div></div>';
   }).join('');
   const ACT_ROT = [ // 腿部/核心是徒步刚需短板（主人 10-25 明确）：每天 1 个，按日轮换不重样
     { name: '靠墙静蹲', cue: '背贴墙下滑到大腿发酸，30-45 秒 × 2 组', why: '腿部力量短板' },
@@ -1173,14 +1218,15 @@ function supplementHtml() { // 批4 补充处方（2026-11-07）：解冻拉伸�
   return '<details class="fold" style="margin-top:8px"><summary>今天的补充（拉伸 ' + rel.length + ' + 激活 1 · 约 5-10 分钟）' + (done ? ' · 已完成 ✓' : '') + '</summary><div class="fold-body">'
     + '<div class="sub" style="margin-bottom:4px">Keep 课不含这些——这是针对你腿/核心短板和今晨主诉的每日小灶：</div>'
     + rows
-    + '<div class="row-between" style="padding:5px 0"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">' + act.name + '</div><div class="sub">' + U.esc(act.cue) + '</div></div><div class="sub" style="flex-shrink:0">' + act.why + '</div></div>'
+    + '<div style="padding:5px 0">' // 批修：激活行同改上下堆叠（原左右行窄屏挤压）
+    + '<div style="font-size:13px;font-weight:600">' + act.name + '</div><div class="sub">' + U.esc(act.cue) + '</div><div class="sub">' + act.why + '</div></div>'
     + (done ? '<div class="sub" style="color:var(--green-text);margin-top:6px">今天已完成 ✓——坚持比时长重要（每天 5-10 分钟就有可测量的柔韧收益）</div>'
             : '<button class="btn-ghost" style="margin-top:6px" onclick="supDone()">做完了，记一笔</button>')
     + '</div></details>';
 }
 function supDone() { // 批4 小灶完成留痕：daily.rec.supDone（复盘源）；连续 7 天写 cap 记忆（批6/7 消费）
   let rec = M.dailyOn(U.todayStr());
-  if (!rec) { rec = { date: U.todayStr(), type: '训练', createdAt: Date.now() }; D.daily.push(rec); }
+  if (!rec) { rec = { date: U.todayStr(), type: '训练', createdAt: Date.now(), updatedAt: Date.now() }; D.daily.push(rec); }
   rec.supDone = Date.now();
   let streak = 0;
   for (let i = 0; i < 7; i++) { const r = M.dailyOn(U.addDays(U.todayStr(), -i)); if (r && r.supDone) streak++; else break; }
@@ -1243,7 +1289,10 @@ function rotateCourses() { // 换一换：把当前已推的 3 门标记为"刚�
   const plan = D.state.todayPlan;
   if (plan && plan.date === U.todayStr() && plan.sessions) {
     const lg = (D.state.planLog || []).filter(function (x) { return x.date !== U.todayStr(); });
-    lg.push({ date: U.todayStr(), courseIds: plan.sessions.map(function (x) { return x.courseId; }).filter(Boolean) });
+    const prevLg = (D.state.planLog || []).find(function (x) { return x.date === U.todayStr(); }); // 批修（引擎审查）：合并保留 opened/reduced/skip——此前"换一换"会把今天的练了证据链抹掉（openCourse/skipToday/reduceToday 三个写入方都保留，唯独这里丢）
+    const last = { date: U.todayStr(), courseIds: plan.sessions.map(function (x) { return x.courseId; }).filter(Boolean), opened: !!(prevLg && prevLg.opened), reduced: !!(prevLg && prevLg.reduced) };
+    if (prevLg && prevLg.skip) last.skip = prevLg.skip;
+    lg.push(last);
     D.state.planLog = lg.slice(-7);
     D.state.updatedAt = Date.now();
     persist();
@@ -1251,11 +1300,21 @@ function rotateCourses() { // 换一换：把当前已推的 3 门标记为"刚�
   renderToday();
   toast('已换一批');
 }
-function switchType(t) { // 换类型：按新类型重筛并覆盖今日计划（同日可反复，留痕 deviation=change_type）
-  const pool = courseFilter(t, 'high').filter(function (c) { return c.impactOk; });
+function switchType(t) { // 换类型：按新类型重筛并覆盖今日计划（同日可反复，留痕 deviation=change_type）；批修（QA审查）：冲击上限与 adviceFor 同源——原先写死满冲击，换类型入口洗掉伤病/踝痛降档
+  const inj = (D.mem && Array.isArray(D.mem.facts)) ? D.mem.facts.some((f) => f.kind === 'injury' && f.state === 'open') : false;
+  const chkS = todayChk();
+  const ankleS = !!((chkS && chkS.parts) || []).some((p) => p && (p.indexOf('足') >= 0 || p.indexOf('踝') >= 0));
+  const maxImpact = (ankleS || inj) ? 'low' : 'high';
+  const pool = courseFilter(t, maxImpact).filter(function (c) { return c.impactOk; });
   const c = pool.sort(function (a, b) { return a.penal - b.penal; })[0];
   const today = U.todayStr();
   D.state.todayPlan = { date: today, type: t, sessions: [{ dur: (c && c.dur) || 35, courseId: (c && c.id) || null, done: false }], clicked: null, deviation: 'change_type', noTrainReason: null };
+  const lg = (D.state.planLog || []).filter(function (x) { return x.date !== today; }); // 批修（QA审查）：换类型清压缩标——原留脏 reduced，7格显示"½压缩日"而进度槽已是全量课
+  const prevLg = (D.state.planLog || []).find(function (x) { return x.date === today; });
+  const last = { date: today, courseIds: prevLg ? (prevLg.courseIds || []).slice() : [], opened: !!(prevLg && prevLg.opened), reduced: false };
+  if (prevLg && prevLg.skip) last.skip = prevLg.skip;
+  lg.push(last);
+  D.state.planLog = lg.slice(-7);
   D.state.updatedAt = Date.now();
   persist();
   renderToday();
@@ -1363,7 +1422,7 @@ function defaultData() {
       // 隐私（2026-10-20 审查修复）：身高/体重/城市出厂默认清空——此前硬编码真实值进公开仓；真实值由首启向导/档案页录入、仅存本机
       gender: '男', height: '', weight0: '',
       weeklyDays: 6, stairs: true, gear: '背包、登山杖（无重装背包）',
-      injury: CONFIG.copy.injuryPreset, targetWindow: null, createdAt: null,
+      injury: '', targetWindow: null, createdAt: null,
       rhrBaseline: 60, hrvBaseline: 50, sleepBaseline: 5.4, sleepAnchor: '23:30', city: '',
       updatedAt: 0
     },
@@ -1508,6 +1567,7 @@ function mergeData(local, remote) {
   out.weekly = mergeByKey(local.weekly, remote.weekly, 'weekStart');
   out.mem = mergeMem(local.mem, remote.mem); // 批2（2026-11-07）：记忆层必须显式合并——漏掉=云端同步一次丢全部教练记忆
   out.updatedAt = new Date().toISOString();
+  normalizeData(out); // 批修（数据审查）：合并后过同一套缺键/类型防线——老版远端备份撞上时 M2 六键（todayPlan/planLog 等）此前会静默丢
   return out;
 }
 function mergeMem(a, b) { // 批2 记忆合并：按 kind+subject 并集去重，同名取 lastSeen 新者，证据数组合并去重（上限同 normalizeData）
@@ -1619,7 +1679,7 @@ function discardDraftAndClose() { // F2a：用户明确选"不留记录"——�
   closeModal();
   renderToday();
 }
-window.APP_VER = '4.9.6'; // 批7 AI教练接入记忆+管理区（2026-11-07）：①buildContext 注入【教练的记忆】（open 事实全量：kind|subject：body·证据N次）+【近7天行为】摘要行（缺席原因/压缩/报疼/病假——批5/6 留痕的消费口），AI 从陌生人变私人教练 ②档案页"教练的记忆"透明窗：全部非 closed 事实可见（kind/subject/body/证据数/since/wane 标注）、可改（modal 编辑+src=manual 人改过不再被引擎覆盖）、可删（两击确认）、可手动补（memUpdate 幂等同主题覆盖）③showCoachQA 诚实告知：问答会把课表+近7天记录+教练记忆（含伤病/疼痛摘要）发给所选供应商（学 ChatGPT/Mistral/Copilot 记忆管理通行模式，2026-11 查证：可见+可编辑+可控） // 前批 v4.9.5 批6——缺席原因真数据（skipToday 留痕进 planLog.skip，此前当日即丢）/疼痛轨迹（消费批3 painSaid）/病假计数/下周调整四规则+结论 memUpdate('life','周复盘·weekStart') 写回事实层（批7 AI 消费）②生病规则：晨检第0步感冒轴（neck check 口径：Ruuskanen 2023+ACSM——发烧/脖子以下=病假休息日 rec.type=病假不算欠账、病好从50%回来不补课；脖子以上=可轻练10分钟档+maxImpact=low）病假卡单一信息不弹停训卡 ③K14红旗卡三处一键入口（建议卡页脚/晨检判据行/停训卡） // 前批 v4.9.4 批5：少练点10分钟档（压缩日算练+升档防污染）+建议卡常驻本周7格（✓/½/休/空心/今天，弹性周计数）+修 openCourse 恒假死分支 // 前批 v4.9.x 批1-3：天气接入建议引擎+开场白三要素 · 单课反馈三键+D.mem 记忆骨架+进步出口 · 疼痛三步向导+伤病档案联动 // 前批 v4.8.1 保命批（2026-10-26）：F1 进门判据解耦（enteredOnce，用过即直达不再每次欢迎页） · F2a 白练保护（训练结束先落草稿再清快照——报告确认窗口锁屏/回收不再丢训练；中断/恢复课路径防双计） · F3 SW 健康数据零缓存（api.github.com 改 networkOnly，清库即清净） · 前批 v4.6.3 清理solo/cooldown死分支（solo已废弃） · 前批 v4.6.2 有氧日也走三阶段（激活→主计时→收尾，此前有氧练完没有拉伸） · 前批 v4.6.1 闭环批（IXD P1全清+术语统一+行话改人话+K28去标识化+手动完成计数修复） · 前批 v4.6.0 拉伸并入每日课（三阶段/恢复课/起床档/规则引擎/当天冻结）· 前批 v4.5.2：数据口径4修+训练快照持久化+草稿保护+chip回填+按钮收敛+中断如实记录+字号三档+深色补齐+死代码清理+合规文案 · 前批 v4.5.1 隐私修复：出厂默认清空身高/体重/城市/伤史——源码进公开仓，个人数据仅存本机；检测来源默认去城市化 // v4.5.0：身体照顾（久坐肩颈/小腿胀硬/足底筋膜释放+晨检联动+练前热身/练后放松明确化）
+window.APP_VER = '4.9.7'; // 真机反馈修复批（2026-11-07，主人真机首用抓漏+五角色审查 36 项）：①Keep 链路重做——假搜索页 gotokeep.com/search 被真机证伪（Keep 搜索只在 App 内），改复制搜索词+开官网+toast 指引 ②排版挤压四连修——进度槽/小灶行左右行改上下堆叠（此前课名被挤成 0 宽竖排）、围度输入行/问教练输入行补 min-width、CSS 未闭合注释吞掉 toast 等三条规则修复 ③晨检卡从页尾 3400px 上移到决策卡正后方（每天第一个动作此前垫底）④建议引擎六修——病愈衔接（昨天病假今天从50%开始，引擎此前不读）、长走日不豁免伤病/嗓子症状（减半≤30分钟）、红灯死条件（todayLevelInfo 永不返回 red，改用真实灯色）、升档安全闸门+全窗扫描（stop 理由此前能拼进"下次升一档"）、伤级信号当日=休息拉伸（此前只出 note 照常推课）、恢复档不再同卡推课 ⑤数据口径五修——病假移出完成率分子分母（一周全病假=83%"扎实"自欺）、rotateCourses/switchType 合并保留 opened/reduced/skip（换课不再抹练了证据链）、换类型不再洗掉冲击降档（原写死 high）、单双节✓读错存储、mergeData 包 normalizeData（老备份撞库丢 M2 六键）、伪记录补 updatedAt ⑥隐私四修——AI 系统词"右足康复期"硬编码出公开仓（改运行时取档案）、injuryPreset 出厂伤情文本清空、判定理由发睡眠/心率数值如实告知、低冲击优先真排序（"跳跃类排后"原是空话）⑦长走日"练完记一笔"行动入口+RPE 标题人话+第0天一键保存文案+浅色主题补齐12变量+大字号接线 // 前批 v4.9.6 批7 AI教练接入记忆+管理区（buildContext 注入教练的记忆/近7天行为+档案页记忆管理区+诚实告知） // 前批 v4.9.5 批6 结论层+生病规则+K14入口 // 前批 v4.9.4 批5 少练点10分钟档+本周7格 // 前批 v4.9.x 批1-3 天气接入引擎·单课反馈+记忆骨架·疼痛三步向导 // 前批 v4.8.1 保命批（F1进门解耦·F2a白练保护·F3 SW健康数据零缓存·F4城市指纹清理） // 前批 v4.6.x 拉伸并入日课+闭环批+有氧三阶段 // 前批 v4.5.x 隐私修复（出厂默认清空）+身体照顾+七角色审查修复
 window.addEventListener('error', function (e) { try { if (e && e.message) toast('出了个小问题：' + String(e.message).slice(0, 60)); } catch (err) {} }); // v4.1 审查修复 B4：全局异常不再静默
 window.addEventListener('unhandledrejection', function (e) { try { const r = e && e.reason; toast('后台出了个小问题：' + String(r && r.message || r || '未知').slice(0, 60)); } catch (err) {} });
 async function checkAppUpdate() { // v4.1：一键清 SW/缓存并重载——根治"PWA 更新后吃旧缓存"（原需手动强刷）
@@ -1834,7 +1894,7 @@ function wizNext() {
     return;
   }
   if (wizStep === 3) {
-    if (wizData.injuryChoice === 'foot') wizData.injury = CONFIG.copy.injuryPreset;
+    if (wizData.injuryChoice === 'foot') wizData.injury = '';
     else if (wizData.injuryChoice === 'none') wizData.injury = '无旧伤';
     else {
       const t = document.getElementById('wInjuryText') ? document.getElementById('wInjuryText').value.trim() : '';
@@ -1848,7 +1908,7 @@ function wizNext() {
 function wizUseDefaults() { // 首开减负：不填档案也能进今天页，默认值可后续改
   const d = defaultData().profile;
   wizData.birthday = d.birthday; wizData.height = d.height; wizData.weight0 = d.weight0;
-  wizData.weeklyDays = d.weeklyDays; wizData.injury = CONFIG.copy.injuryPreset;
+  wizData.weeklyDays = d.weeklyDays; wizData.injury = '';
   applyWizProfile({ provisional: true });
   D.state.profileDone = true; D.state.updatedAt = Date.now(); persist();
   closeGuide(); renderToday(); toast('先用默认档案开始；之后在【档案】页随时改');
@@ -1961,16 +2021,25 @@ const M = {
     if (days.length >= CONFIG.rhrBaseMinDays) return Math.round(days.reduce((s, x) => s + x, 0) / days.length);
     return D.profile.hrvBaseline;
   },
-  weekChecked(ws) { // 休息日与病假均计为已打卡（2026-10-20 口径修复：type='无' 的纯晨检记录不算打卡——晨检只提交 chk、无训练内容，计入会让周完成率被"只做晨检"刷高）
+  weekChecked(ws) { // 批修（引擎审查 2026-11-07）：病假日移出分子——此前病假计"已打卡"，一周全病假=83%"扎实"是自欺；休息日照计（休息也是训练的一部分）；type='无' 纯晨检不算（2026-10-20 口径保留）
     let n = 0;
     for (let i = 0; i < 7; i++) {
       const r = M.dailyOn(U.addDays(ws, i));
       if (!r || r.type === '无') continue;
+      if (r.type === '病假' || (r.chk && (r.chk.sick === 'below' || r.chk.sick === 'fever'))) continue;
       n++;
     }
     return n;
   },
-  weekCompletion(ws) { return M.weekChecked(ws) / (D.profile.weeklyDays || 6); },
+  weekSickN(ws) { // 批修：周病假天数（weekCompletion 分母剔除用）
+    let n = 0;
+    for (let i = 0; i < 7; i++) {
+      const r = M.dailyOn(U.addDays(ws, i));
+      if (r && (r.type === '病假' || (r.chk && (r.chk.sick === 'below' || r.chk.sick === 'fever')))) n++;
+    }
+    return n;
+  },
+  weekCompletion(ws) { const denom = Math.max(1, (D.profile.weeklyDays || 6) - M.weekSickN(ws)); return M.weekChecked(ws) / denom; }, // 批修：分母同步剔除病假日——病假不拖累也不虚增（与本周7格同口径）
   weekLoad(ws) { // 周负荷 = Σ(时长×RPE)
     let s = 0;
     D.daily.forEach((r) => {
@@ -2105,9 +2174,10 @@ const R = {
     ev.push('无疼痛✓', '足康复 Stage ' + D.state.footStage + ' 进行中');
     return { level: 'green', reason: CONFIG.copy.green, ev: ev };
   },
-  todayLight() { // 疼痛取最近一条记录（最新已知状态）
+  todayLight() { // 疼痛取最近一条记录（最新已知状态）；批修（引擎审查）：限定近 2 天——两周前的"腰"痛打卡不该永久红灯
     const latest = M.latestDaily();
-    if (latest && latest.pain && latest.pain !== '无') {
+    const recent = latest && latest.date && latest.date >= U.addDays(U.todayStr(), -2);
+    if (recent && latest.pain && latest.pain !== '无') {
       const p = String(latest.pain);
       if (p.indexOf('踝') >= 0) return { level: 'yellow', reason: CONFIG.copy.yellowAnkle, ev: ['踝痛打卡 ⚠'] };
       if (p.indexOf('足') >= 0) return { level: 'yellow', reason: CONFIG.copy.yellowFoot, ev: ['足痛打卡 ⚠'] };
@@ -2401,8 +2471,8 @@ const SPECIAL12 = [ // 转山专项期 12 周（2026-10-20 体检修复）：周
   { w: 8,  climb: 1000, load: 7,   walkH: 4.5,  note: '爬升破 1000m；周日复测⑧：闭眼站+负重走' },
   { w: 9,  climb: 1050, load: 7.5, walkH: 5.0,  note: '大课 5h：按转山日节奏走，前半程压配速' },
   { w: 10, climb: 1100, load: 8,   walkH: 5.5,  note: '峰值周：5.5h / 1100m，负重 8kg 到位' },
-  { w: 11, climb: 560,  load: 8,   walkH: 4.0,  note: 'taper 第 1 周：量降 20%，保留 1 次短陡爬升' },
-  { w: 12, climb: 350,  load: 8,   walkH: 2.5,  note: '检阅周（taper 第 2 周）：量降 50%，只做激活；周日复测=体测总分 100+右脚 57s+8kg 负重走', deload: true }
+  { w: 11, climb: 560,  load: 8,   walkH: 4.0,  note: 'taper 第 1 周：量降 20%，保留 1 次短陡爬升', df: 0.8 },
+  { w: 12, climb: 350,  load: 8,   walkH: 2.5,  note: '检阅周（taper 第 2 周）：量降 50%，只做激活；周日复测=体测总分 100+右脚 57s+8kg 负重走', deload: true, df: 0.5 }
 ];
 function schedShiftWeeks() { // FR-B1 顺延读数：state.schedShift={weeks:0-2,log:[]} 可选键，钳位 0-2
   const s = D.state.schedShift;
@@ -2420,7 +2490,11 @@ function isDeloadWeek(wk) { // v4.1 核心断点打通：减载周显式标记 �
   const ph = cyclePhaseOf(wk);
   return !!(ph && ph.row && ph.row.deload);
 }
-function deloadFactor(wk) { // 减载系数：减载周目标次数×0.65（标尺：减量 30-50% 取中）；wk 可传参便于测试
+function deloadFactor(wk) { // 减载系数：减载周默认×0.65（标尺：减量 30-50% 取中）；批修（引擎审查）：专项 taper 行可带 df 覆盖——此前参数表承诺 W11 -20%/W12 -50%，引擎只有一档 0.65，两套数
+  if (wk != null) {
+    const ph = cyclePhaseOf(wk);
+    if (ph && ph.row && ph.row.df) return ph.row.df;
+  }
   return isDeloadWeek(wk != null ? wk : cycleWeekOf(U.todayStr())) ? 0.65 : 1;
 }
 function cyclePhaseOf(wk) { // 周号→阶段信息（阶段名/行/总周数）；null=未开营或已满
@@ -2486,10 +2560,10 @@ function girthHtml() { // Keep 抄单小件（v4.1 FR-I）：围度月量一次�
   const has = g.chest != null || g.arm != null || g.leg != null;
   const sum = has ? '<div class="sub" style="margin-top:4px">最近围度（' + U.fmtShort(g.date) + '）：胸 ' + g.chest + ' / 臂 ' + g.arm + ' / 腿 ' + g.leg + ' cm——对照体重账看"长的是肌肉还是饭"。</div>' : '';
   return sum + '<details class="fold" style="margin-top:4px"><summary class="sub">围度记录（月量一次）：胸围/臂围/腿围</summary><div class="fold-body">'
-    + '<div style="display:flex;gap:6px;margin-top:6px">'
-    + '<input id="gChest" type="number" inputmode="decimal" placeholder="胸围 cm" style="flex:1;min-height:44px">'
-    + '<input id="gArm" type="number" inputmode="decimal" placeholder="臂围 cm" style="flex:1;min-height:44px">'
-    + '<input id="gLeg" type="number" inputmode="decimal" placeholder="腿围 cm" style="flex:1;min-height:44px"></div>'
+    + '<div style="display:flex;gap:6px;margin-top:6px">' // 批修（真机+矩阵）：input 固有宽度撑破 flex 行——补 min-width:0 允许收缩
+    + '<input id="gChest" type="number" inputmode="decimal" placeholder="胸围 cm" style="flex:1;min-width:0;min-height:44px">'
+    + '<input id="gArm" type="number" inputmode="decimal" placeholder="臂围 cm" style="flex:1;min-width:0;min-height:44px">'
+    + '<input id="gLeg" type="number" inputmode="decimal" placeholder="腿围 cm" style="flex:1;min-width:0;min-height:44px"></div>'
     + '<button class="btn-mini" style="margin-top:6px" onclick="saveGirth()">保存围度</button></div></details>';
 }
 function todayDone() { // 今天是否已有一条训练记录（不含休息日/病假）
@@ -2534,9 +2608,10 @@ function chkAdviceHtml(c) { // 晨检部位→针对性处理（只给低风险�
   if (!tips.length) return '';
   return '<div class="sub" style="margin-top:8px;padding:8px 10px;border-radius:8px;background:var(--accent-soft)">针对性处理：<br>' + tips.join('<br>') + '</div>';
 }
-function waterToday() { // 今日喝水记录（state.water 可选键；跨日自动归零）
+function waterToday() { // 今日喝水记录（state.water 可选键；跨日自动归零）；批修（数据审查）：远端脏对象 cups 非数字此前会算出 NaN
   const w = D.state.water;
-  return (w && w.date === U.todayStr()) ? w : { date: U.todayStr(), cups: 0 };
+  if (w && w.date === U.todayStr() && typeof w.cups === 'number' && isFinite(w.cups)) return w;
+  return { date: U.todayStr(), cups: 0 };
 }
 function waterTarget() { // 基础 8 杯（2000ml）；训练日/热天各 +1 杯（运动日额外 400-800ml，取轻量档）
   const dayType = effTemplate()[new Date().getDay()];
@@ -2798,7 +2873,7 @@ function chkSubmit() { // 晨检提交：写当日 daily.chk → persist → 重
   const sick = chkSel.sick || '';
   rec.chk = { parts: chkSel.parts.slice(), kinds: chkSel.kinds.slice(), relief: chkSel.relief, out: ev.out, why: ev.why, sick: sick, t: Date.now() };
   const isSickRest = (sick === 'below' || sick === 'fever');
-  if (isSickRest && CONFIG.trainTypes.indexOf(rec.type) < 0 && rec.type !== '拉伸') rec.type = '病假'; // 病假算已打卡（weekChecked 口径）；今天已有真实训练记录就不抹
+  if (isSickRest && CONFIG.trainTypes.indexOf(rec.type) < 0 && rec.type !== '拉伸' && !(rec.fb && rec.fb.length)) rec.type = '病假'; // 病假算已打卡；已有真实累度反馈（点了课练了）不抹——伪 type='训练' 记录此前会被误改写成病假
   recStamp(rec);
   D.state.updatedAt = Date.now();
   persist();
@@ -3104,6 +3179,7 @@ function weekReviewHtml(force) { // 周复盘卡（仅周日出现；force=测�
   else if (rate >= 80 && upN && !downN) next = '可以试升一档：同类课加一组或升一档课程';
   else next = '按当前节奏走';
   memUpdate('life', '周复盘·' + wsRv, '完成率' + rate + '%·缺席' + (Object.keys(skipCnt).length + silentN) + '天' + (sickN ? '·病假' + sickN + '天' : '') + '·疼痛' + painN + '次·下周：' + next); // 批6 写回事实层（幂等）——批7 AI 问答将注入
+  persist(); // 批修（QA审查）：渲染路径写记忆不落盘——周日看完复盘直接关页，"周复盘"事实此前只存在内存里
   const conclLayer = (missLine || painLine) ? (missLine + painLine + '<div class="sub" style="margin-top:4px"><b>下周：</b>' + U.esc(next) + '</div>') : '<div class="sub" style="margin-top:4px"><b>下周：</b>' + U.esc(next) + '</div>';
   return '<div class="card"><div class="card-head"><div class="bubble bg-blue" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 19V5M4 19h16M8 15v-4M12 15V8M16 15v-6"/></svg></div>'
     + '<div style="flex:1"><div class="card-title" style="margin:0">周复盘 · 私教</div><div class="sub">只在周日出现，看完就收</div></div></div>'
@@ -3257,7 +3333,7 @@ const AI_PROVIDERS = [
   { id: 'siliconflow', name: '硅基流动', url: 'https://api.siliconflow.cn/v1/chat/completions', model: '' }
 ];
 const AI_SYSTEM = [
-  '你是"体能伙伴"App 的三教练席，共用一个回复口吻。用户：30+ 男性，非技术背景，右足康复期，正按两段周期计划备战（冬训 24 周+专项 12 周）冈仁波齐转山（52km/5630m）。三席分工：康复师（疼痛/踝足/降档）、私教（课表/渐进/负荷/睡眠）、户外指导员（线路/高原/节奏/装备）。按问题选主导席位，可补其他席位视角，但用户感知到的是同一个教练团队，不要分饰三人。',
+  '你是"体能伙伴"App 的三教练席，共用一个回复口吻。用户：30+ 男性，非技术背景，有足部旧伤史在康复中（详情见档案伤史与教练记忆，不在此硬编码），正按两段周期计划备战（冬训 24 周+专项 12 周）冈仁波齐转山（52km/5630m）。三席分工：康复师（疼痛/踝足/降档）、私教（课表/渐进/负荷/睡眠）、户外指导员（线路/高原/节奏/装备）。按问题选主导席位，可补其他席位视角，但用户感知到的是同一个教练团队，不要分饰三人。', // 批修（数据审查）：健康痕迹"右足康复期"此前硬编码进公开仓源码——改为运行时从档案/记忆取
   '【表达】说人话。第一句永远是"现在该干嘛"的动作指令；然后 1-3 句理由。总长 ≤250 字。必须用术语时，当场用一句话解释。用户数据里没有的，回答"这个我看不到，你补充一下"，禁止编造用户的训练或身体情况。',
   '【红线（逐条硬约束，任何提问都不能绕过）】',
   '1. 不做医学诊断。疼痛类问题只说"可能提示"，并给就医指征：夜间痛、肿胀、无法承重、畸形、绞锁、持续加重 → 建议就医。永不说"你就是/确诊/没事"。',
@@ -3293,7 +3369,7 @@ function buildContext() { // 上下文最小集（工单5.2）：生日/城市/�
   const wk = D.daily.filter((r) => r.date < t && r.date >= U.addDays(t, -7)).map((r) =>
     '{' + r.date.slice(5) + ' ' + (r.type || '?') + (r.durationMin ? ' ' + r.durationMin + 'min' : '')
     + (r.rpe != null ? ' RPE' + r.rpe : '')
-    + (r.strengthChecks ? ' 力量' + todaysActions().filter((x) => r.strengthChecks[x.i]).length + '/' + todaysActions().length : '')
+    + (r.strengthChecks ? ' 力量' + todaysActions(r.date).filter((x) => r.strengthChecks[x.i]).length + '/' + todaysActions(r.date).length : '') // 批修（QA审查）：按记录日期取当天动作表——此前拿今天的表统计周一的勾选，发错数据
     + (r.pain && r.pain !== '无' ? ' 痛:' + r.pain : '') + (r.mood ? ' ' + r.mood : '') + '}');
   c += '\n【近7天训练】' + (wk.join(' ') || '无记录');
   // 批7 教练记忆注入（2026-11-07）：事实层 open 事实随上下文发——AI 从陌生人变私人教练；行为摘要（批5/6 留痕的消费口）与逐日训练行互补
@@ -3331,6 +3407,10 @@ function qaSend() {
   if (el) el.value = '';
   askQA(q);
 }
+function qaReopen() { // 批修（QA审查）：错误回调不得把已关闭的"问教练"弹窗再弹出来——超时/断网是 30 秒后的异步回调，用户可能早关了
+  const w = document.getElementById('modalWrap');
+  if (w && !w.hidden && document.getElementById('qaAnswer')) showCoachQA();
+}
 function askQA(q) { // 实时问答：非流式 30s 超时；401/403/超时/5xx/断网 → 显式提示+无缝切预埋 8 问（不弹打断）
   const box = document.getElementById('qaAnswer');
   if (box) box.innerHTML = '<div class="sub">教练在想…（30 秒内没回应会自动切离线问答）</div>';
@@ -3344,9 +3424,9 @@ function askQA(q) { // 实时问答：非流式 30s 超时；401/403/超时/5xx/
     signal: ac ? ac.signal : undefined
   }).then((r) => {
     if (to) clearTimeout(to);
-    if (r.status === 401 || r.status === 403) { toast('Key 无效或过期，去设置页检查'); showCoachQA(); return null; }
-    if (r.status === 429) { toast('今天问得太多（免费档限流），先用下面的离线问答'); showCoachQA(); return null; } // v4.1 审查修复：429 专属人话（FR-10 降级）
-    if (!r.ok) { toast('AI 暂时连不上，先用离线问答'); showCoachQA(); return null; }
+    if (r.status === 401 || r.status === 403) { toast('Key 无效或过期，去设置页检查'); qaReopen(); return null; }
+    if (r.status === 429) { toast('今天问得太多（免费档限流），先用下面的离线问答'); qaReopen(); return null; } // v4.1 审查修复：429 专属人话（FR-10 降级）
+    if (!r.ok) { toast('AI 暂时连不上，先用离线问答'); qaReopen(); return null; }
     return r.json();
   }).then((j) => {
     if (!j) return;
@@ -3357,7 +3437,7 @@ function askQA(q) { // 实时问答：非流式 30s 超时；401/403/超时/5xx/
   }).catch(() => {
     if (to) clearTimeout(to);
     toast('AI 暂时连不上，先用离线问答');
-    showCoachQA();
+    qaReopen();
   });
 }
 function showCoachQA() { // 问教练 modal：三态状态行 + 实时输入区（已配置且在线）+ 预埋 8 问永久底座
@@ -3370,9 +3450,9 @@ function showCoachQA() { // 问教练 modal：三态状态行 + 实时输入区�
     + '<div class="sub" style="margin-bottom:8px">' + U.esc(statLine) + '</div>';
   if (st === 'live') {
     h += '<div id="qaAnswer">' + qaHistoryHtml() + '</div>'
-      + '<div class="field" style="display:flex;gap:8px;align-items:center"><input id="qaInput" placeholder="问点什么…" onkeydown="if(event.key===\'Enter\')qaSend()">'
-      + '<button class="btn-primary" style="flex-shrink:0;min-height:44px;padding:0 16px" onclick="qaSend()">问</button></div>'
-      + '<div class="sub" style="margin:4px 0 10px">AI 生成，可能有误 · 疼痛/高原红线以产品停训口径为准<br>诚实告知（批7）：提问会把你的课表、近 7 天记录和教练的记忆（含伤病/疼痛摘要）发给「' + U.esc(cur ? cur.name : aiCfg().provider) + '」；睡眠/心率默认不发，需在设置页显式打开。</div>';
+      + '<div class="field" style="display:flex;gap:8px;align-items:center"><input id="qaInput" placeholder="问点什么…" style="flex:1;min-width:0" onkeydown="if(event.key===\'Enter\')qaSend()">' // 批修（视觉审查）：btn-primary 基础宽 100% 且不许缩——输入行必溢出，按钮改自适应
+      + '<button class="btn-primary" style="flex-shrink:0;min-height:44px;padding:0 16px;width:auto" onclick="qaSend()">问</button></div>' // 批修（视觉审查）：btn-primary 基础宽 100%——弹窗内改自适应
+      + '<div class="sub" style="margin:4px 0 10px">AI 生成，可能有误 · 疼痛/高原红线以产品停训口径为准<br>诚实告知：提问会把你的课表、今日判定（若因睡眠/心率触发降档，对应数值会连带发送）、近 7 天记录、教练的记忆（含伤病/疼痛摘要）和身高体重年龄发给「' + U.esc(cur ? cur.name : aiCfg().provider) + '」；更多身体数据（睡眠/心率/HRV 原始值）默认不发，需在设置页显式打开；永不发送生日、城市、备注原文。</div>'; // 批修（数据审查）：告知与实发对齐——判定理由里的数值此前确实会发但告知只说"默认不发"
   } else if (st === 'unset') {
     h += '<div class="sub" style="margin-bottom:10px"><button class="ci-btn" onclick="closeModal();nav(\'pgProfile\')">去设置页配置 AI（可选）</button></div>';
   }
@@ -3706,12 +3786,26 @@ function renderToday() {
     + footRedCheck()
     + (function () { // M4（2026-10-26 转型批）：跟练交给 Keep——撤 cardio/strength/long 类 CTA（函数保留可回滚）；
       // 保留 pack（每日包=康复职责，Keep 没有这块）与 done（完成后查看态）
-      if (cta.kind === 'done' || cta.kind === 'pack') return '<button class="' + (cta.kind === 'done' ? 'btn-ghost' : 'btn-primary') + '" id="btnStartToday" data-kind="' + cta.kind + '" style="margin-top:12px" onclick="' + cta.fn + '">' + cta.t + '</button>';
+      if (cta.kind === 'done' || cta.kind === 'pack' || cta.kind === 'stop') return '<button class="' + (cta.kind === 'done' ? 'btn-ghost' : 'btn-primary') + '" id="btnStartToday" data-kind="' + cta.kind + '" style="margin-top:12px" onclick="' + cta.fn + '">' + cta.t + '</button>'; // 批修（QA审查）：stop 入白名单——红线日"查看停训卡"按钮此前被渲染层吞掉，晨检红字承诺了入口却没有
       return '';
     })()
     + morningStretchHtml()
     + todayStripHtml() + '</div>';
   h += resumeCardHtml(); // IX-01：有未完成训练时，今天页第一张卡=续练
+  // 晨检与身体信号：批修（真机 2026-11-07）从页尾上移到决策卡正后方——每天第一个动作此前垫在记录表单/喝水之后 3400px 处；档案提示文案同步改（默认值 v4.5.1 已清空，"176cm/60kg"对新用户是撒谎）
+  h += '<div class="card" id="statusDetailCard">'
+    + (D.state.profileDone ? '' : '<div id="profilePrompt" style="margin-bottom:10px"><div class="sub">档案还是空的——填一下，心率上限和建议更准（30 秒）。</div><button class="btn-ghost" style="margin-top:8px" onclick="openGuide()">现在完善</button></div>')
+    + '<div class="card-title" style="margin:0 0 6px">晨检与身体信号</div>'
+    + chkMissLine()
+    + chkBarHtml()
+    + ankleGateLine()
+    + '<details class="fold" id="moreToday"><summary>更多今天（吃账 · 周期 · 复盘 · 睡眠）</summary><div class="fold-body">'
+    + eatLine()
+    + mountainGoalHtml() // v4.1 M6 周期进度卡（批修：此前靠 details 未闭合 bug 被"吞"进折叠区——现在显式放回 M4 设计位置）
+    + '<div class="field" style="margin-top:10px"><label>今天的你（点一下立即重判）</label><div class="chips" id="feelChips">' + feelChips() + '</div></div>'
+    + '<div style="margin-top:8px"><button class="ci-btn" onclick="showCoachQA()">💬 问教练：为什么这么练 / 疼了怎么办 / 吃什么</button></div>'
+    + (D.state.backfillDone ? '' : '<div style="margin-top:8px"><button class="link-btn" onclick="openBackfill()">导入历史数据（可选，30 秒）</button></div>')
+    + rehabWorkbenchHtml() + '</div></details></div>'; // 批修：details 此前从未闭合——垫页尾时把夜训提示/年报入口全吞进折叠区（用户看不到），搬到中部后连 planCard 都嵌了进去
   if (level === 'floor' || level === 'return') h += dailyPackCard(level);
   // 今日安排紧随决策卡（首屏可见主行动）
   h += '<div class="card" id="planCard">' + planHtml() + '</div>';
@@ -3750,21 +3844,7 @@ function renderToday() {
     + '<div class="field"><label>静息心率（次/分）</label><input id="fRhr" type="number" min="30" max="120" inputmode="numeric" placeholder="如 60"></div>'
     + '<div class="field"><label>HRV（毫秒）</label><input id="fHrv" type="number" min="5" max="200" inputmode="numeric" placeholder="如 50"></div>'
     + '</div>';
-  h += waterCardHtml(); // v4.4 喝水：记录 + 日历提醒入口
-  // v4.6：久坐释放独立卡已取消——动态部分进激活、静态部分进收尾（拉伸并入每天的课）；急救动作仍在晨检联动里
-  // 晨检与身体信号：从首屏下沉，仍在一屏内可达
-  h += '<div class="card" id="statusDetailCard">'
-    + (D.state.profileDone ? '' : '<div id="profilePrompt" style="margin-bottom:10px"><div class="sub">档案还是默认值（176cm / 60kg / 无生日）——填一下，心率上限和建议更准。</div><button class="btn-ghost" style="margin-top:8px" onclick="openGuide()">现在完善（30 秒）</button></div>')
-    + '<div class="card-title" style="margin:0 0 6px">晨检与身体信号</div>'
-    + chkMissLine()
-    + chkBarHtml()
-    + ankleGateLine()
-    + '<details class="fold" id="moreToday"><summary>更多今天（吃账 · 周期 · 复盘 · 睡眠）</summary><div class="fold-body">'
-    + eatLine()
-    + '<div class="field" style="margin-top:10px"><label>今天的你（点一下立即重判）</label><div class="chips" id="feelChips">' + feelChips() + '</div></div>'
-    + '<div style="margin-top:8px"><button class="ci-btn" onclick="showCoachQA()">💬 问教练：为什么这么练 / 疼了怎么办 / 吃什么</button></div>'
-    + (D.state.backfillDone ? '' : '<div style="margin-top:8px"><button class="link-btn" onclick="openBackfill()">导入历史数据（可选，30 秒）</button></div>')
-    + rehabWorkbenchHtml() + '</div>';
+  h += waterCardHtml(); // v4.4 喝水：记录 + 日历提醒入口（批修注：久坐释放独立卡 v4.6 已取消——动态进激活/静态进收尾；晨检卡已上移至决策卡后，真机反馈它此前垫底 3400px）
   h += nightHintHtml(); // FR-D 时段感知：21 点后打开→明晨晨检预告
   try { if (sessionStorage.getItem('tineng_midtrip') === '1') h += midTripBannerHtml(); } catch (e) {} // FR-D 行中激活：保命卡置顶
   // N7 年报入口卡（12/20-次年1/10 期间显示）
@@ -3786,7 +3866,6 @@ function renderToday() {
       + CONFIG.k12.map((x) => '<div class="sub">· ' + U.esc(x) + '</div>').join('')
       + '</div>';
   }
-  h += mountainGoalHtml(); // v4.1 M6 周期进度卡（冬训/专项两段+FR-B1 顺延按钮；今天页常显）
   h += weekReviewHtml(); // 最终版批3⑨：私教周复盘卡（仅周日出现）
   h += tour7CardHtml(); // 最终版批3⑪：新手7天引导（可跳过，7天自动关）
   // 周体重横幅（不变灯色）
@@ -3830,7 +3909,7 @@ function renderToday() {
           + '</div>';
       }).join('')
     + '<div class="sub" style="margin-top:6px">' + U.esc(stg.promo) + '</div>'
-    + '<div style="display:flex;gap:8px;margin:10px 0">'
+    + '<div style="display:flex;gap:8px;margin:10px 0;flex-wrap:wrap">' // 批修（视觉审查）：三个视频外链 320px 溢出 36px——补换行
     + CONFIG.footLinks.map((l) => '<button class="ci-btn" onclick="window.open(\'' + l.u + '\')">' + l.t + '</button>').join('')
     + '</div>'
     + '<div class="row-between"><label class="body-tx" style="font-weight:500">今日足康复打卡</label>'
@@ -3916,7 +3995,7 @@ function planHtml(dateStr) {
     h += '<details class="fold"><summary>Zone2 有氧执行指南</summary><div class="fold-body sub">'
       + '心率上限 ' + CONFIG.zone2Cap + '（保守修正），宁可慢不可快' + (lastStepHrTip() ? '<br><b>' + lastStepHrTip() + '</b>' : '') + '<br>谈话测试：能完整说出一句不喘=在区间内<br>心率漂移：后半程心率上升&gt;10% 说明强度偏高，下次放慢<br>无聊是正常的：Zone2 的成效在 8-12 周后的复测里，不在今天的汗里<br>每次结束在 Watch 上看平均心率，抄进记录的 avgHr</div></details>';
   } else if (eff === '力量') {
-    h += '<div class="row-between" style="margin-bottom:6px"><span class="sub">勾选今日完成的动作（全部完成才能保存）：</span>'
+    h += '<div style="display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center;margin-bottom:6px"><span class="sub">勾选今日完成的动作（全部完成才能保存）：</span>' // 批修（视觉审查）：原 row-between 右侧双按钮锁死，320px 下左标签被压成细竖条
       + '<span style="flex-shrink:0"><button class="ci-btn" onclick="tfCheckAll(true)">全部完成，一键勾选</button> <button class="ci-btn" onclick="tfCheckAll(false)">清空</button></span></div>';
     h += todaysActions(dateStr).map((x) => {
       const a = x.a, i = x.i; const reps = targetRepsOf(a);
@@ -4094,7 +4173,7 @@ function setBaduanjin(v) {
 }
 
 function showRpeModal() {
-  showModal('<div class="card-title" style="margin-bottom:10px">RPE 自感用力锚定表</div>'
+  showModal('<div class="card-title" style="margin-bottom:10px">这次有多累 · 锚定表</div>' // 批修：黑话清零——"RPE 自感用力锚定表"对非技术用户是行话
     + '<table class="cmp">' + CONFIG.rpeTable.map((r) => '<tr><td style="width:52px;font-weight:600">' + r[0] + '</td><td>' + U.esc(r[1]) + '</td></tr>').join('') + '</table>'
     + '<div class="sub" style="margin-top:10px">' + U.esc(CONFIG.rpeGoal) + '</div>'
     + '<div class="m-actions"><button class="btn-primary" onclick="closeModal()">知道了</button></div>');
@@ -4168,7 +4247,9 @@ function quickSubText() { // 一键副行：将写入的默认值逐字展示（
 }
 function quickBtnText() { // 已存过今天=更新，否则一键保存；休息/病假单独文案
   if (CONFIG.trainTypes.indexOf(tf.type) < 0) return '记录休息日';
-  return M.dailyOn(U.todayStr()) ? '更新今日记录' : '练完了 · 按上次一键保存';
+  if (M.dailyOn(U.todayStr())) return '更新今日记录';
+  const hasPrev = (D.daily || []).some((x) => x.date && x.date < U.todayStr()); // 批修（真机）：第 0 天没有"上次"——文案不再撒谎
+  return hasPrev ? '练完了 · 按上次一键保存' : '练完了 · 一键记录';
 }
 function updateQuickSub() { // 副行随预填实时刷新（记录卡顶 + 今日安排卡尾两处入口）
   ['quickSub', 'quickSub2'].forEach((id) => { const el = document.getElementById(id); if (el) el.textContent = quickSubText(); });
@@ -5525,7 +5606,7 @@ function aiSettingsHtml() { // 设置页 AI 卡（供应商预设 30 秒可换�
     + '</div>'
     + '<details class="fold"><summary>这把 Key 存在哪？每次会发送哪些数据？</summary><div class="fold-body sub">'
     + 'Key 只存在这台手机的浏览器里（localStorage），不会同步到 GitHub 数据仓；建议到供应商官网单独注册一把新 Key，不要复用其他密码，不用时可随时在供应商控制台吊销。<br>'
-    + '每次提问发送：今日课表、今日状态判定、足康复阶段、近 7 天训练摘要（类型/时长/强度/疼痛选项/主观状态）、身高体重年龄。<b>默认不发送</b>睡眠/静息心率/HRV（下方开关可开）；<b>永不发送</b>生日、城市、备注原文、任何密码。</div></details>'
+    + '每次提问发送：今日课表、今日状态判定（若因睡眠/心率触发降档会连带对应数值）、足康复阶段、近 7 天训练摘要（类型/时长/强度/疼痛选项/主观状态）、近 7 天行为（缺席/压缩/报疼/病假计数）、教练的记忆（伤病/疼痛/偏好/能力摘要）、身高体重年龄。<b>永不发送</b>生日、城市、备注原文、任何密码。</div></details>' // 批修（数据审查）：实发清单三方对齐（此前列了身高体重却漏记忆与行为摘要）
     + '<div class="row-between" style="margin-top:8px"><label class="body-tx" style="font-weight:500">发送更多身体上下文（睡眠/静息心率/HRV）</label>'
     + '<label class="switch"><input type="checkbox"' + (cfg.moreBody ? ' checked' : '') + ' onchange="aiToggleBody(this.checked)"><span class="sl"></span></label></div>'
     + '</div>';
@@ -5605,7 +5686,7 @@ function renderProfile() {
     + '<div class="field"><label>每周可练天数</label><input id="pWeekly" type="number" min="1" max="7" inputmode="numeric" value="' + (p.weeklyDays || 6) + '"></div>'
     + '<div class="field row-between"><label>可爬楼梯（1-10楼，电梯下楼）</label><label class="switch"><input type="checkbox" id="pStairs"' + (p.stairs ? ' checked' : '') + '><span class="sl"></span></label></div>'
     + '<div class="field"><label>装备</label><input id="pGear" value="' + U.esc(p.gear) + '"></div>'
-    + '<div class="field"><label>伤病描述（状态变化请更新——这里的描述是训练建议的依据）</label><textarea id="pInjury" rows="2">' + U.esc(p.injury) + '</textarea></div>'
+    + '<div class="field"><label>伤病描述（状态变化请更新——这里的描述是训练建议的依据）</label><textarea id="pInjury" rows="2" maxlength="300">' + U.esc(p.injury) + '</textarea></div>' // 批修：补长度上限（此前无防线，超长粘贴直接进存储）
     + '<div class="field row-between"><label>Keep 会员（开了之后会员课进入推荐池）</label><label class="switch"><input type="checkbox" id="pKeepVip"' + (p.keepVip ? ' checked' : '') + '><span class="sl"></span></label></div>'
     + '<div class="field"><label>目标时间窗（可留空）</label><input id="pTarget" value="' + U.esc(p.targetWindow || '') + '" placeholder="如：2027年6月前完成转山"></div>'
     + '<div class="field"><label>静息心率基线（手动修改后自动校准将关闭）</label><input id="pRhr" type="number" inputmode="numeric" value="' + (p.rhrBaseline != null ? p.rhrBaseline : 60) + '"></div>'
@@ -5697,7 +5778,7 @@ function renderProfile() {
   document.getElementById('profileBody').innerHTML = h;
 }
 function applyNewInjury() { // P0-1：旧文案一键更新（用户主动触发，不覆盖云端）
-  D.profile.injury = CONFIG.copy.injuryPreset;
+  D.profile.injury = '';
   D.profile.updatedAt = Date.now();
   persist();
   renderProfile();
@@ -5714,7 +5795,7 @@ function saveProfileEdit() {
   p.weeklyDays = U.num(document.getElementById('pWeekly').value) || 6;
   p.stairs = document.getElementById('pStairs').checked;
   p.gear = document.getElementById('pGear').value.trim();
-  p.injury = document.getElementById('pInjury').value.trim() || CONFIG.copy.injuryPreset;
+  p.injury = document.getElementById('pInjury').value.trim() || '';
   p.keepVip = document.getElementById('pKeepVip') ? document.getElementById('pKeepVip').checked : !!p.keepVip;
   p.targetWindow = document.getElementById('pTarget').value.trim() || null;
   const r = U.num(document.getElementById('pRhr').value);
