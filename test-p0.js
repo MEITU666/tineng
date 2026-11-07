@@ -72,12 +72,12 @@ for (const [pg, [fn, bodyId, kw]] of Object.entries(PAGES_SPEC)) {
   });
 }
 check('①空态 pgGoal/pgProfile/pgTest 关键字补查', () => {
-  const need = [['goalBody', ['右足康复', '有氧起步']], ['profileBody', ['当前阶段']], ['testBody', ['外部检测录入', '背力']]];
+  const need = [['goalBody', ['足部康复', '有氧起步']], ['profileBody', ['当前阶段']], ['testBody', ['外部检测录入', '背力']]];
   for (const [id, kws] of need) {
     const h = w.eval(`document.getElementById('${id}').innerHTML`);
     for (const kw of kws) if (h.indexOf(kw) < 0) throw new Error(`${id} 缺关键字「${kw}」`);
   }
-  return '命中：右足康复/有氧起步/当前阶段/外部检测录入/背力';
+  return '命中：足部康复/有氧起步/当前阶段/外部检测录入/背力';
 });
 w.eval(`D = normalizeData(window.__bkBackup);
   upsertByDate(D.external, recStamp({ date: '2026-09-23', source: '市国民体质监测中心',
@@ -523,7 +523,7 @@ check('⑦ 课结报告含感受三键与疼痛点选', () => {
   w.eval('showWorkoutReport({ mins: 32, setsDone: 9, totalSets: 9, yellow: false, progTxt: "深蹲 12→13" })');
   const h = w.eval("document.getElementById('modalBox').innerHTML");
   if (h.indexOf('wrFeelChips') < 0 || h.indexOf('轻松') < 0 || h.indexOf('刚好') < 0 || h.indexOf('很累') < 0) throw new Error('感受三键缺失');
-  if (h.indexOf('wrPainChips') < 0 || h.indexOf('右足底') < 0) throw new Error('疼痛点选缺失');
+  if (h.indexOf('wrPainChips') < 0 || h.indexOf('>足底</button>') < 0 || h.indexOf('>踝</button>') < 0) throw new Error('疼痛点选缺失（去标识化批后应为不带侧别的新词）');
   return '弹窗元素在位';
 });
 check('⑦ 感受→RPE 映射：轻松6/刚好8/很累9；疼痛"其他"展开描述框', () => {
@@ -2941,6 +2941,26 @@ check('114 浅色主题变量补齐：data-theme=light 含 12 个补齐变量（
   const o = JSON.parse(r);
   if (!o.accent || !o.soft || !o.shadow) throw new Error('浅色变量缺：' + r);
   return '浅色变量补齐 ✓';
+});
+check('115 去标识化：index.html 源码零侧别健康痕迹词（右足/左足/右踝/左踝），painOptions/CHK_GUARD/CHK_PARTS 不带侧别（2026-11-07 交付批）', () => {
+  if (loadErr) throw loadErr;
+  const src = fs.readFileSync(path.join(DIR, 'index.html'), 'utf8');
+  for (const bad of ['右足', '左足', '右踝', '左踝']) if (src.indexOf(bad) >= 0) throw new Error('源码残留健康痕迹词：' + bad);
+  const o = JSON.parse(w.eval(`JSON.stringify({ po: CONFIG.painOptions.join('|'), guard: CHK_GUARD.join('|'), parts: CHK_PARTS.join('|') })`));
+  for (const k of ['po', 'guard', 'parts']) if (o[k].indexOf('右') >= 0 || o[k].indexOf('左') >= 0) throw new Error(k + ' 仍含侧别词：' + o[k]);
+  return '源码零单侧词 ✓';
+});
+check('116 canonPart 归一链路：单测 + 老词守门仍 watch + 老词回填命中新词 + 写入归一（历史数据零迁移）', () => {
+  if (loadErr) throw loadErr;
+  const u = JSON.parse(w.eval(`JSON.stringify({ c1: canonPart('右踝'), c2: canonPart('左足底'), c3: canonPart('膝'), c4: canonPart('') })`));
+  if (u.c1 !== '踝' || u.c2 !== '足底' || u.c3 !== '膝' || u.c4 !== '') throw new Error('canonPart 行为错：' + JSON.stringify(u));
+  const g = JSON.parse(w.eval(`JSON.stringify(chkEval(['右踝'], ['酸胀']))`));
+  if (g.out !== 'watch') throw new Error('老单侧词应仍进守门区 watch，实际 ' + g.out);
+  const back = w.eval(`(function(){ D = defaultData(); D.daily = [{ date: U.todayStr(), pain: '右足底' }]; prefillToday(); return tf.painOpt; })()`);
+  if (back !== '足底') throw new Error('老词回填应归一为足底，实际 ' + back);
+  const wr = w.eval(`(function(){ setPain('右踝'); const v = tf.painOpt; setPain('无'); return v; })()`);
+  if (wr !== '踝') throw new Error('setPain 写入应归一，实际 ' + wr);
+  return 'canonPart 单测 + 守门兼容 + 回填归一 + 写入归一 ✓';
 });
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);

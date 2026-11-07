@@ -23,6 +23,7 @@
   --bg:#F2F2F7; --card:#FFFFFF; --text:#1C1C1E; --text2:#6B6B70; --line:#E5E5EA;
   --orange-text:#A85B00; --green-text:#1B7A34; --red-text:#C0392B; --accent-text:#0057C8; --blue-text:#0057C8;
   --accent:#007AFF; --green:#34C759; --orange:#FF9500; --red:#FF3B30;
+  --on-soft:#0057C8; --accent-strong:#0062D6; /* t118 对比度批：soft底专用文字色 / chip选中底色（白字对比≥4.5） */
   --purple:#5E5CE6; --teal:#30B0C7; --pink:#FF375F; --blue:#007AFF;
   --glass:rgba(255,255,255,.8); --accent-soft:rgba(0,122,255,.18);
   --shadow:0 1px 2px rgba(0,0,0,.04);
@@ -43,16 +44,17 @@ html[data-fs="xl"]{--fscale:1.3}
     --purple:#7D7AFF; --teal:#40C8E0; --pink:#FF6482; --blue:#0A84FF;
     --glass:rgba(28,28,30,.8); --accent-soft:rgba(10,132,255,.25);
     --shadow:none; --accent-btn:#0066CC; --ctrl-line:#98989F;
+    --on-soft:#6EB5FF; --accent-strong:#0060DF; /* t118：soft底文字提亮 3.1→5.5 / 选中chip底加深 3.65→5.6 */
   }
 }
 /* P1-3 外观设置：手动浅色/深色覆盖（优先级高于系统媒体查询） */
-html[data-theme="dark"]{--bg:#000000; --card:#1C1C1E; --text:#FFFFFF; --text2:#98989F; --line:#38383A; --glass:rgba(28,28,30,.8); --orange-text:#FF9500; --green-text:#34C759; --red-text:#FF3B30; --accent-text:#0A84FF; --blue-text:#0A84FF; --accent:#0A84FF; --green:#30D158; --orange:#FF9F0A; --red:#FF453A; --purple:#7D7AFF; --teal:#40C8E0; --pink:#FF6482; --blue:#0A84FF; --accent-soft:rgba(10,132,255,.25); --shadow:none; --accent-btn:#0066CC; --ctrl-line:#98989F}
+html[data-theme="dark"]{--bg:#000000; --card:#1C1C1E; --text:#FFFFFF; --text2:#98989F; --line:#38383A; --glass:rgba(28,28,30,.8); --orange-text:#FF9500; --green-text:#34C759; --red-text:#FF3B30; --accent-text:#0A84FF; --blue-text:#0A84FF; --accent:#0A84FF; --green:#30D158; --orange:#FF9F0A; --red:#FF453A; --purple:#7D7AFF; --teal:#40C8E0; --pink:#FF6482; --blue:#0A84FF; --accent-soft:rgba(10,132,255,.25); --shadow:none; --accent-btn:#0066CC; --ctrl-line:#98989F; --on-soft:#6EB5FF; --accent-strong:#0060DF}
 html[data-theme="light"]{--bg:#F2F2F7; --card:#FFFFFF; --text:#1C1C1E; --text2:#6B6B70; --line:#E5E5EA;
   --orange-text:#A85B00; --green-text:#1B7A34; --red-text:#C0392B; --accent-text:#0057C8; --blue-text:#0057C8; --glass:rgba(255,255,255,.8);
   /* 批修（视觉审查 2026-11-07）：补齐 12 个变量——此前 OS 深色+手动选浅色时状态色/阴影残留深色值（卡片丢阴影、accent-soft 变浓），dark 块 2026-10-20 修过同类问题 light 块漏了 */
   --accent:#007AFF; --green:#34C759; --orange:#FF9500; --red:#FF3B30;
   --purple:#5E5CE6; --teal:#30B0C7; --pink:#FF375F; --blue:#007AFF;
-  --accent-soft:rgba(0,122,255,.18); --shadow:0 1px 2px rgba(0,0,0,.04); --accent-btn:#0066CC; --ctrl-line:#8E8E93}
+  --accent-soft:rgba(0,122,255,.18); --shadow:0 1px 2px rgba(0,0,0,.04); --accent-btn:#0066CC; --ctrl-line:#8E8E93; --on-soft:#0057C8; --accent-strong:#0062D6}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   .btn-primary:active,.btn-ghost:active,.chip:active,.tab:active,.ci-btn:active,.link-btn:active,.k-head:active{opacity:.62;transform:scale(.985)} /* v4.1 好用度：全局按压反馈 */
 html,body{height:100%}
@@ -98,9 +100,9 @@ main{padding:16px 16px 24px;max-width:600px;margin:0 auto}
 .btn-primary:disabled{opacity:.4}
 .btn-ghost{display:block;width:100%;min-height:44px;background:var(--card);color:var(--accent-text);border-radius:var(--r-btn);font-size:15px;font-weight:500;text-align:center;border:1px solid var(--line)}
 .link-btn{display:block;width:100%;min-height:44px;color:var(--accent-text);font-size:15px;text-align:center}
-.btn-mini{display:inline-block;min-height:44px;padding:10px 16px;background:var(--accent-soft);color:var(--accent-text);border-radius:var(--r-btn);font-size:15px;font-weight:500;text-align:center}
+.btn-mini{display:inline-block;min-height:44px;padding:10px 16px;background:var(--accent-soft);color:var(--on-soft);border-radius:var(--r-btn);font-size:15px;font-weight:500;text-align:center} /* t118：soft底文字用专用色，深色 3.39→5.5 */
 .chip{min-height:44px;padding:10px 18px;border-radius:var(--r-pill);background:var(--card);color:var(--text);font-size:15px;border:1px solid var(--line)}
-.chip.on{background:var(--accent);color:#fff;border-color:var(--accent-text)}
+.chip.on{background:var(--accent-strong);color:#fff;border-color:var(--accent-text)} /* t118：选中底加深，白字 4.02/3.65→5.6 */
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .field{margin-bottom:14px}
 .field>label{display:block;font-size:13px;color:var(--text2);margin-bottom:6px}
@@ -239,7 +241,7 @@ input[type="range"]::-webkit-slider-runnable-track{height:26px;background:transp
 .ci-name{font-size:15px;font-weight:500}
 .ci-sub{font-size:13px;color:var(--text2);margin-top:1px}
 .ci-btns{display:flex;gap:6px;flex:none}
-.ci-btn{min-width:44px;min-height:44px;padding:4px 8px;border-radius:8px;font-size:calc(12px * var(--fscale, 1));background:var(--accent-soft);color:var(--accent-text);font-weight:500}
+.ci-btn{min-width:44px;min-height:44px;padding:4px 8px;border-radius:8px;font-size:calc(12px * var(--fscale, 1));background:var(--accent-soft);color:var(--on-soft);font-weight:500} /* t118：同 .btn-mini */
 /* 打卡日历 */
 .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
 .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
@@ -485,7 +487,7 @@ const CONFIG = {
 
   typeList: ['无', '八段锦', '有氧', '力量', '长时活动', '休息日', '病假'],
   trainTypes: ['有氧', '力量', '长时活动'],
-  painOptions: ['无', '右足底', '右踝', '膝', '腰', '其他'],
+  painOptions: ['无', '足底', '踝', '膝', '腰', '其他'], // 2026-11-07 去标识化：部位词不带左右侧（个人伤侧不入公开仓），canonPart 兼容老记录
   moods: ['好', '一般', '差'],
 
   /* K2 RPE 锚定表（逐字） */
@@ -1681,7 +1683,7 @@ function discardDraftAndClose() { // F2a：用户明确选"不留记录"——�
   closeModal();
   renderToday();
 }
-window.APP_VER = '4.9.8'; // 文案黑话清零批（2026-11-07，文案审查 10 项）：RPE→累度（理由行/渐进规则/会员课/锚定表 aria）、"会自动更保守"空承诺按判定级拆（ok/care 只说留痕）、黄灯减量 30-50%→30%（与实现对齐）、HRV 补"心率变异"注解、Zone2 执行指南人话化、毕业线 47s 补测试名、能说话配速→能边走边说话的速度（全站）、压配速→刻意放慢、喝水"下次提醒"→"建议喝水点"、回填≥4天文案与实现对齐 + courseFilter 把当天晨检首报部位计入降权（会员课"主诉日排后"承诺落地） // 前批 v4.9.7 真机反馈修复批（主人真机首用抓漏 3 项+五角色审查 36 项）：①Keep 链路重做——假搜索页 gotokeep.com/search 被真机证伪（Keep 搜索只在 App 内），改复制搜索词+开官网+toast 指引 ②排版挤压四连修——进度槽/小灶行左右行改上下堆叠（此前课名被挤成 0 宽竖排）、围度输入行/问教练输入行补 min-width、CSS 未闭合注释吞掉 toast 等三条规则修复 ③晨检卡从页尾 3400px 上移到决策卡正后方（每天第一个动作此前垫底）④建议引擎六修——病愈衔接（昨天病假今天从50%开始，引擎此前不读）、长走日不豁免伤病/嗓子症状（减半≤30分钟）、红灯死条件（todayLevelInfo 永不返回 red，改用真实灯色）、升档安全闸门+全窗扫描（stop 理由此前能拼进"下次升一档"）、伤级信号当日=休息拉伸（此前只出 note 照常推课）、恢复档不再同卡推课 ⑤数据口径五修——病假移出完成率分子分母（一周全病假=83%"扎实"自欺）、rotateCourses/switchType 合并保留 opened/reduced/skip（换课不再抹练了证据链）、换类型不再洗掉冲击降档（原写死 high）、单双节✓读错存储、mergeData 包 normalizeData（老备份撞库丢 M2 六键）、伪记录补 updatedAt ⑥隐私四修——AI 系统词"右足康复期"硬编码出公开仓（改运行时取档案）、injuryPreset 出厂伤情文本清空、判定理由发睡眠/心率数值如实告知、低冲击优先真排序（"跳跃类排后"原是空话）⑦长走日"练完记一笔"行动入口+RPE 标题人话+第0天一键保存文案+浅色主题补齐12变量+大字号接线 // 前批 v4.9.6 批7 AI教练接入记忆+管理区（buildContext 注入教练的记忆/近7天行为+档案页记忆管理区+诚实告知） // 前批 v4.9.5 批6 结论层+生病规则+K14入口 // 前批 v4.9.4 批5 少练点10分钟档+本周7格 // 前批 v4.9.x 批1-3 天气接入引擎·单课反馈+记忆骨架·疼痛三步向导 // 前批 v4.8.1 保命批（F1进门解耦·F2a白练保护·F3 SW健康数据零缓存·F4城市指纹清理） // 前批 v4.6.x 拉伸并入日课+闭环批+有氧三阶段 // 前批 v4.5.x 隐私修复（出厂默认清空）+身体照顾+七角色审查修复
+window.APP_VER = '4.9.9'; // 去标识化+对比度收官批（2026-11-07 交付）：①部位词全面去侧别——painOptions/CHK_PARTS/CHK_GUARD/周复盘chips/示例文案改不带左右侧，canonPart 归一（老记录读写自动剥前缀，历史数据零迁移），守门/回填/写入三链路断言锁定 ②健康痕迹清根——诊断名加粗死代码 replace 删除、档案卡改"足部康复"、跟练提示改"伤足疼痛日"、注释链去伤情字面量，断言锁源码零侧别健康痕迹词 ③对比度 t118 逐元素审计清零——9 签名全修：状态文字（待确认/未到/已到/未测/过线/结论）从底色系变量（--green/--orange/--line/--red）改 text 系、.ci-btn/.btn-mini soft 底文字新增 --on-soft（深色 3.1→5.5）、chip 选中底新增 --accent-strong（4.02/3.65→5.6），深浅色 14 组合复扫 0 违规 // 前批 v4.9.8 文案黑话清零批（2026-11-07，文案审查 10 项）：RPE→累度（理由行/渐进规则/会员课/锚定表 aria）、"会自动更保守"空承诺按判定级拆（ok/care 只说留痕）、黄灯减量 30-50%→30%（与实现对齐）、HRV 补"心率变异"注解、Zone2 执行指南人话化、毕业线 47s 补测试名、能说话配速→能边走边说话的速度（全站）、压配速→刻意放慢、喝水"下次提醒"→"建议喝水点"、回填≥4天文案与实现对齐 + courseFilter 把当天晨检首报部位计入降权（会员课"主诉日排后"承诺落地） // 前批 v4.9.7 真机反馈修复批（主人真机首用抓漏 3 项+五角色审查 36 项）：①Keep 链路重做——假搜索页 gotokeep.com/search 被真机证伪（Keep 搜索只在 App 内），改复制搜索词+开官网+toast 指引 ②排版挤压四连修——进度槽/小灶行左右行改上下堆叠（此前课名被挤成 0 宽竖排）、围度输入行/问教练输入行补 min-width、CSS 未闭合注释吞掉 toast 等三条规则修复 ③晨检卡从页尾 3400px 上移到决策卡正后方（每天第一个动作此前垫底）④建议引擎六修——病愈衔接（昨天病假今天从50%开始，引擎此前不读）、长走日不豁免伤病/嗓子症状（减半≤30分钟）、红灯死条件（todayLevelInfo 永不返回 red，改用真实灯色）、升档安全闸门+全窗扫描（stop 理由此前能拼进"下次升一档"）、伤级信号当日=休息拉伸（此前只出 note 照常推课）、恢复档不再同卡推课 ⑤数据口径五修——病假移出完成率分子分母（一周全病假=83%"扎实"自欺）、rotateCourses/switchType 合并保留 opened/reduced/skip（换课不再抹练了证据链）、换类型不再洗掉冲击降档（原写死 high）、单双节✓读错存储、mergeData 包 normalizeData（老备份撞库丢 M2 六键）、伪记录补 updatedAt ⑥隐私四修——AI 系统词伤情名+侧别硬编码出公开仓（改运行时取档案）、injuryPreset 出厂伤情文本清空、判定理由发睡眠/心率数值如实告知、低冲击优先真排序（"跳跃类排后"原是空话）⑦长走日"练完记一笔"行动入口+RPE 标题人话+第0天一键保存文案+浅色主题补齐12变量+大字号接线 // 前批 v4.9.6 批7 AI教练接入记忆+管理区（buildContext 注入教练的记忆/近7天行为+档案页记忆管理区+诚实告知） // 前批 v4.9.5 批6 结论层+生病规则+K14入口 // 前批 v4.9.4 批5 少练点10分钟档+本周7格 // 前批 v4.9.x 批1-3 天气接入引擎·单课反馈+记忆骨架·疼痛三步向导 // 前批 v4.8.1 保命批（F1进门解耦·F2a白练保护·F3 SW健康数据零缓存·F4城市指纹清理） // 前批 v4.6.x 拉伸并入日课+闭环批+有氧三阶段 // 前批 v4.5.x 隐私修复（出厂默认清空）+身体照顾+七角色审查修复
 window.addEventListener('error', function (e) { try { if (e && e.message) toast('出了个小问题：' + String(e.message).slice(0, 60)); } catch (err) {} }); // v4.1 审查修复 B4：全局异常不再静默
 window.addEventListener('unhandledrejection', function (e) { try { const r = e && e.reason; toast('后台出了个小问题：' + String(r && r.message || r || '未知').slice(0, 60)); } catch (err) {} });
 async function checkAppUpdate() { // v4.1：一键清 SW/缓存并重载——根治"PWA 更新后吃旧缓存"（原需手动强刷）
@@ -2606,7 +2608,7 @@ function chkAdviceHtml(c) { // 晨检部位→针对性处理（只给低风险�
   const tips = [];
   if (parts.indexOf('肩') >= 0 || parts.indexOf('上背') >= 0) tips.push('肩颈：收下巴 10 次×5 秒 + 门框胸拉伸 30 秒×2 + 墙面滑手 10 次；屏幕抬到平视；起身默认 45 分钟一次，能早就早。');
   if (parts.indexOf('小腿') >= 0) tips.push('小腿：直膝/屈膝靠墙拉伸各 30 秒×2 + 球滚 1-2 分钟（避开最痛点）+ 慢速提踵 10 次×2；今天少爬楼。');
-  if (parts.indexOf('足底') >= 0 || parts.indexOf('右足底') >= 0) tips.push('足底：毛巾拉脚趾 30 秒×3（晨起第一步前）+ 球滚 1 分钟（轻）+ 短足 10 次×3；今天少走硬地。');
+  if (parts.indexOf('足底') >= 0) tips.push('足底：毛巾拉脚趾 30 秒×3（晨起第一步前）+ 球滚 1 分钟（轻）+ 短足 10 次×3；今天少走硬地。'); // 子串匹配天然兼容老记录的单侧写法（去标识化批删冗余字面量）
   if (!tips.length) return '';
   return '<div class="sub" style="margin-top:8px;padding:8px 10px;border-radius:8px;background:var(--accent-soft)">针对性处理：<br>' + tips.join('<br>') + '</div>';
 }
@@ -2768,7 +2770,7 @@ function rehabFactor() { // 负荷折扣系数：phase1=0.5 / phase2=0.75 / phas
   if (!r || !r.released) return 1;
   return [0.5, 0.75, 1][rehabPhase(r) - 1];
 }
-function ankleGateLine() { // 踝门：右踝<47s → 土路/越野/下坡建议劝退（毕业线 47/50/57；只加户外提示，不改力量档位）
+function ankleGateLine() { // 踝门：伤踝<47s → 土路/越野/下坡建议劝退（毕业线 47/50/57；只加户外提示，不改力量档位；"右脚"是 standR 测试口径，非伤侧披露）
   const t = M.latestTest();
   if (!t || t.standR == null || t.standR >= 47) return '';
   return '<div class="sub" style="color:var(--orange-text);margin-top:4px">右脚闭眼单腿站 ' + t.standR + 's（土路门槛 47s 未到）：土路/越野/下坡类建议劝退——户外先走平整步道，负重与坡度都别上。</div>';
@@ -2811,8 +2813,11 @@ function stFeel(f) { // 主观点选：写当日标记并重判
    - 禁区解锁条件 = K21 晋升技能包 + K23 两把闸门 + footStages 晋级门槛，逐字不改 */
 const CHK_KINDS = ['酸胀', '刺痛', '跳着疼', '晨僵', '夜间痛', '肿胀', '无法承重'];
 const CHK_RED = ['夜间痛', '肿胀', '无法承重']; // 晨检性质里可点到的红线词（压痛/畸形/绞锁仍由疼痛文本筛查兜底）
-const CHK_PARTS = ['无', '右足底', '右踝', '膝', '腰', '肩', '上背', '臀/髋', '大腿', '小腿']; // 全身部位（批9实测反馈：练狠了 DOMS 不只足踝膝腰）
-const CHK_GUARD = ['右足底', '右踝', '膝', '腰']; // 伤病守门区：不走 DOMS 绿灯通路（K7 灯色规则区）
+const CHK_PARTS = ['无', '足底', '踝', '膝', '腰', '肩', '上背', '臀/髋', '大腿', '小腿']; // 全身部位（批9实测反馈：练狠了 DOMS 不只足踝膝腰；2026-11-07 去标识化：不带左右侧）
+const CHK_GUARD = ['足底', '踝', '膝', '腰']; // 伤病守门区：不走 DOMS 绿灯通路（K7 灯色规则区）
+function canonPart(p) { // 部位词归一：老记录存过单侧词（部位名带"左/右"前缀），读取与写入统一剥前缀——去标识化批，历史数据零迁移
+  return p ? String(p).replace(/^[左右]/, '') : p;
+}
 function todayChk() { // 今日晨检记录（daily[n].chk 可选字段，架构冻结下合法增量；缺=未做）
   const d = M.dailyOn(U.todayStr());
   return (d && d.chk && d.chk.out) ? d.chk : null;
@@ -2823,7 +2828,7 @@ function chkEval(parts, kinds, relief) { // 晨检判定：绿 ok / 黄 watch / 
   const real = (parts || []).filter((p) => p && p !== '无');
   if (real.indexOf('膝') >= 0 || real.indexOf('腰') >= 0) return { out: 'stop', why: '膝/腰疼痛（K7：停训）' };
   if (real.length) {
-    const inGuard = real.some((p) => CHK_GUARD.indexOf(p) >= 0);
+    const inGuard = real.some((p) => CHK_GUARD.indexOf(canonPart(p)) >= 0); // 老记录单侧词归一后命中守门区
     if (relief === 'ease' && !inGuard && (!kinds || (kinds.length === 1 && kinds[0] === '酸胀'))) {
       return { out: 'ok', why: real.join('、') + '酸胀、活动后缓解——练狠了的酸（第二天到顶，24-72 小时），正常练，热身拉长一点' };
     }
@@ -2909,7 +2914,7 @@ function retestRow(g, cur) { // 三线进度条：当前/目标+还差多少
   const pct = cur != null ? Math.min(100, Math.round(cur / g.s * 100)) : 0;
   const pass = cur != null && cur >= g.s;
   return '<div style="margin:8px 0"><div class="row-between"><span class="sub"><b>' + g.s + 's</b> · ' + g.name + '</span>'
-    + '<span class="sub" style="color:' + (pass ? 'var(--green)' : 'var(--orange)') + '">' + (pass ? '✓ 过线' : (cur != null ? '还差 ' + (g.s - cur).toFixed(0) + 's' : '未测')) + '</span></div>'
+    + '<span class="sub" style="color:' + (pass ? 'var(--green-text)' : 'var(--orange-text)') + '">' + (pass ? '✓ 过线' : (cur != null ? '还差 ' + (g.s - cur).toFixed(0) + 's' : '未测')) + '</span></div>' /* t118：状态文字用 text 系色（底色系浅色下 1.97 不达标） */
     + '<div style="height:6px;background:var(--line);border-radius:3px;margin-top:3px"><div style="height:6px;width:' + pct + '%;background:' + (pass ? 'var(--green)' : 'var(--accent)') + ';border-radius:3px"></div></div></div>';
 }
 function nextRetestLine() { // 下次周日复测点（v4.1）：冬训 W4/8/12/16/20/24 + 专项 W4/8/12（绝对周 28/32/36）周日，锚=anchorDate() 可顺延
@@ -2938,7 +2943,7 @@ function zoneLockHtml() { // 禁区解锁进度：条件全部来自 K1/K21/K23/
   ];
   return zones.map((z) => '<div style="margin:10px 0"><div class="body-tx" style="font-weight:600">' + z.name + '</div>'
     + z.conds.map((c) => '<div class="sub" style="padding:2px 0">· ' + U.esc(c[0]) + '：<span style="color:'
-      + (c[1] === true ? 'var(--green)' : (c[1] === false ? 'var(--orange)' : 'var(--line)'))
+      + (c[1] === true ? 'var(--green-text)' : (c[1] === false ? 'var(--orange-text)' : 'var(--text2)'))
       + '">' + (c[1] === true ? '✓ 已到' : (c[1] === false ? '✗ 未到' : '待确认')) + '</span></div>').join('')
     + '</div>').join('');
 }
@@ -3026,7 +3031,7 @@ function preTripCard(id) { // 选中线路的要素卡+判定
   const r = TRIP_ROUTES.find((x) => x.id === id);
   if (!r) return '';
   const ev = preTripEval(r);
-  const MAP = { go: ['✓ 没有明显缺口', 'var(--green)'], cond: ['△ 有条件', 'var(--orange)'], no: ['✗ 还不够', 'var(--red)'] }[ev.out]; // U-20：去"能走"许可语感
+  const MAP = { go: ['✓ 没有明显缺口', 'var(--green-text)'], cond: ['△ 有条件', 'var(--orange-text)'], no: ['✗ 还不够', 'var(--red-text)'] }[ev.out]; // U-20：去"能走"许可语感；t118：结论文字用 text 系色
   const lastTrip = (function () { const ds = (D.daily || []).filter((d) => d && d.trip); return ds.length ? ds[ds.length - 1].trip : null; })();
   return '<div class="body-tx" style="font-weight:600">' + U.esc(r.name) + '（' + U.esc(r.grade) + '）</div>'
     + '<div class="sub">要素：' + U.esc(r.days) + '｜' + U.esc(r.alt) + '｜出处：' + U.esc(r.src) + '</div>'
@@ -3335,7 +3340,7 @@ const AI_PROVIDERS = [
   { id: 'siliconflow', name: '硅基流动', url: 'https://api.siliconflow.cn/v1/chat/completions', model: '' }
 ];
 const AI_SYSTEM = [
-  '你是"体能伙伴"App 的三教练席，共用一个回复口吻。用户：30+ 男性，非技术背景，有足部旧伤史在康复中（详情见档案伤史与教练记忆，不在此硬编码），正按两段周期计划备战（冬训 24 周+专项 12 周）冈仁波齐转山（52km/5630m）。三席分工：康复师（疼痛/踝足/降档）、私教（课表/渐进/负荷/睡眠）、户外指导员（线路/高原/节奏/装备）。按问题选主导席位，可补其他席位视角，但用户感知到的是同一个教练团队，不要分饰三人。', // 批修（数据审查）：健康痕迹"右足康复期"此前硬编码进公开仓源码——改为运行时从档案/记忆取
+  '你是"体能伙伴"App 的三教练席，共用一个回复口吻。用户：30+ 男性，非技术背景，有足部旧伤史在康复中（详情见档案伤史与教练记忆，不在此硬编码），正按两段周期计划备战（冬训 24 周+专项 12 周）冈仁波齐转山（52km/5630m）。三席分工：康复师（疼痛/踝足/降档）、私教（课表/渐进/负荷/睡眠）、户外指导员（线路/高原/节奏/装备）。按问题选主导席位，可补其他席位视角，但用户感知到的是同一个教练团队，不要分饰三人。', // 批修（数据审查）：健康痕迹（伤情名+侧别）此前硬编码进公开仓源码——改为运行时从档案/记忆取，痕迹词已全部清根（去标识化批）
   '【表达】说人话。第一句永远是"现在该干嘛"的动作指令；然后 1-3 句理由。总长 ≤250 字。必须用术语时，当场用一句话解释。用户数据里没有的，回答"这个我看不到，你补充一下"，禁止编造用户的训练或身体情况。',
   '【红线（逐条硬约束，任何提问都不能绕过）】',
   '1. 不做医学诊断。疼痛类问题只说"可能提示"，并给就医指征：夜间痛、肿胀、无法承重、畸形、绞锁、持续加重 → 建议就医。永不说"你就是/确诊/没事"。',
@@ -3765,7 +3770,7 @@ function renderToday() {
   let level = __info.level;
   const RD = {
     ok:   ['正常练', 'var(--green)', '身体状态够，按下方"今日安排"执行（休息日就做恢复课）；建议放在傍晚 17-19 点。'],
-    down: ['降档练', 'var(--orange)', '强度降一档：力量每组少做一点、留 2-3 次余力，有氧时长打七折。'],
+    down: ['降档练', 'var(--orange-text)', '强度降一档：力量每组少做一点、留 2-3 次余力，有氧时长打七折。'],
     floor: ['恢复档 · 只做每日包', 'var(--red)', '每日包 = 足底康复 + 八段锦，12-15 分钟做完就收，其他全免——做完就是赢。'],
     rest: ['完全休息', 'var(--red)', '连续两天身体报警：今天完全休息，复盘睡眠与负荷，明天再战。'],
     return: ['回归课', 'var(--blue)', '断档后的第一步：每日包 12 分钟或 15 分钟散步，做完即闭环——不追溯，不补量。']
@@ -3887,7 +3892,7 @@ function renderToday() {
   // 顶栏状态灯：一眼可见今天能不能练
   const tl = document.getElementById('topLamp');
   if (tl) {
-    const c = !L ? 'var(--line)' : (L.level === 'red' ? 'var(--red)' : (L.level === 'yellow' ? 'var(--orange)' : 'var(--green)'));
+    const c = !L ? 'var(--text2)' : (L.level === 'red' ? 'var(--red-text)' : (L.level === 'yellow' ? 'var(--orange-text)' : 'var(--green-text)'));
     tl.style.background = c;
     tl.style.boxShadow = L ? '0 0 8px ' + c : 'none';
   }
@@ -3900,7 +3905,7 @@ function renderToday() {
     + '<span id="streakFoot">' + streakCells('footRehab') + '</span></div>'
     + (function () {
         const parts = CONFIG.footNote.split('若 4 周无改善或疼痛加重');
-        const main = U.esc(parts[0]).replace(/右足软组织挫伤/g, '<b>右足软组织挫伤</b>').replace(/不平路面易崴脚/g, '<b>不平路面易崴脚</b>');
+        const main = U.esc(parts[0]); // 去标识化批：诊断名加粗 replace 为死代码（footNote 出厂文本已清伤情描述），删除字面量
         return '<div class="prose" style="margin-bottom:10px">' + main + '</div>'
           + '<div class="callout-warn">若 4 周无改善或疼痛加重' + U.esc(parts[1] || '') + '</div>';
       })()
@@ -4152,6 +4157,7 @@ function tfCheck(i) {
   if (el) { el.classList.toggle('on', tf.checks[i]); el.setAttribute('aria-checked', tf.checks[i]); }
 }
 function setPain(p) {
+  p = canonPart(p); // 写入归一（去标识化批）：新存数据一律不带左右侧
   tf.painOpt = p;
   const el = document.getElementById('painChips');
   if (el) el.innerHTML = painChips();
@@ -4326,7 +4332,8 @@ function prefillToday() {
   tf.baduanjin = !!(rec && rec.baduanjin);
   tf.painOpt = '无'; tf.painText = '';
   if (rec && rec.pain && rec.pain !== '无') {
-    if (CONFIG.painOptions.indexOf(rec.pain) >= 0) tf.painOpt = rec.pain;
+    const cp = canonPart(rec.pain);
+    if (CONFIG.painOptions.indexOf(cp) >= 0) tf.painOpt = cp; // 老记录单侧词归一后命中新词，不再误落"其他"
     else { tf.painOpt = '其他'; tf.painText = rec.pain; }
   } else if (!rec && lf && lf.painOpt && lf.painOpt !== '无') {
     tf.painOpt = lf.painOpt;
@@ -5086,7 +5093,7 @@ function renderGoal() {
       ? '基线 ' + D.profile.sleepBaseline + 'h（近3月平均）→ 目标 ' + CONFIG.sleepGoalH + 'h+ · 点卡片展开睡眠修复方案'
       : '目标 ' + CONFIG.sleepGoalH + 'h+ · 连续记录几天睡眠后，这里会换成你的真实基线 · 点卡片展开睡眠修复方案') + '</div></div>';
   h += '<div class="card"><div class="card-head"><div class="bubble bg-orange" aria-hidden="true"><svg viewBox="0 0 24 24"><ellipse cx="10" cy="14" rx="4" ry="6"/><circle cx="16.5" cy="7.5" r="1.4"/><circle cx="18.5" cy="11" r="1.4"/><circle cx="18.5" cy="15" r="1.4"/></svg></div>'
-    + '<div class="card-title" style="margin:0">右足康复</div></div>'
+    + '<div class="card-title" style="margin:0">足部康复</div></div>'
     + '<div style="display:flex;align-items:center;gap:14px" onclick="showK(\'K7\')">'
     + ringSvg(footW / wd, 'var(--orange)')
     + '<div style="flex:1"><div class="big-num" id="gFoot"><span></span></div><div class="sub">本周足康复打卡 / ' + wd + ' 天 · Stage ' + D.state.footStage + '</div></div>'
@@ -5218,7 +5225,7 @@ function renderTest() {
     { name: '① 静息心率', hint: '方法：取近7天静息心率均值，从健康App抄录。', fields: [['tRhr7', '近7天静息心率均值', '如 60']] },
     { name: '② 台阶试验', hint: '方法：30-40cm台阶，60步/分，3分钟，佩戴Apple Watch，结束后从健康App抄峰值心率+结束后1分钟下降值。', fields: [['tStepPeak', '台阶峰值心率', '如 132'], ['tStepDrop', '结束后1分钟下降值', '如 28']] },
     { name: '③ 力量', hint: '方法：深蹲、俯卧撑各做到力竭，记最多次数（动作标准优先）。', fields: [['tSquat', '深蹲最多次数', '如 30'], ['tPushup', '俯卧撑最多次数', '如 20']] },
-    { name: '④ 闭眼单腿站立', hint: '安全提示：站在墙或椅旁；右足疼痛日改睁眼并标注；建议足底康复第 2 步完成后再测闭眼项目。', fields: [['tStandL', '左侧秒数', '如 25'], ['tStandR', '右侧秒数', '如 18']] },
+    { name: '④ 闭眼单腿站立', hint: '安全提示：站在墙或椅旁；伤足疼痛日改睁眼并标注；建议足底康复第 2 步完成后再测闭眼项目。', fields: [['tStandL', '左侧秒数', '如 25'], ['tStandR', '右侧秒数', '如 18']] },
     { name: '⑤ 核心', hint: '方法：平板支撑与左右侧支撑各记最长坚持秒数。', fields: [['tPlank', '平板支撑秒数', '如 75'], ['tSideL', '左侧支撑秒数', '如 40'], ['tSideR', '右侧支撑秒数', '如 38']] },
     { name: '⑥ 柔韧性备注', hint: '方法：主观记录活动度受限情况（可选文字）。', fields: [['tMobility', '柔韧性备注', '如 腘绳肌紧']] }
   ];
@@ -5465,7 +5472,7 @@ function bfPickDate(v) {
     s.checks = ck0.slice(0, CONFIG.actions.length);
     s.dur = old.durationMin != null ? old.durationMin : ''; s.rpe = old.rpe != null ? old.rpe : ''; s.hr = old.avgHr != null ? old.avgHr : '';
     s.painOpt = '无'; s.painText = '';
-    if (old.pain && old.pain !== '无') { if (CONFIG.painOptions.indexOf(old.pain) >= 0) s.painOpt = old.pain; else { s.painOpt = '其他'; s.painText = old.pain; } }
+    if (old.pain && old.pain !== '无') { const cp = canonPart(old.pain); if (CONFIG.painOptions.indexOf(cp) >= 0) s.painOpt = cp; else { s.painOpt = '其他'; s.painText = old.pain; } } // 去标识化批：老词归一后回填
     s.mood = old.mood || ''; s.footRehab = !!old.footRehab; s.baduanjin = !!old.baduanjin; s.note = old.note || '';
   }
   s.sleep = om && om.sleepH != null ? om.sleepH : ''; s.rhr = om && om.rhr != null ? om.rhr : ''; s.hrv = om && om.hrv != null ? om.hrv : '';
@@ -5979,12 +5986,12 @@ const ICONS = {
 /* ============ 动作要点库（ACTION_TIPS，W6） ============ */
 /* 说明：原「火柴人 SVG 动画」已移除，改为文字要点卡（蓝图 W6 拍板）。
    文案来源：蓝图 W6 草案，并已按补丁 A 核对——箭步蹲不含「膝盖不超脚尖」这一过时说法，
-   改为「前膝对准脚尖方向」；深蹲保留「膝盖与脚尖同向，不内扣」；右足旧伤保护提示保留。 */
+   改为「前膝对准脚尖方向」；深蹲保留「膝盖与脚尖同向，不内扣」；伤足旧伤保护提示保留。 */
 const ACTION_TIPS = {
   '自重深蹲': ['双脚与肩同宽，脚尖微外八', '膝盖与脚尖同向，不内扣', '大腿蹲至与地面平行，腰背挺直', '起身时脚跟发力'],
   '俯卧撑': ['手掌在胸两侧，身体一条直线', '下放至胸近地面，肘部约45°', '核心收紧，不塌腰不翘臀'],
   '下斜俯卧撑': ['双脚搭在椅子上，手撑地略宽于肩', '从头到脚一条直线，不塌腰', '下放至胸口轻触椅边，肘约45°', '推起脚跟不要晃，第5周起下放改3秒慢速'],
-  '箭步蹲': ['前膝对准脚尖方向，不内扣', '躯干直立，重心在两腿之间', '扶墙可保平衡（右足疼痛日必扶）'],
+  '箭步蹲': ['前膝对准脚尖方向，不内扣', '躯干直立，重心在两腿之间', '扶墙可保平衡（伤足疼痛日必扶）'],
   '臀桥': ['仰卧屈膝，脚跟近臀', '顶髋至肩-膝一条直线，顶端夹臀1秒', '慢下，不靠惯性'],
   '平板支撑': ['前臂撑地，肘在肩正下方', '头-肩-髋-踝一条直线，核心收紧', '不憋气，自然呼吸'],
   '侧桥': ['单侧前臂撑地，身体侧向一条直线', '髋部不下沉，顶端可停顿'],
@@ -6007,7 +6014,7 @@ const TIPS_FIVE = {
   '自重深蹲': { tgt: '大腿前侧+臀部。做对了是大腿和臀部发酸，不是膝盖或腰疼', ext: '身后有一把椅子，用屁股往后坐下去', inn: '脚跟踩实地面，起身时用手摸一下大腿和屁股，感觉是它们在收紧（找到发力感后撤掉，只留外部口诀）', err: '膝盖内扣（两膝往中间靠）', chk: ['下蹲时膝盖是否向内扣（应与脚尖同向）', '脚跟是否离地、重心是否跑到前脚掌', '上身是否过度前倾、腰背弯曲'] },
   '俯卧撑': { tgt: '胸口+手臂后侧+肚子全程绷住。做对了胸口和手臂后侧发酸，肚子有支撑感', ext: '把地面往两边推开', inn: '肚子收紧，像准备被人轻拍肚子一下（能全程保持直线后撤掉）', err: '塌腰（腰往下掉、肚子先着地）', chk: ['头-肩-髋-踝是否一条直线（塌腰或撅臀）', '手肘是否约45°贴近身体（不过度外展）', '是否耸肩、脖子前伸'] },
   '下斜俯卧撑': { tgt: '胸口偏上+肩膀前侧参与更多，肚子比普通俯卧撑绷得更紧。做对了上胸和肩发酸', ext: '把手掌底下的地面往椅子方向推远', inn: '屁股夹紧、肚子绷住再开始做（第5周起下放改3秒慢速后，这条全程保留——离心阶段最容易塌腰）', err: '塌腰（脚搭高后腰椎压力比平地大，塌腰最伤）', chk: ['腰是否往下塌（脚高位最需要盯）', '椅子是否滑动、脚是否晃', '下巴是否过度找地（脖子代偿）'] },
-  '箭步蹲': { tgt: '前腿的臀+大腿前侧，后腿前面有拉伸感。做对了前腿发酸，不是膝盖刺痛', ext: '后膝往地面轻轻点水——像要点到水面但不落进去', inn: '前膝对准第二根脚趾的方向，身体垂直往下沉，不往前冲（平衡改善后撤掉；右足疼痛日必扶墙）', err: '步幅太小导致重心前冲、前膝压力集中', chk: ['前膝是否内扣或超脚尖过多', '躯干是否前倾过多（应直立）', '重心是否在两腿之间（不偏前不偏后）'] },
+  '箭步蹲': { tgt: '前腿的臀+大腿前侧，后腿前面有拉伸感。做对了前腿发酸，不是膝盖刺痛', ext: '后膝往地面轻轻点水——像要点到水面但不落进去', inn: '前膝对准第二根脚趾的方向，身体垂直往下沉，不往前冲（平衡改善后撤掉；伤足疼痛日必扶墙）', err: '步幅太小导致重心前冲、前膝压力集中', chk: ['前膝是否内扣或超脚尖过多', '躯干是否前倾过多（应直立）', '重心是否在两腿之间（不偏前不偏后）'] },
   '臀桥': { tgt: '臀部，大腿后侧参与。做对了顶端臀部发酸，腰只是稳定不发力', ext: '用髋部把天花板顶起来（想象顶开一条缝）', inn: '顶端停1秒时用手摸屁股，确认是臀部在收紧、不是腰在使劲（学会"先夹臀再起"后撤掉）', err: '用腰代偿——顶得过高、顶端感觉在腰不在臀', chk: ['顶端是否感觉腰酸而非臀酸', '脚跟是否踩实（脚跟离地=发力跑了）', '下落是否慢放、不靠惯性弹起'] },
   '平板支撑': { tgt: '肚子深处（核心深层）+肩部支撑感。做对了腹肌深处发酸发抖，不是腰酸', ext: '两肘轻轻往脚趾方向拖，像要把地面拖弯（肘不动，靠"拖"的意念激活核心）', inn: '肚脐往脊柱方向收，屁股微微夹紧（能稳定20秒以上后撤掉）', err: '塌腰（撑久了腰往下掉）', chk: ['耳-肩-髋-踝是否一条直线（塌腰/撅臀都算）', '肘是否在肩正下方', '是否憋气（应自然呼吸）'] },
   '侧桥': { tgt: '侧腰+髋外侧。做对了侧腰发酸，不是支撑侧肩膀或手腕疼', ext: '把髋顶向天花板，像天花板在往上拉你的腰带扣', inn: '想象身体是一块侧立的木板，从头顶到脚跟一条线（能稳定后撤掉）', err: '髋部往下沉（撑不住往地面掉）', chk: ['髋是否往下掉（最常出现）', '身体是否前后倾斜（应是纯侧平面）', '肩是否在肘正上方（不塌肩）'] },
@@ -6729,7 +6736,7 @@ function showWorkoutReport(d) {
     + '<input id="wrRpe" type="range" min="1" max="10" step="1" value="5" oninput="wrSetRpe(this.value)"></div>'
     + '<div class="field"><label>主观状态</label><div class="chips" id="wrMoodChips"></div></div>'
     + '<div class="field"><label>疼痛部位（如实点选）</label><div class="chips" id="wrPainChips">' + wrPainChips() + '</div></div>'
-    + '<input id="wrPainSpot" placeholder="疼的部位/感觉描述（如：右足底走多了微酸）" style="display:none;margin-bottom:8px">'
+    + '<input id="wrPainSpot" placeholder="疼的部位/感觉描述（如：足底走多了微酸）" style="display:none;margin-bottom:8px">'
     + '<div class="m-actions"><button class="btn-primary" onclick="saveFromReport()">保存并结束</button>'
     + '<button class="btn-ghost" onclick="closeModal();consumeDraftNote(\'已预填，请到记录卡核对保存——练的时长已先记下了\')">稍后自己填</button></div>');
   renderWorkoutMoodChips();
@@ -6753,7 +6760,7 @@ function wrSetFeel(f) {
   if (el) el.innerHTML = wrFeelChips();
 }
 function wrPainChips() { // 与记录表单 CONFIG.painOptions 同一套口径的快速子集，'其他'展开描述框
-  return ['无', '右足底', '右踝', '其他'].map((p) => '<button class="chip' + (window.__wrPain === p ? ' on' : '') + '" onclick="wrSetPain(\'' + p + '\')">' + p + '</button>').join('');
+  return ['无', '足底', '踝', '其他'].map((p) => '<button class="chip' + (window.__wrPain === p ? ' on' : '') + '" onclick="wrSetPain(\'' + p + '\')">' + p + '</button>').join(''); // 去标识化批：与 CONFIG.painOptions 同口径
 }
 function wrSetPain(p) {
   window.__wrPain = p;
