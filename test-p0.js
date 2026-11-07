@@ -2759,6 +2759,72 @@ check('101 K14 一键入口三处：建议卡页脚/晨检判据行/停训卡', 
   if (!o.card || !o.chk || !o.modal) throw new Error('K14 入口缺：' + r);
   return '三处入口 ✓';
 });
+/* ---------- 102-104 批7 AI教练接入记忆+管理区（2026-11-07） ---------- */
+check('102 AI 记忆注入：buildContext 含事实层+行为摘要+manual 不被覆盖', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval(`(function(){
+    D = defaultData(); D.state.enteredOnce = true;
+    D.mem.facts.push({ id: 'f1', kind: 'injury', subject: '疼痛·膝', body: '深蹲膝盖内扣', evidence: ['2026-11-01', '2026-11-05'], since: '2026-11-01', lastSeen: '2026-11-05', state: 'open', src: 'manual' });
+    D.state.planLog = [{ date: U.addDays(U.todayStr(), -1), courseIds: [], skip: 'no_time' }];
+    D.daily.push({ date: U.addDays(U.todayStr(), -2), type: '力量', createdAt: Date.now(), painSaid: [{ part: '膝', level: 'care', ts: Date.now() }] });
+    const ctx = buildContext();
+    // manual 事实不被 auto 覆盖表述
+    memUpdate('injury', '疼痛·膝', '引擎想说的话');
+    const f = D.mem.facts.find((x) => x.id === 'f1');
+    const evAfter = f.evidence.length;
+    return JSON.stringify({ mem: ctx.indexOf('【教练的记忆】') >= 0 && ctx.indexOf('injury|疼痛·膝：深蹲膝盖内扣') >= 0 && ctx.indexOf('证据2次') >= 0, beh: ctx.indexOf('【近7天行为】') >= 0 && ctx.indexOf('没时间×1') >= 0 && ctx.indexOf('报疼1次') >= 0, bodyKept: f.body === '深蹲膝盖内扣', evAfter: evAfter === 3 });
+  })()`);
+  const o = JSON.parse(r);
+  if (!o.mem) throw new Error('记忆未注入上下文：' + r);
+  if (!o.beh) throw new Error('行为摘要缺失：' + r);
+  if (!o.bodyKept || !o.evAfter) throw new Error('manual 表述被引擎覆盖或证据未追加：' + r);
+  return '注入+摘要+manual 保护 ✓';
+});
+check('103 教练的记忆管理区：渲染/两击删/编辑 src=manual/手动补', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval(`(function(){
+    D = defaultData(); D.state.enteredOnce = true;
+    D.mem.facts.push({ id: 'fa', kind: 'cap', subject: '强度档·力量', body: '偏轻', evidence: ['2026-11-05'], since: '2026-11-05', lastSeen: '2026-11-05', state: 'open', src: 'auto' });
+    D.mem.facts.push({ id: 'fb', kind: 'life', subject: '旧', body: '过时事实', evidence: ['2026-10-01'], since: '2026-10-01', lastSeen: '2026-10-01', state: 'closed', src: 'auto' });
+    const zone = memZoneHtml();
+    const hasClosed = zone.indexOf('已归档') >= 0;
+    // 两击删除：第一击只 arm（mock 按钮，不碰真实 DOM——app DOM 是后续 renderProfile/toast 的依赖）
+    const btn = { dataset: { memid: 'fa', armed: '' }, textContent: '删', isConnected: true };
+    memDelClick(btn);
+    const still = !!D.mem.facts.find((x) => x.id === 'fa') && btn.dataset.armed === '1';
+    memDelClick(btn); // 第二击真删
+    const gone = !D.mem.facts.find((x) => x.id === 'fa');
+    // 手动补一条 → src=manual + 同主题覆盖（临时挂两个输入件，app DOM 保持完整）
+    const si = document.createElement('input'); si.id = 'memAddSubject'; document.body.appendChild(si);
+    const bi = document.createElement('textarea'); bi.id = 'memAddBody'; document.body.appendChild(bi);
+    si.value = '疼痛·腰'; bi.value = '久坐腰 stiff，硬拉换轻';
+    __memAddKind = 'injury';
+    memAddSave();
+    const mf = D.mem.facts.find((x) => x.subject === '疼痛·腰');
+    si.remove(); bi.remove();
+    return JSON.stringify({ hasClosed: hasClosed, still: still, gone: gone, added: !!mf && mf.src === 'manual', zoneNew: memZoneHtml().indexOf('疼痛·腰') >= 0 });
+  })()`);
+  const o = JSON.parse(r);
+  if (!o.hasClosed) throw new Error('closed 归档计数缺失：' + r);
+  if (!o.still || !o.gone) throw new Error('两击删除语义断：' + r);
+  if (!o.added || !o.zoneNew) throw new Error('手动补记失败：' + r);
+  return '管理区四操作 ✓';
+});
+check('104 诚实告知：live 态提示发给谁+发什么', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval(`(function(){
+    D = defaultData(); D.state.enteredOnce = true;
+    try { localStorage.setItem('tineng_aikey', 'k-test'); } catch (e) {}
+    showCoachQA();
+    const m = document.getElementById('modalBox').innerHTML;
+    closeModal();
+    try { localStorage.removeItem('tineng_aikey'); } catch (e) {}
+    return JSON.stringify({ told: m.indexOf('教练的记忆') >= 0 && m.indexOf('伤病/疼痛摘要') >= 0 && m.indexOf('智谱') >= 0, optIn: m.indexOf('默认不发') >= 0 });
+  })()`);
+  const o = JSON.parse(r);
+  if (!o.told || !o.optIn) throw new Error('诚实告知缺失：' + r);
+  return '供应商+内容+opt-in 三要素 ✓';
+});
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);
 console.log('================ P0 jsdom 断言报告（node ' + process.version + ' · jsdom ' + require(require.resolve('jsdom/package.json', { paths: [DIR] })).version + '） ================');

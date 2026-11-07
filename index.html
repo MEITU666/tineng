@@ -757,7 +757,7 @@ function memUpdate(kind, subject, body, evDate) { // 批2 记忆骨架（2026-11
     if (f.evidence.indexOf(evDate) < 0) f.evidence.push(evDate);
     f.evidence = f.evidence.slice(-30);
     f.lastSeen = evDate;
-    if (body) f.body = body; // 同主题以最新表述为准——历史证据保留可回看"教练为什么这么判断"
+    if (body && f.src !== 'manual') f.body = body; // 同主题以最新表述为准——但人改过的事实（src=manual）引擎不覆盖表述，只追加证据（批7：用户的说法说了算）
     if (f.state === 'wane') f.state = 'open'; // 有新证据即复活
   }
   return f;
@@ -772,6 +772,85 @@ function memSweep(today) { // 批2 惰性状态迁移（读时算，不占定时
     if (days >= 28) f.state = 'closed';
     else if (days >= 7) f.state = 'wane';
   });
+}
+/* ============ 批7 教练的记忆管理区（2026-11-07）============
+   透明窗：教练记了你什么、凭什么记的（证据次数）、可改可删可补。
+   学 ChatGPT/Mistral/Copilot 记忆管理通行模式（2026-11 查证）：可见+可编辑+可控+删除有确认。closed（28 天无证据）不进列表只留计数。 */
+const MEM_KIND_LBL = { injury: '伤病', pref: '偏好', cap: '能力', life: '生活' };
+function memZoneHtml() {
+  memSweep(U.todayStr());
+  const all = (D.mem && Array.isArray(D.mem.facts)) ? D.mem.facts : [];
+  const facts = all.filter((f) => f.state !== 'closed');
+  const closedN = all.length - facts.length;
+  const rows = facts.map((f) => '<div class="row-between" style="padding:7px 0;border-bottom:0.5px solid var(--line)">'
+    + '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">' + (MEM_KIND_LBL[f.kind] || U.esc(f.kind)) + ' · ' + U.esc(f.subject) + (f.state === 'wane' ? ' <span class="sub">（7 天没新证据·保守度已降）</span>' : '') + '</div>'
+    + '<div class="sub">' + U.esc(f.body || '') + '</div>'
+    + '<div class="sub">证据 ' + (f.evidence || []).length + ' 次 · 自 ' + U.esc(f.since || '?') + ' 起</div></div>'
+    + '<div style="flex-shrink:0;display:flex;flex-direction:column;gap:4px"><button class="ci-btn" style="min-height:44px" onclick="memEditModal(\'' + f.id + '\')">改</button>'
+    + '<button class="ci-btn" style="min-height:44px" data-memid="' + U.esc(f.id) + '" onclick="memDelClick(this)">删</button></div></div>').join('');
+  return '<div class="card"><div class="card-title" style="margin-bottom:6px">教练的记忆</div>'
+    + '<div class="sub" style="margin-bottom:6px">教练依据这些事实调整建议；配了 AI 问答后，它们（含伤病/疼痛摘要）会随提问发给所选供应商。可以改、删、补——删了就不再引用。</div>'
+    + (rows || '<div class="sub">还没有记忆——报一次疼痛、给一次课反馈、做一次周复盘，教练就会开始记。</div>')
+    + (closedN ? '<div class="sub" style="margin-top:4px">另有 ' + closedN + ' 条已归档（28 天无新证据自动关闭，不再影响建议）。</div>' : '')
+    + '<div style="margin-top:8px"><button class="btn-mini" onclick="memAddModal()">手动记一条</button></div></div>';
+}
+let __memAddKind = 'life';
+function memEditModal(id) { // 编辑：modal + textarea（同键覆盖 body 的显式改法，不做魔法合并）
+  const f = (D.mem.facts || []).find((x) => x.id === id);
+  if (!f) return;
+  showModal('<div class="card-title" style="margin-bottom:8px">改这条记忆</div>'
+    + '<div class="sub" style="margin-bottom:8px">' + (MEM_KIND_LBL[f.kind] || f.kind) + ' · ' + U.esc(f.subject) + '（证据 ' + (f.evidence || []).length + ' 次）</div>'
+    + '<div class="field"><label>内容（改成你认可的说法，留空=删除内容只留证据）</label><textarea id="memEditBody" rows="3">' + U.esc(f.body || '') + '</textarea></div>'
+    + '<div class="m-actions"><button class="btn-primary" onclick="memSaveEdit(\'' + id + '\')">保存</button><button class="btn-ghost" onclick="closeModal()">不改了</button></div>');
+}
+function memSaveEdit(id) {
+  const f = (D.mem.facts || []).find((x) => x.id === id);
+  if (!f) return;
+  const el = document.getElementById('memEditBody');
+  f.body = el ? el.value.trim() : f.body;
+  f.src = 'manual'; // 人改过的事实标记 manual——与 auto 区分（AI/引擎不再覆盖它，只追加证据）
+  D.state.updatedAt = Date.now();
+  persist();
+  closeModal();
+  renderProfile();
+  toast('记下了——教练按你改的说法来');
+}
+function memDelClick(btn) { // 两击确认删除（不用 confirm()）：第一次变"确认删？"，3 秒不点回弹
+  if (btn.dataset.armed === '1') {
+    D.mem.facts = (D.mem.facts || []).filter((f) => f.id !== btn.dataset.memid);
+    D.state.updatedAt = Date.now();
+    persist();
+    renderProfile();
+    toast('已删除——教练不再引用这条');
+  } else {
+    btn.dataset.armed = '1';
+    btn.textContent = '确认删？';
+    setTimeout(() => { if (btn && btn.isConnected) { btn.dataset.armed = ''; btn.textContent = '删'; } }, 3000);
+  }
+}
+function memAddModal() { // 手动补一条：kind 单选 + 主题 + 内容——memUpdate 幂等，同 kind+subject 会覆盖旧条 body
+  __memAddKind = 'life';
+  showModal('<div class="card-title" style="margin-bottom:8px">手动记一条</div>'
+    + '<div class="sub" style="margin-bottom:8px">如：「伤病｜疼痛·膝｜髌骨软化史，深蹲要浅」——教练之后每条建议都会参考。</div>'
+    + '<div class="field"><label>类别</label><div class="chips" id="memAddKinds">' + Object.keys(MEM_KIND_LBL).map((k) => '<button class="chip' + (k === 'life' ? ' on' : '') + '" onclick="memPickKind(\'' + k + '\',this)">' + MEM_KIND_LBL[k] + '</button>').join('') + '</div></div>'
+    + '<div class="field"><label>主题（短，如：疼痛·膝 / 作息）</label><input id="memAddSubject" placeholder="疼痛·膝"></div>'
+    + '<div class="field"><label>内容</label><textarea id="memAddBody" rows="3" placeholder="具体到怎么练：……"></textarea></div>'
+    + '<div class="m-actions"><button class="btn-primary" onclick="memAddSave()">记下</button><button class="btn-ghost" onclick="closeModal()">不记了</button></div>');
+}
+function memPickKind(k, el) { __memAddKind = k; el.parentNode.querySelectorAll('.chip').forEach((b) => b.classList.remove('on')); el.classList.add('on'); }
+function memAddSave() {
+  const sub = (document.getElementById('memAddSubject') || {}).value || '';
+  const body = (document.getElementById('memAddBody') || {}).value || '';
+  if (!sub.trim()) { toast('先写主题'); return; }
+  if (!body.trim()) { toast('先写内容'); return; }
+  memUpdate(__memAddKind, sub.trim(), body.trim());
+  const mf = (D.mem.facts || []).find((x) => x.kind === __memAddKind && x.subject === sub.trim() && x.state !== 'closed');
+  if (mf) mf.src = 'manual'; // 手动记的=用户亲口说的，引擎后续不覆盖表述
+  D.state.updatedAt = Date.now();
+  persist();
+  closeModal();
+  renderProfile();
+  toast('记下了——同主题已有记录会被这条覆盖');
 }
 function adviceFor(dateStr) { // 建议主函数：返回 {mode, type, reason, courses[], filterNote}——mode: normal|rest|long|stop
   dateStr = dateStr || U.todayStr();
@@ -1540,7 +1619,7 @@ function discardDraftAndClose() { // F2a：用户明确选"不留记录"——�
   closeModal();
   renderToday();
 }
-window.APP_VER = '4.9.5'; // 批6 结论层+生病规则+K14入口（2026-11-07）：①周教练小结升级——缺席原因真数据（skipToday 留痕进 planLog.skip，此前当日即丢）/疼痛轨迹（消费批3 painSaid）/病假计数/下周调整四规则+结论 memUpdate('life','周复盘·weekStart') 写回事实层（批7 AI 消费）②生病规则：晨检第0步感冒轴（neck check 口径：Ruuskanen 2023+ACSM——发烧/脖子以下=病假休息日 rec.type=病假不算欠账、病好从50%回来不补课；脖子以上=可轻练10分钟档+maxImpact=low）病假卡单一信息不弹停训卡 ③K14红旗卡三处一键入口（建议卡页脚/晨检判据行/停训卡） // 前批 v4.9.4 批5：少练点10分钟档（压缩日算练+升档防污染）+建议卡常驻本周7格（✓/½/休/空心/今天，弹性周计数）+修 openCourse 恒假死分支 // 前批 v4.9.x 批1-3：天气接入建议引擎+开场白三要素 · 单课反馈三键+D.mem 记忆骨架+进步出口 · 疼痛三步向导+伤病档案联动 // 前批 v4.8.1 保命批（2026-10-26）：F1 进门判据解耦（enteredOnce，用过即直达不再每次欢迎页） · F2a 白练保护（训练结束先落草稿再清快照——报告确认窗口锁屏/回收不再丢训练；中断/恢复课路径防双计） · F3 SW 健康数据零缓存（api.github.com 改 networkOnly，清库即清净） · 前批 v4.6.3 清理solo/cooldown死分支（solo已废弃） · 前批 v4.6.2 有氧日也走三阶段（激活→主计时→收尾，此前有氧练完没有拉伸） · 前批 v4.6.1 闭环批（IXD P1全清+术语统一+行话改人话+K28去标识化+手动完成计数修复） · 前批 v4.6.0 拉伸并入每日课（三阶段/恢复课/起床档/规则引擎/当天冻结）· 前批 v4.5.2：数据口径4修+训练快照持久化+草稿保护+chip回填+按钮收敛+中断如实记录+字号三档+深色补齐+死代码清理+合规文案 · 前批 v4.5.1 隐私修复：出厂默认清空身高/体重/城市/伤史——源码进公开仓，个人数据仅存本机；检测来源默认去城市化 // v4.5.0：身体照顾（久坐肩颈/小腿胀硬/足底筋膜释放+晨检联动+练前热身/练后放松明确化）
+window.APP_VER = '4.9.6'; // 批7 AI教练接入记忆+管理区（2026-11-07）：①buildContext 注入【教练的记忆】（open 事实全量：kind|subject：body·证据N次）+【近7天行为】摘要行（缺席原因/压缩/报疼/病假——批5/6 留痕的消费口），AI 从陌生人变私人教练 ②档案页"教练的记忆"透明窗：全部非 closed 事实可见（kind/subject/body/证据数/since/wane 标注）、可改（modal 编辑+src=manual 人改过不再被引擎覆盖）、可删（两击确认）、可手动补（memUpdate 幂等同主题覆盖）③showCoachQA 诚实告知：问答会把课表+近7天记录+教练记忆（含伤病/疼痛摘要）发给所选供应商（学 ChatGPT/Mistral/Copilot 记忆管理通行模式，2026-11 查证：可见+可编辑+可控） // 前批 v4.9.5 批6——缺席原因真数据（skipToday 留痕进 planLog.skip，此前当日即丢）/疼痛轨迹（消费批3 painSaid）/病假计数/下周调整四规则+结论 memUpdate('life','周复盘·weekStart') 写回事实层（批7 AI 消费）②生病规则：晨检第0步感冒轴（neck check 口径：Ruuskanen 2023+ACSM——发烧/脖子以下=病假休息日 rec.type=病假不算欠账、病好从50%回来不补课；脖子以上=可轻练10分钟档+maxImpact=low）病假卡单一信息不弹停训卡 ③K14红旗卡三处一键入口（建议卡页脚/晨检判据行/停训卡） // 前批 v4.9.4 批5：少练点10分钟档（压缩日算练+升档防污染）+建议卡常驻本周7格（✓/½/休/空心/今天，弹性周计数）+修 openCourse 恒假死分支 // 前批 v4.9.x 批1-3：天气接入建议引擎+开场白三要素 · 单课反馈三键+D.mem 记忆骨架+进步出口 · 疼痛三步向导+伤病档案联动 // 前批 v4.8.1 保命批（2026-10-26）：F1 进门判据解耦（enteredOnce，用过即直达不再每次欢迎页） · F2a 白练保护（训练结束先落草稿再清快照——报告确认窗口锁屏/回收不再丢训练；中断/恢复课路径防双计） · F3 SW 健康数据零缓存（api.github.com 改 networkOnly，清库即清净） · 前批 v4.6.3 清理solo/cooldown死分支（solo已废弃） · 前批 v4.6.2 有氧日也走三阶段（激活→主计时→收尾，此前有氧练完没有拉伸） · 前批 v4.6.1 闭环批（IXD P1全清+术语统一+行话改人话+K28去标识化+手动完成计数修复） · 前批 v4.6.0 拉伸并入每日课（三阶段/恢复课/起床档/规则引擎/当天冻结）· 前批 v4.5.2：数据口径4修+训练快照持久化+草稿保护+chip回填+按钮收敛+中断如实记录+字号三档+深色补齐+死代码清理+合规文案 · 前批 v4.5.1 隐私修复：出厂默认清空身高/体重/城市/伤史——源码进公开仓，个人数据仅存本机；检测来源默认去城市化 // v4.5.0：身体照顾（久坐肩颈/小腿胀硬/足底筋膜释放+晨检联动+练前热身/练后放松明确化）
 window.addEventListener('error', function (e) { try { if (e && e.message) toast('出了个小问题：' + String(e.message).slice(0, 60)); } catch (err) {} }); // v4.1 审查修复 B4：全局异常不再静默
 window.addEventListener('unhandledrejection', function (e) { try { const r = e && e.reason; toast('后台出了个小问题：' + String(r && r.message || r || '未知').slice(0, 60)); } catch (err) {} });
 async function checkAppUpdate() { // v4.1：一键清 SW/缓存并重载——根治"PWA 更新后吃旧缓存"（原需手动强刷）
@@ -3217,6 +3296,21 @@ function buildContext() { // 上下文最小集（工单5.2）：生日/城市/�
     + (r.strengthChecks ? ' 力量' + todaysActions().filter((x) => r.strengthChecks[x.i]).length + '/' + todaysActions().length : '')
     + (r.pain && r.pain !== '无' ? ' 痛:' + r.pain : '') + (r.mood ? ' ' + r.mood : '') + '}');
   c += '\n【近7天训练】' + (wk.join(' ') || '无记录');
+  // 批7 教练记忆注入（2026-11-07）：事实层 open 事实随上下文发——AI 从陌生人变私人教练；行为摘要（批5/6 留痕的消费口）与逐日训练行互补
+  const facts = (D.mem && Array.isArray(D.mem.facts) ? D.mem.facts : []).filter((f) => f.state === 'open');
+  if (facts.length) c += '\n【教练的记忆】' + facts.map((f) => f.kind + '|' + f.subject + '：' + f.body + '（证据' + (f.evidence || []).length + '次）').join('\n');
+  const beh = { skip: {}, painN: 0, reduced: 0, sick: 0 };
+  for (let i = 0; i < 7; i++) {
+    const ds7 = U.addDays(t, -i);
+    const rec7 = M.dailyOn(ds7);
+    const lg7 = (D.state.planLog || []).find((x) => x.date === ds7);
+    if (lg7 && lg7.skip) beh.skip[lg7.skip] = (beh.skip[lg7.skip] || 0) + 1;
+    if (lg7 && lg7.reduced) beh.reduced++;
+    if (rec7 && (rec7.type === '病假' || (rec7.chk && (rec7.chk.sick === 'below' || rec7.chk.sick === 'fever')))) beh.sick++;
+    if (rec7 && Array.isArray(rec7.painSaid)) beh.painN += rec7.painSaid.length;
+  }
+  const behTxt = Object.keys(beh.skip).map((k) => ({ tired: '太累', no_time: '没时间', change_type: '换类型' })[k] || k).map((k, i2) => k + '×' + beh.skip[Object.keys(beh.skip)[i2]]).join('、');
+  c += '\n【近7天行为】缺席(' + (behTxt || '无') + ')·压缩' + beh.reduced + '次·报疼' + beh.painN + '次·病假' + beh.sick + '天';
   if (aiCfg().moreBody) { // 默认关：睡眠/静息心率/HRV 由用户在设置页显式打开才发送
     const ms = M.metricOn(U.addDays(t, -1)) || {};
     if (ms.sleepH != null) c += '\n【昨夜身体】睡眠 ' + ms.sleepH + 'h' + (ms.rhr != null ? ' 静息心率 ' + ms.rhr : '') + (ms.hrv != null ? ' HRV ' + ms.hrv : '');
@@ -3278,7 +3372,7 @@ function showCoachQA() { // 问教练 modal：三态状态行 + 实时输入区�
     h += '<div id="qaAnswer">' + qaHistoryHtml() + '</div>'
       + '<div class="field" style="display:flex;gap:8px;align-items:center"><input id="qaInput" placeholder="问点什么…" onkeydown="if(event.key===\'Enter\')qaSend()">'
       + '<button class="btn-primary" style="flex-shrink:0;min-height:44px;padding:0 16px" onclick="qaSend()">问</button></div>'
-      + '<div class="sub" style="margin:4px 0 10px">AI 生成，可能有误 · 疼痛/高原红线以产品停训口径为准</div>';
+      + '<div class="sub" style="margin:4px 0 10px">AI 生成，可能有误 · 疼痛/高原红线以产品停训口径为准<br>诚实告知（批7）：提问会把你的课表、近 7 天记录和教练的记忆（含伤病/疼痛摘要）发给「' + U.esc(cur ? cur.name : aiCfg().provider) + '」；睡眠/心率默认不发，需在设置页显式打开。</div>';
   } else if (st === 'unset') {
     h += '<div class="sub" style="margin-bottom:10px"><button class="ci-btn" onclick="closeModal();nav(\'pgProfile\')">去设置页配置 AI（可选）</button></div>';
   }
@@ -5519,6 +5613,7 @@ function renderProfile() {
     + '<div class="field"><label>睡眠基线（小时）</label><input id="pSleep" type="number" step="0.1" inputmode="decimal" value="' + (p.sleepBaseline != null ? p.sleepBaseline : 5.4) + '"></div>'
     + '<button class="btn-primary" onclick="saveProfileEdit()">保存档案修改</button></div>';
   h += aiSettingsHtml(); // 批12a：AI 问答设置（可选，key 只存本机 localStorage 不进同步数据）
+  h += memZoneHtml(); // 批7：教练的记忆管理区——透明窗（可见/可改/可删/可补）
   // 当前阶段
   h += '<div class="card"><div class="card-title" style="margin-bottom:8px">当前阶段</div>'
     + '<div class="big-num" style="font-size:28px">阶段 ' + s.phase + '</div>'
