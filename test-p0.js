@@ -2588,6 +2588,99 @@ check('93 小灶三种形态都在：长时日/空课日建议卡也渲染', () 
   if (!o.hasSup) throw new Error('当前形态（mode=' + o.mode + '）应渲染小灶：' + r);
   return '形态覆盖（mode=' + o.mode + '）✓';
 });
+/* ---------- 94-96 批5 少练点10分钟档+本周7格课表（2026-11-07） ---------- */
+check('94 少练点主链路：同门课砍10分钟+reduced双留痕+进度槽压缩标注', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval(`(function(){
+    D = defaultData(); D.state.enteredOnce = true;
+    window.__origET = effTemplate; effTemplate = function(){ return ['休息日','有氧','力量','力量','有氧','拉伸','力量']; }; // 周六(index6)桩成力量日——长时活动日 advice mode=long 没有少练点入口（设计如此），主链路在 normal 日测
+    const a = adviceFor(U.todayStr());
+    reduceToday();
+    const plan = D.state.todayPlan;
+    const lg = (D.state.planLog || []).find((x) => x.date === U.todayStr());
+    const html = planSlotsHtml();
+    const gridNow = weekGridHtml(); // 立了压缩计划还没练——今天格应是"今天"态（描边），不是½（格子不说谎）
+    const fold = adviceCardHtml().indexOf('少练点（10 分钟）') >= 0;
+    effTemplate = window.__origET; window.__origET = null;
+    return JSON.stringify({ mode: a.mode, dev: plan.deviation, dur: plan.sessions[0].dur, cid: plan.sessions[0].courseId, wantCid: a.courses[0].id, lgReduced: !!(lg && lg.reduced), lgCid: lg && lg.courseIds.length, slotMark: html.indexOf('压缩日') >= 0 && html.indexOf('10 分') >= 0, foldBtn: fold, gridNotHalfYet: gridNow.indexOf('½') < 0 && gridNow.indexOf('border:1.5px solid var(--accent)') >= 0 });
+  })()`);
+  const o = JSON.parse(r);
+  if (o.mode !== 'normal') throw new Error('桩日应 normal：' + r);
+  if (o.dev !== 'reduced' || o.dur !== 10) throw new Error('砍档失败：' + r);
+  if (o.cid !== o.wantCid) throw new Error('没用建议第一门课：' + r);
+  if (!o.lgReduced || o.lgCid !== 0) throw new Error('planLog 应只带 reduced 旗标、不注入 courseIds（立计划≠练了）：' + r);
+  if (!o.slotMark) throw new Error('进度槽缺压缩日标注：' + r);
+  if (!o.foldBtn) throw new Error('折叠区缺少练点按钮：' + r);
+  if (!o.gridNotHalfYet) throw new Error('没练的日子 7 格不该标½：' + r);
+  return '10分钟版+双留痕+槽标注 ✓';
+});
+check('95 本周7格：done/reduced/rest/missed 四态+3/6 汇总', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval(`(function(){
+    D = defaultData(); D.state.enteredOnce = true;
+    const ws = U.weekStart(U.todayStr());
+    D.state.planLog = [
+      { date: U.addDays(ws, 0), courseIds: ['k_str_a'], opened: true },   // 周一：点了课=done
+      { date: U.addDays(ws, 1), courseIds: [], reduced: true, opened: true }, // 周二：压缩日且点了课=½
+      { date: U.addDays(ws, 3), courseIds: ['k_str_b'] },                 // 周五：只换过一批（无 opened）=不算练
+      { date: U.addDays(ws, 4), courseIds: [] }                           // 周四：空条目=missed
+    ];
+    D.daily.push({ date: U.addDays(ws, 2), type: '力量', durationMin: 30, rpe: 5, createdAt: Date.now() }); // 周三：真训练记录=done（rec 信号）
+    const html = weekGridHtml();
+    const m = html.match(/<b>(\\d+)\\/(\\d+)<\\/b>/) || [];
+    return JSON.stringify({ hasGrid: html.indexOf('休') >= 0, half: html.indexOf('½') >= 0, note: html.indexOf('压缩日，也算练') >= 0, done: +m[1], reach: +m[2] });
+  })()`);
+  const o = JSON.parse(r);
+  if (o.done !== 3 || o.reach !== 6) throw new Error('汇总应 3/6（周一✓+周二½+周三✓；换一批不算练，周一~周六 6 训练日，周日休不算欠账）：' + r);
+  if (!o.hasGrid || !o.half || !o.note) throw new Error('四态/压缩说明缺：' + r);
+  return '7格四态+3/6 汇总 ✓';
+});
+check('96 点课保留 reduced（回归防护）+周复盘偏离分布出"少练点"', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval(`(function(){
+    D = defaultData(); D.state.enteredOnce = true;
+    D.state.planLog = [{ date: U.addDays(U.todayStr(), -2), courseIds: ['k_str_a'], reduced: true }]; // 前天压缩过
+    const line = m5ReviewLine();
+    window.__origET = effTemplate; effTemplate = function(){ return ['休息日','有氧','力量','力量','有氧','拉伸','力量']; };
+    reduceToday();
+    window.open = function(){ return null; };
+    openCourse(D.state.todayPlan.sessions[0].courseId); // 点课——不得抹掉 reduced（旧代码这里 deviation 写死 null + planLog 今天条目整个重建）
+    const dev = D.state.todayPlan.deviation;
+    const lgToday = (D.state.planLog || []).find((x) => x.date === U.todayStr());
+    effTemplate = window.__origET; window.__origET = null;
+    return JSON.stringify({ dev: dev, lgReduced: !!(lgToday && lgToday.reduced), lgKeep: lgToday && lgToday.courseIds.indexOf(D.state.todayPlan.sessions[0].courseId) >= 0, lineHit: line.indexOf('少练点') >= 0 });
+  })()`);
+  const o = JSON.parse(r);
+  if (o.dev !== 'reduced') throw new Error('openCourse 抹掉当天 deviation：' + r);
+  if (!o.lgReduced || !o.lgKeep) throw new Error('openCourse 重建今天 planLog 条目丢标记/丢课：' + r);
+  if (!o.lineHit) throw new Error('周复盘偏离分布缺少练点标签：' + r);
+  return 'reduced 贯穿点课+周复盘可见 ✓';
+});
+check('97 压缩反馈不污染升档：reduced 的 easy 不计入升档扫描+不写强度档记忆', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval(`(function(){
+    D = defaultData(); D.state.enteredOnce = true;
+    window.__origET = effTemplate; effTemplate = function(){ return ['休息日','有氧','力量','力量','有氧','拉伸','力量']; }; // 今天（周六）桩成力量日——升档扫描只对力量/有氧日生效
+    const c = COURSE_LIB.find((x) => x.type === '力量');
+    const mk = (daysAgo, reduced) => { const rec = { date: U.addDays(U.todayStr(), -daysAgo), type: '力量', createdAt: Date.now(), fb: [{ courseId: c.id, rpe: 'easy', rpe10: 2.5, ts: Date.now(), reduced: !!reduced }] }; D.daily.push(rec); };
+    mk(2, true); mk(3, true); // 两天全是压缩日轻松
+    const noUp = adviceCardHtml().indexOf('升一档') < 0;
+    mk(5, false); mk(6, false); // 加两天正常轻松——对照（升档需 easyN≥2）
+    const upAfter = adviceCardHtml().indexOf('升一档') >= 0;
+    // 压缩日 sessFb 不写强度档记忆
+    D = defaultData(); D.state.enteredOnce = true;
+    D.state.todayPlan = { date: U.todayStr(), type: '力量', sessions: [{ dur: 10, courseId: c.id, done: false }], clicked: Date.now(), deviation: 'reduced', noTrainReason: null };
+    sessFb(0, 'easy');
+    const capN = D.mem.facts.filter((f) => f.kind === 'cap').length;
+    effTemplate = window.__origET; window.__origET = null;
+    return JSON.stringify({ noUp: noUp, upAfter: upAfter, capN: capN });
+  })()`);
+  const o = JSON.parse(r);
+  if (!o.noUp) throw new Error('压缩日 easy 竟触发升档：' + r);
+  if (!o.upAfter) throw new Error('正常 easy 应触发升档（对照失效）：' + r);
+  if (o.capN !== 0) throw new Error('压缩日 sessFb 不应写强度档记忆：' + r);
+  return '压缩 easy 排除+正常 easy 生效+不写 cap ✓';
+});
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);
 console.log('================ P0 jsdom 断言报告（node ' + process.version + ' · jsdom ' + require(require.resolve('jsdom/package.json', { paths: [DIR] })).version + '） ================');

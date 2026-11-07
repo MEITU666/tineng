@@ -810,7 +810,7 @@ function adviceFor(dateStr) { // 建议主函数：返回 {mode, type, reason, c
     for (let i = 1; i <= 14 && easyN < 2; i++) {
       const rec = M.dailyOn(U.addDays(dateStr, -i));
       if (!rec || !Array.isArray(rec.fb)) continue;
-      rec.fb.forEach((x) => { const c = COURSE_LIB.find((y) => y.id === x.courseId); if (c && c.type === dayType) { if (x.rpe === 'easy') easyN++; else if (x.rpe) otherN++; } });
+      rec.fb.forEach((x) => { if (x.reduced) return; const c = COURSE_LIB.find((y) => y.id === x.courseId); if (c && c.type === dayType) { if (x.rpe === 'easy') easyN++; else if (x.rpe) otherN++; } }); // 批5：压缩日（10分钟砍档）的"轻松"不计入升档——10 分钟版轻松不说明课程档位轻
     }
     if (easyN >= 2 && otherN === 0) {
       notes.push('近两周同类课你都练得轻松——下次升一档强度或多加一组，别停在舒适区');
@@ -894,7 +894,7 @@ function adviceCardHtml() { // 建议卡：决策卡内的"今天怎么练"区�
       + '<button class="btn-ghost" style="margin-top:4px" onclick="overrideStop()">只安排低风险活动（拉伸/散步）并留痕</button></div></details>';
   }
   if (a.mode === 'long') {
-    return head + '<div class="sub" style="margin-top:8px">' + U.esc(a.reason) + '。目标 ≥60 分钟（能说话配速），Keep 里跟一节走练当热身也行。</div>' + supplementHtml();
+    return head + '<div class="sub" style="margin-top:8px">' + U.esc(a.reason) + '。目标 ≥60 分钟（能说话配速），Keep 里跟一节走练当热身也行。</div>' + weekGridHtml() + supplementHtml();
   }
   const cs = a.courses;
   if (!cs.length) return head + '<div class="sub" style="margin-top:8px">' + U.esc(a.reason) + '。课程目录待整理——先按「' + a.type + '」在 Keep 搜索。</div>' + supplementHtml();
@@ -911,17 +911,19 @@ function adviceCardHtml() { // 建议卡：决策卡内的"今天怎么练"区�
     + '<button class="ci-btn" style="min-height:44px;padding:4px 8px" onclick="painWizard()">哪里疼？说一声</button></div>' // 批3：常驻疼痛入口——没点课的日子（休息/长时）也能报疼
     + planSlotsHtml() // 批2：今天的进度+逐课反馈三键（有已点的课才渲染）
     + supplementHtml() // 批4：今天的补充拉伸/激活小灶（每天都给）
-    + '<details class="fold" style="margin-top:4px"><summary>换一批 / 换类型 / 今天不练</summary><div class="fold-body">'
+    + weekGridHtml() // 批5：本周7格——这周到哪了一眼看清
+    + '<details class="fold" style="margin-top:4px"><summary>换一批 / 换类型 / 少练点 / 今天不练</summary><div class="fold-body">'
     + '<div class="chips" style="margin-bottom:6px">'
     + '<button class="chip" onclick="rotateCourses()">换一换</button>'
     + ['力量', '有氧', '拉伸'].filter(function (t) { return t !== adviceFor().type; }).map(function (t) { return '<button class="chip" onclick="switchType(\'' + t + '\')">' + t + '</button>'; }).join('')
     + '</div>'
     + '<div class="chips">'
+    + (a.mode === 'normal' ? '<button class="chip" onclick="reduceToday()">少练点（10 分钟）</button>' : '') // 批5：中间档——比全跳过强（短时段有效），休息日不出现
     + '<button class="chip" onclick="skipToday(\'tired\')">太累</button>'
     + '<button class="chip" onclick="skipToday(\'no_time\')">没时间</button>'
     + '<button class="chip" onclick="skipToday(\'change_type\')">就想换类型（已换）</button>'
     + '</div>'
-    + '<div class="sub" style="margin-top:4px">偏离会如实留痕（周复盘可见）——不是扣分，是让下周的建议更贴你。</div>'
+    + '<div class="sub" style="margin-top:4px">' + (a.mode === 'normal' ? '少练点：同一门课只练 10 分钟就算今天练过（压缩日）——10 分钟比 0 强得多。' : '') + '偏离会如实留痕（周复盘可见）——不是扣分，是让下周的建议更贴你。</div>'
     + '</div></details>';
 }
 function openCourse(id) { // 打开课程（深链或搜索兜底）+ 留痕；双节模式下第 1/2 次点击分别占 session 槽
@@ -938,11 +940,13 @@ function openCourse(id) { // 打开课程（深链或搜索兜底）+ 留痕；�
     else if (sessions.length < 2) sessions.push({ dur: c.dur, courseId: id, done: false });
     else sessions[0] = { dur: c.dur, courseId: id, done: false };
   } else sessions = [{ dur: c.dur, courseId: id, done: false }];
-  D.state.todayPlan = { date: today, type: c.type, sessions: sessions, clicked: Date.now(), deviation: null, noTrainReason: null };
+  const prevDev = (D.state.todayPlan && D.state.todayPlan.date === today) ? D.state.todayPlan.deviation : null; // 批5：点课保留当天已有留痕——此前这行写死 null，压缩日/换类型点了课就把 reduced/change_type 抹了
+  D.state.todayPlan = { date: today, type: c.type, sessions: sessions, clicked: Date.now(), deviation: prevDev, noTrainReason: null };
+  // 批5 修：原逻辑先 filter 掉今天再查"最后一条是不是今天"——恒假死分支，今天条目每次点课都被整个重建（已点过的课从降权历史里消失、reduced 标记被抹）
   const lg = (D.state.planLog || []).filter((x) => x.date !== today);
-  const last = lg.length && lg[lg.length - 1].date === today ? lg[lg.length - 1] : { date: today, courseIds: [] };
-  if (lg.length && lg[lg.length - 1].date === today) lg.pop();
-  last.courseIds.push(id);
+  const prevLg = (D.state.planLog || []).find((x) => x.date === today);
+  const last = { date: today, courseIds: prevLg ? (prevLg.courseIds || []).slice() : [], opened: true, reduced: !!(prevLg && prevLg.reduced) }; // opened=真点了课（7格"练了"证据）；rotateCourses 的换一批条目不带此标——换课不算练
+  if (last.courseIds.indexOf(id) < 0) last.courseIds.push(id);
   lg.push(last);
   D.state.planLog = lg.slice(-7);
   D.state.updatedAt = Date.now();
@@ -966,7 +970,8 @@ function planSlotsHtml() { // 批2 逐课反馈（2026-11-07）：已点的课�
             : '<div class="sub">练完了？点一个累度（Keep 里练完回来点）</div>')
       + '</div><div class="chips" style="flex-shrink:0">' + fbBtns + '</div></div>';
   }).join('');
-  return '<div style="margin-top:10px"><div class="sub" style="font-weight:600;color:var(--text)">今天的进度</div>' + rows + '</div>';
+  const redBadge = plan.deviation === 'reduced' ? ' · <span style="color:var(--orange-text)">压缩日：今天只练 10 分钟，练完点累度就算数 ✓</span>' : ''; // 批5：压缩日在进度槽说清楚
+  return '<div style="margin-top:10px"><div class="sub" style="font-weight:600;color:var(--text)">今天的进度' + redBadge + '</div>' + rows + '</div>';
 }
 function sessFb(i, rpe) { // 批2 逐课反馈写入三处：todayPlan 槽（UI 态）+ 当日 daily.fb（复盘源）+ 记忆层 cap 证据（升/降档依据）。三档锚点=CR-10：轻松≈2.5/适中≈5/困难≈7.5
   const plan = D.state.todayPlan;
@@ -977,9 +982,9 @@ function sessFb(i, rpe) { // 批2 逐课反馈写入三处：todayPlan 槽（UI 
   let rec = M.dailyOn(U.todayStr());
   if (!rec) { rec = { date: U.todayStr(), type: '训练', createdAt: Date.now() }; D.daily.push(rec); }
   rec.fb = (Array.isArray(rec.fb) ? rec.fb : []).filter((x) => x.courseId !== s.courseId);
-  rec.fb.push({ courseId: s.courseId, rpe: rpe, rpe10: rpe10, ts: Date.now() });
+  rec.fb.push({ courseId: s.courseId, rpe: rpe, rpe10: rpe10, ts: Date.now(), reduced: plan.deviation === 'reduced' }); // 批5：压缩日的反馈打标——升档扫描跳过（10分钟版的累度不代表课程档位）
   const c = s.courseId ? COURSE_LIB.find((x) => x.id === s.courseId) : null;
-  if (c && c.type) memUpdate('cap', '强度档·' + c.type, rpe === 'easy' ? '当前档偏轻（练后轻松）' : (rpe === 'mid' ? '当前档合适' : '当前档偏重（练后困难）——下一节降档或减组'));
+  if (c && c.type && plan.deviation !== 'reduced') memUpdate('cap', '强度档·' + c.type, rpe === 'easy' ? '当前档偏轻（练后轻松）' : (rpe === 'mid' ? '当前档合适' : '当前档偏重（练后困难）——下一节降档或减组')); // 批5：压缩日不写强度档记忆
   D.state.updatedAt = Date.now();
   persist();
   renderToday();
@@ -1092,6 +1097,47 @@ function supDone() { // 批4 小灶完成留痕：daily.rec.supDone（复盘源�
   renderToday();
   toast('记下了——已坚持 ' + streak + ' 天');
 }
+function weekGridHtml() { // 批5 本周7格（2026-11-07）：一行常驻——这周到哪了一眼看清。弹性周计数（周内 N 次），不做断链恐吓（2026-11 查证：全有全无 daily streak 有反噬，周弹性 streak 更可持续）；休息日不算欠账，压缩日算练
+  const tpl = effTemplate();
+  const ws = U.weekStart(U.todayStr());
+  const today = U.todayStr();
+  const lg7 = (D.state.planLog || []).filter((x) => x.date >= ws && x.date <= today);
+  let doneN = 0, reducedN = 0, reachedN = 0; // doneN=已练训练日（含压缩）· reducedN=其中压缩日 · reachedN=本周已到的训练日（含今天）
+  const cells = [];
+  for (let i = 0; i < 7; i++) {
+    const ds = U.addDays(ws, i);
+    const p = ds.split('-').map(Number);
+    const dt = tpl[new Date(p[0], p[1] - 1, p[2]).getDay()]; // 组件法构造日期——防字符串 UTC 解析把星期漂一天
+    const isRest = dt === '休息日';
+    const isFuture = ds > today;
+    if (!isRest && !isFuture) reachedN++;
+    const lg = lg7.find((x) => x.date === ds);
+    const rec = M.dailyOn(ds);
+    // 批5 修正（对抗审查）："练了"的证据链=①当天有真训练记录（类型/时长/反馈三键——rec.fb 语义就是"练完点累度"）②今天点过课（clicked）③过去点过课（opened）。
+    // 换一批（rotateCourses 无 opened）、立了压缩计划没练（courseIds 空）都不算——格子不说谎
+    const recTrained = !!(rec && (CONFIG.trainTypes.indexOf(rec.type) >= 0 || rec.type === '拉伸' || rec.durationMin || (Array.isArray(rec.fb) && rec.fb.length)));
+    const clickedToday = !!(ds === today && D.state.todayPlan && D.state.todayPlan.date === today && D.state.todayPlan.clicked);
+    const trained = recTrained || clickedToday || !!(lg && lg.opened);
+    const reduced = !!(lg && lg.reduced) || !!(rec && rec.deviation === 'reduced')
+      || !!(ds === today && D.state.todayPlan && D.state.todayPlan.date === today && D.state.todayPlan.deviation === 'reduced');
+    const st = isRest ? 'rest' : (isFuture ? 'future' : ((reduced && trained) ? 'reduced' : (trained ? 'done' : (ds === today ? 'today' : 'missed'))));
+    if (st === 'done') doneN++;
+    if (st === 'reduced') { doneN++; reducedN++; }
+    const ch = '一二三四五六日'[i]; // weekStart 恒为周一
+    const lbl = st === 'done' ? '✓' : (st === 'reduced' ? '½' : (isRest ? '休' : ch));
+    const styleMap = {
+      done: 'background:rgba(76,175,80,.18);color:var(--green-text)',
+      reduced: 'background:rgba(255,152,0,.16);color:var(--orange-text)',
+      rest: 'background:rgba(127,127,127,.10);color:var(--text2)',
+      today: 'border:1.5px solid var(--accent);color:var(--text)',
+      missed: 'border:0.5px solid var(--line);color:var(--text2)',
+      future: 'background:rgba(127,127,127,.05);color:var(--text2)'
+    };
+    cells.push('<div style="flex:1;text-align:center;padding:5px 0;border-radius:8px;font-size:12px;' + styleMap[st] + '">' + lbl + '</div>');
+  }
+  return '<div style="margin-top:10px"><div style="display:flex;gap:4px">' + cells.join('') + '</div>'
+    + '<div class="sub" style="margin-top:4px">本周 <b>' + doneN + '/' + reachedN + '</b> 次训练' + (reducedN ? '（½ = 压缩日，也算练）' : '') + '——休息日不算欠账，看的是这一周，不是某一天。</div></div>';
+}
 function setCoursePref(n) { // 单双节偏好：1=单节35 / 2=双节2×20——写入 profile.coursePref，下一天生效（今天已渲染不变，刷新即重排）
   D.profile.coursePref = { sessions: n };
   D.profile.updatedAt = Date.now();
@@ -1129,6 +1175,23 @@ function skipToday(reason) { // 今天不练：原因三选一留痕（太累/�
   persist();
   renderToday();
   toast(({ tired: '记下了：今天太累——休息也是训练的一部分', no_time: '记下了：今天没时间——明天见', change_type: '已留痕' })[reason] || '已留痕');
+}
+function reduceToday() { // 批5 少练点（2026-11-07）：同门课砍到 10 分钟版——全有全无之外的中间档。依据 2024 系统综述（PMC11562445）：<10 分钟短时段有效且提升坚持率。留痕 deviation=reduced + planLog.reduced（7格与周复盘的历史证据）
+  const today = U.todayStr();
+  const prev = (D.state.todayPlan && D.state.todayPlan.date === today) ? D.state.todayPlan : null;
+  const prevC = prev && Array.isArray(prev.sessions) ? prev.sessions.find((s) => s.courseId) : null;
+  const a = adviceFor();
+  const c = (prevC ? COURSE_LIB.find((x) => x.id === prevC.courseId) : null) || (a.courses && a.courses[0]) || null; // 今天已点的课优先（同门课真·砍短），否则用建议第一门
+  D.state.todayPlan = { date: today, type: a.type, sessions: [{ dur: 10, courseId: c ? c.id : null, done: false }], clicked: null, deviation: 'reduced', noTrainReason: null };
+  // 批5 修正（对抗审查）：planLog 只记"真点过课"（opened）+ 压缩日旗标（reduced）——立了压缩计划≠练了，courseIds 不注入；今天已有条目（真点击证据）合并保留而非覆盖
+  const prevLg = (D.state.planLog || []).find((x) => x.date === today);
+  const lg = (D.state.planLog || []).filter((x) => x.date !== today);
+  lg.push({ date: today, courseIds: prevLg ? (prevLg.courseIds || []).slice() : [], opened: !!(prevLg && prevLg.opened), reduced: true });
+  D.state.planLog = lg.slice(-7);
+  D.state.updatedAt = Date.now();
+  persist();
+  renderToday();
+  toast('压缩日：同一门课只练 10 分钟就算今天练过——10 分钟也比 0 强');
 }
 function overrideStop() { // 红线覆盖：只给低风险选项+留痕（不惩罚，周复盘可见）
   const today = U.todayStr();
@@ -1457,7 +1520,7 @@ function discardDraftAndClose() { // F2a：用户明确选"不留记录"——�
   closeModal();
   renderToday();
 }
-window.APP_VER = '4.9.3'; // 批4 补充拉伸/激活小灶（2026-11-07）：天气接入建议引擎（雨雪/大风长时日自动改室内+闷热/好天行动提示）· coachHeadHtml 打开第一眼=天气|今天主练|最适合时段 · Keep 搜索词常显 · 城市未设一键引导 · weatherCoachLine 从渲染序列撤下（函数保留可回滚） // 前批 v4.8.1 保命批（2026-10-26）：F1 进门判据解耦（enteredOnce，用过即直达不再每次欢迎页） · F2a 白练保护（训练结束先落草稿再清快照——报告确认窗口锁屏/回收不再丢训练；中断/恢复课路径防双计） · F3 SW 健康数据零缓存（api.github.com 改 networkOnly，清库即清净） · 前批 v4.6.3 清理solo/cooldown死分支（solo已废弃） · 前批 v4.6.2 有氧日也走三阶段（激活→主计时→收尾，此前有氧练完没有拉伸） · 前批 v4.6.1 闭环批（IXD P1全清+术语统一+行话改人话+K28去标识化+手动完成计数修复） · 前批 v4.6.0 拉伸并入每日课（三阶段/恢复课/起床档/规则引擎/当天冻结）· 前批 v4.5.2：数据口径4修+训练快照持久化+草稿保护+chip回填+按钮收敛+中断如实记录+字号三档+深色补齐+死代码清理+合规文案 · 前批 v4.5.1 隐私修复：出厂默认清空身高/体重/城市/伤史——源码进公开仓，个人数据仅存本机；检测来源默认去城市化 // v4.5.0：身体照顾（久坐肩颈/小腿胀硬/足底筋膜释放+晨检联动+练前热身/练后放松明确化）
+window.APP_VER = '4.9.4'; // 批5 少练点+本周7格（2026-11-07）：①"少练点（10分钟）"中间档——同门课砍到10分钟版（今天已点的课优先），deviation=reduced+planLog.reduced 留痕，压缩日算练（依据 2024 系统综述 PMC11562445：短时段有效且提升坚持率）②建议卡常驻本周7格——已练✓/压缩½/休息休/未练空心不恐吓/今天描边，弹性周计数 N/6（周 streak 比日 streak 可持续）③修 openCourse 点课抹掉当天 deviation 的既有缺口 ④周复盘偏离分布补"少练点"标签+planLog.reduced 历史统计（daily.deviation 此前从无写入点） // 前批 v4.9.3 批4：天气接入建议引擎（雨雪/大风长时日自动改室内+闷热/好天行动提示）· coachHeadHtml 打开第一眼=天气|今天主练|最适合时段 · Keep 搜索词常显 · 城市未设一键引导 · weatherCoachLine 从渲染序列撤下（函数保留可回滚） // 前批 v4.8.1 保命批（2026-10-26）：F1 进门判据解耦（enteredOnce，用过即直达不再每次欢迎页） · F2a 白练保护（训练结束先落草稿再清快照——报告确认窗口锁屏/回收不再丢训练；中断/恢复课路径防双计） · F3 SW 健康数据零缓存（api.github.com 改 networkOnly，清库即清净） · 前批 v4.6.3 清理solo/cooldown死分支（solo已废弃） · 前批 v4.6.2 有氧日也走三阶段（激活→主计时→收尾，此前有氧练完没有拉伸） · 前批 v4.6.1 闭环批（IXD P1全清+术语统一+行话改人话+K28去标识化+手动完成计数修复） · 前批 v4.6.0 拉伸并入每日课（三阶段/恢复课/起床档/规则引擎/当天冻结）· 前批 v4.5.2：数据口径4修+训练快照持久化+草稿保护+chip回填+按钮收敛+中断如实记录+字号三档+深色补齐+死代码清理+合规文案 · 前批 v4.5.1 隐私修复：出厂默认清空身高/体重/城市/伤史——源码进公开仓，个人数据仅存本机；检测来源默认去城市化 // v4.5.0：身体照顾（久坐肩颈/小腿胀硬/足底筋膜释放+晨检联动+练前热身/练后放松明确化）
 window.addEventListener('error', function (e) { try { if (e && e.message) toast('出了个小问题：' + String(e.message).slice(0, 60)); } catch (err) {} }); // v4.1 审查修复 B4：全局异常不再静默
 window.addEventListener('unhandledrejection', function (e) { try { const r = e && e.reason; toast('后台出了个小问题：' + String(r && r.message || r || '未知').slice(0, 60)); } catch (err) {} });
 async function checkAppUpdate() { // v4.1：一键清 SW/缓存并重载——根治"PWA 更新后吃旧缓存"（原需手动强刷）
@@ -2924,11 +2987,12 @@ function m5ReviewLine() { // M5（2026-10-26 转型批）：周复盘三数—�
       if (rec && CONFIG.trainTypes.indexOf(rec.type) >= 0) byPlan++;
     }
     if (rec && rec.deviation) devCnt[rec.deviation] = (devCnt[rec.deviation] || 0) + 1;
+    else if (plan && plan.reduced) devCnt.reduced = (devCnt.reduced || 0) + 1; // 批5：压缩日证据在 planLog（daily 记录从不写 deviation——历史偏离此前只有今天可见，这是补上的第一类）
     if (rec && rec.rpe != null) { if (rec.rpe <= 6) rpeCnt.low++; else if (rec.rpe <= 8) rpeCnt.mid++; else rpeCnt.high++; }
   }
   const todayPlan = D.state.todayPlan;
   if (todayPlan && todayPlan.deviation) devCnt[todayPlan.deviation] = (devCnt[todayPlan.deviation] || 0) + 1;
-  const devTxt = Object.keys(devCnt).length ? Object.keys(devCnt).map(function (k) { return ({ change_type: '换类型', tired: '太累', no_time: '没时间', override_red: '红线日自选低风险' })[k] || k; }).join('、') : '无';
+  const devTxt = Object.keys(devCnt).length ? Object.keys(devCnt).map(function (k) { return ({ change_type: '换类型', tired: '太累', no_time: '没时间', override_red: '红线日自选低风险', reduced: '少练点' })[k] || k; }).join('、') : '无';
   return '<div class="sub" style="margin-top:4px"><b>建议执行：</b>按建议练 ' + byPlan + ' / 建议了 ' + planDays + ' 天｜偏离原因：' + devTxt + '｜RPE 分布：轻 ' + rpeCnt.low + ' · 中 ' + rpeCnt.mid + ' · 重 ' + rpeCnt.high + '</div>';
 }
 
