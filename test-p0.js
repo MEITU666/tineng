@@ -2681,6 +2681,84 @@ check('97 压缩反馈不污染升档：reduced 的 easy 不计入升档扫描+�
   if (o.capN !== 0) throw new Error('压缩日 sessFb 不应写强度档记忆：' + r);
   return '压缩 easy 排除+正常 easy 生效+不写 cap ✓';
 });
+/* ---------- 98-101 批6 结论层+生病规则+K14入口（2026-11-07） ---------- */
+check('98 生病规则：发烧/脖子以下=病假休息日，脖子以上=可轻练降冲击', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval(`(function(){
+    D = defaultData(); D.state.enteredOnce = true;
+    chkSel = { parts: ['无'], kinds: [], relief: '', sick: 'fever' };
+    chkSubmit();
+    const rec = M.dailyOn(U.todayStr());
+    const feverFlag = rec.chk.sick, feverType = rec.type; // 发烧那次提交的留痕（后续再提交会覆盖 rec.chk.sick）
+    const a1 = adviceFor(U.todayStr());
+    const html1 = adviceCardHtml();
+    chkSel = { parts: ['无'], kinds: [], relief: '', sick: 'none' };
+    chkSubmit();
+    const a2 = adviceFor(U.todayStr());
+    chkSel = { parts: ['无'], kinds: [], relief: '', sick: 'above' };
+    chkSubmit();
+    const a3 = adviceFor(U.todayStr());
+    const impactOk = a3.courses.every((c) => c.impactOk !== false);
+    return JSON.stringify({ type: feverType, sickFlag: feverFlag, mode1: a1.mode, sick1: a1.sick, why1: a1.reason.indexOf('发烧') >= 0 && a1.reason.indexOf('别急着补课') >= 0, card1: html1.indexOf('生病') >= 0 && html1.indexOf('课程目录待整理') < 0, noSick2: !a2.sick, note3: a3.reason.indexOf('脖子以上') >= 0, impactOk: impactOk });
+  })()`);
+  const o = JSON.parse(r);
+  if (o.type !== '病假' || o.sickFlag !== 'fever') throw new Error('病假留痕断：' + r);
+  if (o.mode1 !== 'rest' || !o.sick1 || !o.why1 || !o.card1) throw new Error('病假建议形态断：' + r);
+  if (!o.noSick2) throw new Error('没感冒后应回正常建议（周六长时日=long 也算正常）：' + r);
+  if (!o.note3 || !o.impactOk) throw new Error('脖子以上未联动：' + r);
+  return '病假/轻练/恢复三分支 ✓';
+});
+check('99 病假7格：灰"病"不算欠账也不进应练分母', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval(`(function(){
+    D = defaultData(); D.state.enteredOnce = true;
+    const ws = U.weekStart(U.todayStr());
+    D.daily.push({ date: U.addDays(ws, 0), type: '病假', createdAt: Date.now(), chk: { parts: ['无'], kinds: [], relief: '', out: 'ok', why: '', sick: 'fever', t: Date.now() } });
+    D.daily.push({ date: U.addDays(ws, 1), type: '无', createdAt: Date.now(), chk: { parts: ['无'], kinds: [], relief: '', out: 'ok', why: '', sick: 'below', t: Date.now() } });
+    const html = weekGridHtml();
+    const m = html.match(/<b>(\\d+)\\/(\\d+)<\\/b>/) || [];
+    return JSON.stringify({ sickChar: html.indexOf('>病<') >= 0, done: +m[1], reach: +m[2] });
+  })()`);
+  const o = JSON.parse(r);
+  if (!o.sickChar) throw new Error('缺病格：' + r);
+  if (o.reach !== 4) throw new Error('病假两天应从分母剔除（周一~周六 6 训练日 - 2 病假 = 4）：' + r);
+  if (o.done !== 0) throw new Error('病假不算练：' + r);
+  return '病格+分母剔除 ✓';
+});
+check('100 周复盘结论层：缺席原因/疼痛轨迹/写回事实层/下周调整', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval(`(function(){
+    D = defaultData(); D.state.enteredOnce = true;
+    const ws = U.weekStart(U.todayStr());
+    D.state.planLog = [{ date: U.addDays(ws, 0), courseIds: [], skip: 'no_time' }]; // 周一：没时间缺席
+    D.daily.push({ date: U.addDays(ws, 2), type: '力量', createdAt: Date.now(), painSaid: [{ part: '膝', feel: '锐痛/刺痛', when: '练的过程中突然', level: 'stop', ts: Date.now() }] }); // 周三：报疼1次伤级1次
+    D.daily.push({ date: U.addDays(ws, 3), type: '有氧', createdAt: Date.now(), painSaid: [{ part: '膝', feel: '酸胀/钝痛（肌肉感）', when: '第二天才疼', level: 'ok', ts: Date.now() }] }); // 周四：报疼1次
+    const html = weekReviewHtml(true);
+    const fact = D.mem.facts.find((f) => f.kind === 'life' && f.subject === '周复盘·' + ws);
+    return JSON.stringify({ miss: html.indexOf('没时间×1') >= 0, pain: html.indexOf('报疼 2 次（膝 2 次）') >= 0 && html.indexOf('伤级信号 1 次') >= 0, next: html.indexOf('下周：</b>') >= 0 || html.indexOf('下周：') >= 0, fact: !!fact, factBody: fact && fact.body.indexOf('疼痛2次') >= 0 });
+  })()`);
+  const o = JSON.parse(r);
+  if (!o.miss) throw new Error('缺席原因行缺失：' + r);
+  if (!o.pain) throw new Error('疼痛轨迹行缺失：' + r);
+  if (!o.next) throw new Error('下周调整行缺失：' + r);
+  if (!o.fact || !o.factBody) throw new Error('结论未写回事实层：' + r);
+  return '缺席+疼痛轨迹+写回 ✓';
+});
+check('101 K14 一键入口三处：建议卡页脚/晨检判据行/停训卡', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval(`(function(){
+    D = defaultData(); D.state.enteredOnce = true;
+    const card = adviceCardHtml();
+    const chk = chkBarHtml();
+    openStopCard('测试停训');
+    const modal = document.getElementById('modalBox').innerHTML;
+    closeModal();
+    return JSON.stringify({ card: card.indexOf('红旗自查') >= 0, chk: chk.indexOf('红旗自查 K14') >= 0, modal: modal.indexOf('红旗自查 K14') >= 0 });
+  })()`);
+  const o = JSON.parse(r);
+  if (!o.card || !o.chk || !o.modal) throw new Error('K14 入口缺：' + r);
+  return '三处入口 ✓';
+});
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);
 console.log('================ P0 jsdom 断言报告（node ' + process.version + ' · jsdom ' + require(require.resolve('jsdom/package.json', { paths: [DIR] })).version + '） ================');
