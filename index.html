@@ -894,10 +894,10 @@ function adviceCardHtml() { // 建议卡：决策卡内的"今天怎么练"区�
       + '<button class="btn-ghost" style="margin-top:4px" onclick="overrideStop()">只安排低风险活动（拉伸/散步）并留痕</button></div></details>';
   }
   if (a.mode === 'long') {
-    return head + '<div class="sub" style="margin-top:8px">' + U.esc(a.reason) + '。目标 ≥60 分钟（能说话配速），Keep 里跟一节走练当热身也行。</div>';
+    return head + '<div class="sub" style="margin-top:8px">' + U.esc(a.reason) + '。目标 ≥60 分钟（能说话配速），Keep 里跟一节走练当热身也行。</div>' + supplementHtml();
   }
   const cs = a.courses;
-  if (!cs.length) return head + '<div class="sub" style="margin-top:8px">' + U.esc(a.reason) + '。课程目录待整理——先按「' + a.type + '」在 Keep 搜索。</div>';
+  if (!cs.length) return head + '<div class="sub" style="margin-top:8px">' + U.esc(a.reason) + '。课程目录待整理——先按「' + a.type + '」在 Keep 搜索。</div>' + supplementHtml();
   return head + '<div class="sub" style="margin-top:8px">' + U.esc(a.reason) + (a.filterNote ? '（' + U.esc(a.filterNote) + '）' : '') + '</div>'
     + cs.map((c, i) => '<div class="row-between" style="padding:7px 0;border-bottom:0.5px solid var(--line)">'
       + '<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px">' + (i + 1) + '. ' + U.esc(courseDisplayName(c)) + '</div>'
@@ -910,6 +910,7 @@ function adviceCardHtml() { // 建议卡：决策卡内的"今天怎么练"区�
     + '<button class="ci-btn" style="min-height:44px;padding:4px 8px" onclick="setCoursePref(2)">' + ((D.state.coursePref && D.state.coursePref.sessions) === 2 ? '双节 2×20 分 ✓' : '双节 2×20 分') + '</button>'
     + '<button class="ci-btn" style="min-height:44px;padding:4px 8px" onclick="painWizard()">哪里疼？说一声</button></div>' // 批3：常驻疼痛入口——没点课的日子（休息/长时）也能报疼
     + planSlotsHtml() // 批2：今天的进度+逐课反馈三键（有已点的课才渲染）
+    + supplementHtml() // 批4：今天的补充拉伸/激活小灶（每天都给）
     + '<details class="fold" style="margin-top:4px"><summary>换一批 / 换类型 / 今天不练</summary><div class="fold-body">'
     + '<div class="chips" style="margin-bottom:6px">'
     + '<button class="chip" onclick="rotateCourses()">换一换</button>'
@@ -1054,6 +1055,42 @@ function painSave() { // 批3 留痕：daily.painSaid（复盘源）+ 伤病类�
   closeModal();
   renderToday();
   toast(v.level === 'red' ? '记下了——这个信号请尽快就医' : '记下了——本周该部位会更保守');
+}
+function supplementHtml() { // 批4 补充处方（2026-11-07）：解冻拉伸引擎复用——建议卡尾部每天"今天的补充"：拉伸 2-3（晨检主诉+主练反推+轮转，同一份输入同一份输出）+ 腿/核心短板激活 1（按日轮换）
+  const plan = stretchPlanFor(U.todayStr());
+  const rel = (plan.release || []).slice(0, 3);
+  const rows = rel.map((id) => {
+    const a = STRETCH_LIB[id];
+    if (!a) return '';
+    return '<div class="row-between" style="padding:5px 0;border-bottom:0.5px solid var(--line)"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">' + U.esc(a.name) + ' <span class="sub">' + (a.mode === 'rep' ? (a.reps + ' 次') : (a.secs + ' 秒 × 每侧')) + '</span></div><div class="sub">' + U.esc(a.cue || '') + '</div></div><div class="sub" style="flex-shrink:0">' + U.esc((plan.reason || {})[id] || a.why || '') + '</div></div>';
+  }).join('');
+  const ACT_ROT = [ // 腿部/核心是徒步刚需短板（主人 10-25 明确）：每天 1 个，按日轮换不重样
+    { name: '靠墙静蹲', cue: '背贴墙下滑到大腿发酸，30-45 秒 × 2 组', why: '腿部力量短板' },
+    { name: '平板支撑', cue: '肘撑，腰不塌肩不耸，20-30 秒 × 2 组', why: '核心力量短板' },
+    { name: '臀桥', cue: '脚踩地抬髋到身体平线，顶 2 秒，15 次 × 2 组', why: '臀部/后链短板' }
+  ];
+  const act = ACT_ROT[new Date().getDay() % 3];
+  const rec = M.dailyOn(U.todayStr());
+  const done = !!(rec && rec.supDone);
+  return '<details class="fold" style="margin-top:8px"><summary>今天的补充（拉伸 ' + rel.length + ' + 激活 1 · 约 5-10 分钟）' + (done ? ' · 已完成 ✓' : '') + '</summary><div class="fold-body">'
+    + '<div class="sub" style="margin-bottom:4px">Keep 课不含这些——这是针对你腿/核心短板和今晨主诉的每日小灶：</div>'
+    + rows
+    + '<div class="row-between" style="padding:5px 0"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">' + act.name + '</div><div class="sub">' + U.esc(act.cue) + '</div></div><div class="sub" style="flex-shrink:0">' + act.why + '</div></div>'
+    + (done ? '<div class="sub" style="color:var(--green-text);margin-top:6px">今天已完成 ✓——坚持比时长重要（每天 5-10 分钟就有可测量的柔韧收益）</div>'
+            : '<button class="btn-ghost" style="margin-top:6px" onclick="supDone()">做完了，记一笔</button>')
+    + '</div></details>';
+}
+function supDone() { // 批4 小灶完成留痕：daily.rec.supDone（复盘源）；连续 7 天写 cap 记忆（批6/7 消费）
+  let rec = M.dailyOn(U.todayStr());
+  if (!rec) { rec = { date: U.todayStr(), type: '训练', createdAt: Date.now() }; D.daily.push(rec); }
+  rec.supDone = Date.now();
+  let streak = 0;
+  for (let i = 0; i < 7; i++) { const r = M.dailyOn(U.addDays(U.todayStr(), -i)); if (r && r.supDone) streak++; else break; }
+  if (streak >= 7) memUpdate('cap', '每日小灶', '连续 ' + streak + ' 天完成——柔韧/短板坚持中');
+  D.state.updatedAt = Date.now();
+  persist();
+  renderToday();
+  toast('记下了——已坚持 ' + streak + ' 天');
 }
 function setCoursePref(n) { // 单双节偏好：1=单节35 / 2=双节2×20——写入 profile.coursePref，下一天生效（今天已渲染不变，刷新即重排）
   D.profile.coursePref = { sessions: n };
@@ -1420,7 +1457,7 @@ function discardDraftAndClose() { // F2a：用户明确选"不留记录"——�
   closeModal();
   renderToday();
 }
-window.APP_VER = '4.9.2'; // 批3 疼痛响应+伤病档案（2026-11-07）：天气接入建议引擎（雨雪/大风长时日自动改室内+闷热/好天行动提示）· coachHeadHtml 打开第一眼=天气|今天主练|最适合时段 · Keep 搜索词常显 · 城市未设一键引导 · weatherCoachLine 从渲染序列撤下（函数保留可回滚） // 前批 v4.8.1 保命批（2026-10-26）：F1 进门判据解耦（enteredOnce，用过即直达不再每次欢迎页） · F2a 白练保护（训练结束先落草稿再清快照——报告确认窗口锁屏/回收不再丢训练；中断/恢复课路径防双计） · F3 SW 健康数据零缓存（api.github.com 改 networkOnly，清库即清净） · 前批 v4.6.3 清理solo/cooldown死分支（solo已废弃） · 前批 v4.6.2 有氧日也走三阶段（激活→主计时→收尾，此前有氧练完没有拉伸） · 前批 v4.6.1 闭环批（IXD P1全清+术语统一+行话改人话+K28去标识化+手动完成计数修复） · 前批 v4.6.0 拉伸并入每日课（三阶段/恢复课/起床档/规则引擎/当天冻结）· 前批 v4.5.2：数据口径4修+训练快照持久化+草稿保护+chip回填+按钮收敛+中断如实记录+字号三档+深色补齐+死代码清理+合规文案 · 前批 v4.5.1 隐私修复：出厂默认清空身高/体重/城市/伤史——源码进公开仓，个人数据仅存本机；检测来源默认去城市化 // v4.5.0：身体照顾（久坐肩颈/小腿胀硬/足底筋膜释放+晨检联动+练前热身/练后放松明确化）
+window.APP_VER = '4.9.3'; // 批4 补充拉伸/激活小灶（2026-11-07）：天气接入建议引擎（雨雪/大风长时日自动改室内+闷热/好天行动提示）· coachHeadHtml 打开第一眼=天气|今天主练|最适合时段 · Keep 搜索词常显 · 城市未设一键引导 · weatherCoachLine 从渲染序列撤下（函数保留可回滚） // 前批 v4.8.1 保命批（2026-10-26）：F1 进门判据解耦（enteredOnce，用过即直达不再每次欢迎页） · F2a 白练保护（训练结束先落草稿再清快照——报告确认窗口锁屏/回收不再丢训练；中断/恢复课路径防双计） · F3 SW 健康数据零缓存（api.github.com 改 networkOnly，清库即清净） · 前批 v4.6.3 清理solo/cooldown死分支（solo已废弃） · 前批 v4.6.2 有氧日也走三阶段（激活→主计时→收尾，此前有氧练完没有拉伸） · 前批 v4.6.1 闭环批（IXD P1全清+术语统一+行话改人话+K28去标识化+手动完成计数修复） · 前批 v4.6.0 拉伸并入每日课（三阶段/恢复课/起床档/规则引擎/当天冻结）· 前批 v4.5.2：数据口径4修+训练快照持久化+草稿保护+chip回填+按钮收敛+中断如实记录+字号三档+深色补齐+死代码清理+合规文案 · 前批 v4.5.1 隐私修复：出厂默认清空身高/体重/城市/伤史——源码进公开仓，个人数据仅存本机；检测来源默认去城市化 // v4.5.0：身体照顾（久坐肩颈/小腿胀硬/足底筋膜释放+晨检联动+练前热身/练后放松明确化）
 window.addEventListener('error', function (e) { try { if (e && e.message) toast('出了个小问题：' + String(e.message).slice(0, 60)); } catch (err) {} }); // v4.1 审查修复 B4：全局异常不再静默
 window.addEventListener('unhandledrejection', function (e) { try { const r = e && e.reason; toast('后台出了个小问题：' + String(r && r.message || r || '未知').slice(0, 60)); } catch (err) {} });
 async function checkAppUpdate() { // v4.1：一键清 SW/缓存并重载——根治"PWA 更新后吃旧缓存"（原需手动强刷）

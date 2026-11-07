@@ -2556,6 +2556,38 @@ check('91 酸胀不升级伤病档案：正常酸痛不提高保守度', () => {
   if (o.said !== 1) throw new Error('painSaid 应留痕');
   return 'DOMS 不升级 ✓';
 });
+
+/* ---------- 92-93 批4 补充拉伸/激活小灶（2026-11-07） ---------- */
+check('92 小灶渲染：拉伸引擎解冻——每天给拉伸+腿核心激活+完成留痕', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval(`(function(){
+    D = defaultData(); D.state.enteredOnce = true;
+    const html = supplementHtml();
+    const rel = stretchPlanFor(U.todayStr()).release || [];
+    supDone();
+    const rec = M.dailyOn(U.todayStr());
+    const html2 = supplementHtml();
+    return JSON.stringify({ hasTitle: html.indexOf('今天的补充') >= 0, relN: rel.length, hasFootTowel: rel.indexOf('foot_towel') >= 0, hasAct: html.indexOf('短板') >= 0, done: rec && !!rec.supDone, doneShown: html2.indexOf('已完成') >= 0 });
+  })()`);
+  const o = JSON.parse(r);
+  if (!o.hasTitle || !o.hasAct) throw new Error('小灶结构缺失：' + r);
+  if (o.relN < 2 || !o.hasFootTowel) throw new Error('拉伸引擎未出计划（应含每天必做）：' + r);
+  if (!o.done || !o.doneShown) throw new Error('完成留痕断：' + r);
+  return '拉伸' + o.relN + '+激活+留痕 ✓';
+});
+check('93 小灶三种形态都在：长时日/空课日建议卡也渲染', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval(`(function(){
+    D = defaultData(); D.state.enteredOnce = true; D.daily.forEach((x) => { if (x.supDone) delete x.supDone; });
+    const isLong = effTemplate()[new Date(U.todayStr().replace(/-/g,'/')).getDay()] === '长时活动';
+    const a = adviceFor(U.todayStr());
+    const html = adviceCardHtml();
+    return JSON.stringify({ isLong: isLong, mode: a.mode, hasSup: html.indexOf('今天的补充') >= 0 });
+  })()`);
+  const o = JSON.parse(r);
+  if (!o.hasSup) throw new Error('当前形态（mode=' + o.mode + '）应渲染小灶：' + r);
+  return '形态覆盖（mode=' + o.mode + '）✓';
+});
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);
 console.log('================ P0 jsdom 断言报告（node ' + process.version + ' · jsdom ' + require(require.resolve('jsdom/package.json', { paths: [DIR] })).version + '） ================');
