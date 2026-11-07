@@ -2416,6 +2416,98 @@ check('83 搜索词常显：真实课名也显示 Keep 搜索词', () => {
   if (html.indexOf('Keep 搜「') < 0) throw new Error('课程行应常显 Keep 搜索词');
   return '搜索词常显 ✓';
 });
+/* ---------- 84-88 批2 单课反馈+记忆骨架（2026-11-07） ---------- */
+check('84 记忆骨架：默认值/幂等写入/类型防线/惰性衰减', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval(`(function(){
+    D = defaultData();
+    if (!D.mem || !Array.isArray(D.mem.facts)) return 'no-default';
+    memUpdate('cap', '强度档·力量', '偏轻', '2026-10-01');
+    memUpdate('cap', '强度档·力量', '连续轻松', '2026-10-02');
+    const n1 = D.mem.facts.length, ev = D.mem.facts[0].evidence.slice(), lastSeen = D.mem.facts[0].lastSeen;
+    const fixed = normalizeData({ mem: { facts: 'dirty' } });
+    const fixed2 = normalizeData({ mem: { facts: [{ kind: 'cap', subject: 'x' }, null, 'junk'] } });
+    D.mem.facts[0].lastSeen = '2026-10-30';
+    memSweep('2026-11-07');
+    const st1 = D.mem.facts[0].state;
+    D.mem.facts[0].lastSeen = '2026-10-01';
+    memSweep('2026-11-07');
+    const st2 = D.mem.facts[0].state;
+    return JSON.stringify({ n1: n1, ev: ev, lastSeen: lastSeen, fixedOk: Array.isArray(fixed.mem.facts) && fixed.mem.facts.length === 0, fixed2Ok: fixed2.mem.facts.length === 1, st1: st1, st2: st2 });
+  })()`);
+  const o = JSON.parse(r);
+  if (o.n1 !== 1 || o.ev.join() !== '2026-10-01,2026-10-02' || o.lastSeen !== '2026-10-02') throw new Error('幂等合并失败：' + r);
+  if (!o.fixedOk || !o.fixed2Ok) throw new Error('normalizeData mem 防线失效：' + r);
+  if (o.st1 !== 'wane' || o.st2 !== 'closed') throw new Error('衰减迁移失败：' + r);
+  return '幂等+防线+7/28天衰减 ✓';
+});
+check('85 云端合并不丢记忆：mergeData 双方 facts 并集去重', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval(`(function(){
+    const a = defaultData(); a.mem = { facts: [{ id: 'm1', kind: 'cap', subject: '强度档·力量', body: '偏轻', evidence: ['2026-11-01'], since: '2026-11-01', lastSeen: '2026-11-01', state: 'open' }] };
+    const b = defaultData(); b.mem = { facts: [{ id: 'm1', kind: 'cap', subject: '强度档·力量', body: '连续轻松', evidence: ['2026-11-03'], since: '2026-11-01', lastSeen: '2026-11-03', state: 'open' }, { id: 'm2', kind: 'injury', subject: '右足', body: '旧伤', evidence: ['2026-11-02'], since: '2026-11-02', lastSeen: '2026-11-02', state: 'open' }] };
+    const m = mergeData(a, b).mem;
+    const f1 = m.facts.find((x) => x.kind === 'cap');
+    return JSON.stringify({ n: m.facts.length, body: f1 && f1.body, ev: f1 && f1.evidence.join() });
+  })()`);
+  const o = JSON.parse(r);
+  if (o.n !== 2) throw new Error('应并集 2 条，实得 ' + o.n);
+  if (o.body !== '连续轻松' || o.ev !== '2026-11-01,2026-11-03') throw new Error('同名合并取新者+证据合并失败：' + r);
+  return '合并并集+取新者+证据合并 ✓';
+});
+check('86 逐课反馈：槽渲染三键，sessFb 三处写入（槽/daily.fb/记忆cap）', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval(`(function(){
+    window.__origET = effTemplate;
+    effTemplate = function(){ return ['休息日','有氧','力量','力量','有氧','拉伸','力量']; }; // 2026-11-07 修复周六漂移：桩定力量日保证课程行
+    window.open = function(){ return null; }; // 行为断言（t107 真机修复）：走 openCourse+renderToday 全链，不直调 planSlotsHtml
+    D = defaultData(); D.state.enteredOnce = true;
+    renderToday();
+    openCourse('k_leg_a');
+    const card = document.getElementById('readinessCard').innerHTML;
+    const hasKeys = card.indexOf('轻松') >= 0 && card.indexOf('适中') >= 0 && card.indexOf('困难') >= 0 && card.indexOf('今天的进度') >= 0;
+    sessFb(0, 'easy');
+    const s = D.state.todayPlan.sessions[0];
+    const rec = M.dailyOn(U.todayStr());
+    const memF = D.mem.facts.filter((f) => f.kind === 'cap').length;
+    const shown = document.getElementById('readinessCard').innerHTML.indexOf('已反馈：轻松') >= 0;
+    effTemplate = window.__origET; window.__origET = null;
+    return JSON.stringify({ hasKeys: hasKeys, slotRpe: s.fb && s.fb.rpe, dailyFb: rec && rec.fb && rec.fb.length, memN: memF, slotShown: shown });
+  })()`);
+  const o = JSON.parse(r);
+  if (!o.hasKeys || o.slotRpe !== 'easy' || o.dailyFb !== 1 || o.memN < 1 || !o.slotShown) throw new Error('逐课反馈链路断裂：' + r);
+  return '三键渲染+三处写入 ✓';
+});
+check('87 困难反馈联动：当天 adviceFor 出降档提示', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval(`(function(){
+    D = defaultData(); D.state.enteredOnce = true;
+    D.daily.push({ date: U.todayStr(), type: '训练', fb: [{ courseId: 'k_leg_a', rpe: 'hard', rpe10: 7.5, ts: Date.now() }], createdAt: Date.now() });
+    const a = adviceFor(U.todayStr());
+    return a.reason;
+  })()`);
+  if (r.indexOf('困难') < 0 || r.indexOf('低强度') < 0) throw new Error('困难反馈应触发降档提示：' + r);
+  return '困难→降档提示 ✓';
+});
+check('88 进步出口：近14天同类课全轻松≥2次 → 升档明话+cap 记忆', () => {
+  if (loadErr) throw loadErr;
+  const r = w.eval(`(function(){
+    window.__origET = effTemplate;
+    effTemplate = function(){ return ['休息日','有氧','力量','力量','有氧','拉伸','力量']; }; // 2026-11-07 修复周六漂移：桩定今天=力量日（进步出口只挂力量/有氧日）
+    D = defaultData(); D.state.enteredOnce = true;
+    D.daily.push({ date: U.addDays(U.todayStr(), -2), type: '训练', fb: [{ courseId: 'k_leg_a', rpe: 'easy', rpe10: 2.5, ts: Date.now() }], createdAt: Date.now() });
+    D.daily.push({ date: U.addDays(U.todayStr(), -4), type: '训练', fb: [{ courseId: 'k_leg_c', rpe: 'easy', rpe10: 2.5, ts: Date.now() }], createdAt: Date.now() });
+    const before = D.mem.facts.length;
+    const a = adviceFor(U.todayStr());
+    const memN = D.mem.facts.length;
+    effTemplate = window.__origET; window.__origET = null;
+    return JSON.stringify({ reason: a.reason, before: before, memN: memN });
+  })()`);
+  const o = JSON.parse(r);
+  if (o.reason.indexOf('轻松') < 0 || o.reason.indexOf('升') < 0) throw new Error('连续轻松应明话升档：' + o.reason);
+  if (o.memN <= o.before) throw new Error('升档应写入记忆层');
+  return '进步出口+记忆写入 ✓';
+});
 /* ---------- 输出 ---------- */
 const fails = results.filter(r => !r.ok);
 console.log('================ P0 jsdom 断言报告（node ' + process.version + ' · jsdom ' + require(require.resolve('jsdom/package.json', { paths: [DIR] })).version + '） ================');
